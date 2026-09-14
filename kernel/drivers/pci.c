@@ -108,3 +108,14 @@ void pci_list(void)
         }
     }
 }
+
+bool pci_prepare_mmio(const struct pci_device *device)
+{
+    if (device == NULL) { return false; }
+    const uint64_t flags = cpu_irq_save();
+    const uint16_t command = (uint16_t)pci_read32(device, 4u);
+    command16(device, (uint16_t)((command & (uint16_t)~4u) | 0x402u));
+    const bool good = ((uint16_t)pci_read32(device, 4u) & 0x406u) == 0x402u;
+    cpu_irq_restore(flags);
+    return good;
+}

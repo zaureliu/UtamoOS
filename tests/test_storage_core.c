@@ -92,6 +92,7 @@ static void pci_tests(void)
     CHECK(pci_size_bar(&d, 2u, &out) && out.size == 131072u && out.address == UINT64_C(0x180000000));
     CHECK(config[6] == d.bars[2] && config[7] == 1u && config[1] == 0xf9000007u);
     CHECK(pci_enable_mmio_dma(&d) && config[1] == 0xf9000407u && !unsafe_io && irq == 512u);
+    CHECK(pci_prepare_mmio(&d) && config[1] == 0xf9000403u && !unsafe_io && irq == 512u);
     const unsigned int before = config_writes;
     CHECK(!pci_size_bar(NULL, 0u, &out) && !pci_size_bar(&d, 6u, &out) && config_writes == before);
 }

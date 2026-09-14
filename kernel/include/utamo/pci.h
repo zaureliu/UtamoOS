@@ -25,6 +25,8 @@ uint32_t pci_read32(const struct pci_device *device, uint8_t offset);
 /* Bootstrap exclusive claim only: temporarily disables decoding/mastering,
  * probes one BAR, restores BAR/command exactly. Never probes active OS drivers. */
 bool pci_size_bar(const struct pci_device *device, unsigned int index, struct pci_bar *out);
+/* Bootstrap claim: enable memory/disable INTx, keeping bus mastering off. */
+bool pci_prepare_mmio(const struct pci_device *device);
 bool pci_enable_mmio_dma(const struct pci_device *device);
 void pci_list(void);
 #endif
