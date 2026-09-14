@@ -1,76 +1,63 @@
-# Inventário de arquivos — UTAMO OS 0.0.1
+# Índice do projeto
 
-66 arquivos entregues exclusivamente dentro de `UtamoOS/`. Este inventário inclui
-fontes, documentação, configuração e scripts preparados; não inclui binários de
-kernel, bootloader, ISO, resultados de teste ou ferramentas instaladas.
+Este índice organiza a árvore atual do UTAMO OS v0.1.0 por responsabilidade.
+O inventário detalhado de arquivos criados/modificados durante a evolução
+está no [relatório de implementação](v0.1-implementation-report.md).
+O tag v0.0.1 preserva os fontes e a documentação originais do baseline.
 
-Os diretórios de subsistemas futuros contêm somente notas de escopo. Para estado,
-limitações e próximos comandos, veja [generation-report.md](generation-report.md).
+## Entrada pública
 
-- [.editorconfig](../.editorconfig)
-- [.gitattributes](../.gitattributes)
-- [.gitignore](../.gitignore)
-- [CHANGELOG.md](../CHANGELOG.md)
-- [LICENSE](../LICENSE)
-- [Makefile](../Makefile)
-- [README.md](../README.md)
-- [assets/font/README.md](../assets/font/README.md)
-- [docs/architecture.md](../docs/architecture.md)
-- [docs/boot-process.md](../docs/boot-process.md)
-- [docs/coding-style.md](../docs/coding-style.md)
-- [docs/debugging.md](../docs/debugging.md)
-- [docs/development-environment.md](../docs/development-environment.md)
-- [docs/development-log.md](../docs/development-log.md)
-- [docs/file-index.md](../docs/file-index.md)
-- [docs/generation-report.md](../docs/generation-report.md)
-- [docs/memory-layout.md](../docs/memory-layout.md)
-- [docs/roadmap.md](../docs/roadmap.md)
-- [docs/static-audit.md](../docs/static-audit.md)
-- [kernel/arch/x86_64/boot.c](../kernel/arch/x86_64/boot.c)
-- [kernel/arch/x86_64/cpu.asm](../kernel/arch/x86_64/cpu.asm)
-- [kernel/arch/x86_64/entry.asm](../kernel/arch/x86_64/entry.asm)
-- [kernel/arch/x86_64/io.asm](../kernel/arch/x86_64/io.asm)
-- [kernel/arch/x86_64/linker.ld](../kernel/arch/x86_64/linker.ld)
-- [kernel/arch/x86_64/serial.c](../kernel/arch/x86_64/serial.c)
-- [kernel/core/log.c](../kernel/core/log.c)
-- [kernel/core/main.c](../kernel/core/main.c)
-- [kernel/core/panic.c](../kernel/core/panic.c)
-- [kernel/drivers/README.md](../kernel/drivers/README.md)
-- [kernel/drivers/video/font.c](../kernel/drivers/video/font.c)
-- [kernel/drivers/video/framebuffer.c](../kernel/drivers/video/framebuffer.c)
-- [kernel/drivers/video/terminal.c](../kernel/drivers/video/terminal.c)
-- [kernel/fs/README.md](../kernel/fs/README.md)
-- [kernel/include/utamo/boot.h](../kernel/include/utamo/boot.h)
-- [kernel/include/utamo/cpu.h](../kernel/include/utamo/cpu.h)
-- [kernel/include/utamo/font.h](../kernel/include/utamo/font.h)
-- [kernel/include/utamo/format.h](../kernel/include/utamo/format.h)
-- [kernel/include/utamo/framebuffer.h](../kernel/include/utamo/framebuffer.h)
-- [kernel/include/utamo/io.h](../kernel/include/utamo/io.h)
-- [kernel/include/utamo/kernel.h](../kernel/include/utamo/kernel.h)
-- [kernel/include/utamo/log.h](../kernel/include/utamo/log.h)
-- [kernel/include/utamo/memory_map.h](../kernel/include/utamo/memory_map.h)
-- [kernel/include/utamo/panic.h](../kernel/include/utamo/panic.h)
-- [kernel/include/utamo/serial.h](../kernel/include/utamo/serial.h)
-- [kernel/include/utamo/string.h](../kernel/include/utamo/string.h)
-- [kernel/include/utamo/terminal.h](../kernel/include/utamo/terminal.h)
-- [kernel/include/utamo/version.h](../kernel/include/utamo/version.h)
-- [kernel/interrupts/README.md](../kernel/interrupts/README.md)
-- [kernel/lib/format.c](../kernel/lib/format.c)
-- [kernel/lib/string.c](../kernel/lib/string.c)
-- [kernel/memory/memory_map.c](../kernel/memory/memory_map.c)
-- [kernel/net/README.md](../kernel/net/README.md)
-- [kernel/scheduler/README.md](../kernel/scheduler/README.md)
-- [kernel/syscall/README.md](../kernel/syscall/README.md)
-- [libc/README.md](../libc/README.md)
-- [limine.conf](../limine.conf)
-- [scripts/README.md](../scripts/README.md)
-- [scripts/make-iso.sh](../scripts/make-iso.sh)
-- [tests/README.md](../tests/README.md)
-- [tests/boot-validation.md](../tests/boot-validation.md)
-- [tests/test_main.c](../tests/test_main.c)
-- [tests/test_video.c](../tests/test_video.c)
-- [tests/video-tests.md](../tests/video-tests.md)
-- [third_party/limine/README.md](../third_party/limine/README.md)
-- [third_party/limine/limine.h](../third_party/limine/limine.h)
-- [userspace/README.md](../userspace/README.md)
+- [README](../README.md): visão geral, funcionalidades e primeiros comandos.
+- [Contribuições](../CONTRIBUTING.md), [segurança](../SECURITY.md),
+  [licença MIT](../LICENSE) e [changelog](../CHANGELOG.md).
+- [Notas v0.1.0](releases/v0.1.0.md): escopo, validação e limitações.
+- [Templates GitHub](../.github/): bugs, propostas e pull requests.
 
+## Kernel
+
+| Caminho | Responsabilidade |
+| --- | --- |
+| [kernel/arch/x86_64](../kernel/arch/x86_64/) | Entrada NASM, linker, adaptador Limine, CPU/I/O, serial, GDT/TSS, IDT/stubs e PIC |
+| [kernel/core](../kernel/core/) | Inicialização, logging, panic e shell |
+| [kernel/drivers/video](../kernel/drivers/video/) | Framebuffer, fonte e terminal |
+| [kernel/drivers/timer](../kernel/drivers/timer/) | PIT e conversão de ticks |
+| [kernel/drivers/input](../kernel/drivers/input/) | Controlador e teclado PS/2 |
+| [kernel/input](../kernel/input/) | Buffer de scancodes e decoder set 1 |
+| [kernel/interrupts](../kernel/interrupts/) | Dispatch de exceções/IRQs e diagnóstico fatal |
+| [kernel/lib](../kernel/lib/) | Biblioteca freestanding, formatter e parser de linha |
+| [kernel/memory](../kernel/memory/) | Importação e validação do mapa físico |
+| [kernel/include/utamo](../kernel/include/utamo/) | Interfaces e versão central do kernel |
+
+Os diretórios [kernel/fs](../kernel/fs/), [kernel/net](../kernel/net/),
+[kernel/scheduler](../kernel/scheduler/), [kernel/syscall](../kernel/syscall/),
+[libc](../libc/) e [userspace](../userspace/) contêm notas de escopo futuro,
+não implementações desses subsistemas.
+
+## Build, dependências e testes
+
+- [Makefile](../Makefile): kernel, host tests, inspeção e ISO.
+- [limine.conf](../limine.conf): configuração de boot.
+- [Scripts](../scripts/README.md): ISO, inspeção ELF/ABI e QEMU headless.
+- [Testes](../tests/README.md): cobertura executada e limites da evidência.
+- [Limine](../third_party/limine/README.md): versão fixada e proveniência.
+- [Fonte bitmap](../assets/font/README.md): origem e licença do asset.
+
+Artefatos de build, toolchain local, checkout vendor e logs brutos ficam
+fora do versionamento, conforme [.gitignore](../.gitignore).
+
+## Guias técnicos
+
+- [Arquitetura](architecture.md) e [processo de boot](boot-process.md).
+- [Interrupções e frame](interrupts.md), [GDT/IDT](architecture.md) e
+  [teclado/shell](keyboard.md).
+- [Layout de memória](memory-layout.md).
+- [Ambiente](development-environment.md), [coding style](coding-style.md) e
+  [debugging](debugging.md).
+- [Roadmap](roadmap.md) e [development log](development-log.md).
+- [Relatório v0.1](v0.1-implementation-report.md) e
+  [índice de evidências](validation-v0.1.json).
+
+[Relatório de geração](generation-report.md),
+[auditoria estática inicial](static-audit.md) e
+[roteiro inicial de boot](../tests/boot-validation.md) são registros históricos
+da preparação v0.0.1; suas pendências não representam o estado atual.

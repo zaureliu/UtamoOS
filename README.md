@@ -1,177 +1,280 @@
 # UTAMO OS
 
-UTAMO OS é um sistema operacional educacional e experimental para x86_64,
-com kernel próprio, chamado **utamo-kernel**. Esta entrega contém os fontes
-do milestone **0.0.1**, scripts de build e documentação.
+UTAMO OS is an experimental x86_64 operating system built from scratch in C17
+and NASM Assembly for learning and exploring low-level operating-system development.
 
-**Estado: implementado em código-fonte, preparado para validação. Compilação,
-linkedição, testes de host e boot estão pendentes no ambiente pessoal de
-desenvolvimento.** A geração incluiu duas revisões estáticas, documentadas
-em [docs/static-audit.md](docs/static-audit.md); elas não substituem execução.
+![Version v0.1.0](https://img.shields.io/badge/version-v0.1.0-blue)
+[![License MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+![Architecture x86_64](https://img.shields.io/badge/architecture-x86__64-lightgrey)
 
-Este projeto não é uma distribuição Linux, kernel Linux modificado, BusyBox,
-wrapper ou programa que simula um kernel. Limine é o bootloader externo que
-carrega o ELF do kernel próprio. Linux/WSL é somente o ambiente futuro de build.
-
-## Escopo desta versão
-
-O caminho implementado é firmware → Limine → ELF64 → `_start` →
-`kernel_main()` → framebuffer/terminal → informações de boot → `cli; hlt`.
-O processador principal permanece parado ao final; isso não desliga a máquina.
-
-| Componente | Estado no fonte |
+| | |
 | --- | --- |
-| Entrada x86_64, pilha própria e linker ELF64 | Implementado |
-| Integração Limine v8.7.0, base revision 3, API revision 2 | Implementado |
-| Framebuffer RGB 24/32 bpp e pixels/cores/limpeza | Implementado |
-| Terminal próprio, fonte bitmap ASCII, cursor lógico | Implementado |
-| Logger com múltiplos destinos e níveis | Implementado |
-| COM1 115200 8N1 com polling limitado | Implementado |
-| Panic com mensagem, arquivo, linha e parada | Implementado |
-| Cópia/validação do memory map e total utilizável | Implementado |
-| Biblioteca freestanding e formatter pequeno | Implementado |
-| Testes de host e roteiro BIOS/UEFI/GDB | Preparados; execução pendente |
-| PMM, heap, interrupções, processos, arquivos e rede | Planejados; não implementados |
+| Current version | **v0.1.0** |
+| Architecture | x86_64 |
+| Kernel | Freestanding C17 + NASM Assembly |
+| Bootloader | Limine v8.7.0 |
+| Emulator | QEMU |
+| Status | Experimental / early development |
 
-Não existe shell nesta versão. Os nomes reservados são `utamo>` para o prompt
-futuro e `init` para o primeiro processo de userspace. O primeiro filesystem
-planejado é RAM filesystem com importação de initramfs; FAT32 virá depois.
+## Overview
 
-## Arquitetura
+UTAMO OS has its own kernel, boot entry, terminal, drivers and small
+freestanding library. It is not a Linux distribution and does not use the
+Linux kernel. Linux or WSL2 provides the development environment.
 
-- C17 freestanding; NASM apenas para entrada, CPU e I/O de portas.
-- Target GCC/binutils `x86_64-elf`; ABI SysV AMD64, ELF64 estático no higher half.
-- Endereço virtual inicial `0xffffffff80000000`; paginação inicial de quatro níveis.
-- Pilha bootstrap própria de 64 KiB, sem heap, sem red zone, sem SIMD/FPU.
-- Interrupções mascaráveis desabilitadas; somente BSP; nenhuma recuperação de exceções ainda.
-- Interfaces de framebuffer, terminal e mapa independentes das estruturas do Limine.
-- MIT para código/documentação/fonte bitmap próprios; avisos BSD-0-Clause preservados
-  no header adaptado do Limine. Veja [third_party/limine/README.md](third_party/limine/README.md).
+The project explores real OSDev foundations incrementally: booting an ELF64
+kernel, handling CPU exceptions and hardware interrupts, and accepting keyboard
+input in a small kernel shell. The validated v0.0.1 baseline remains preserved
+in Git; v0.1.0 builds on that history.
 
-O header do protocolo é um subconjunto explícito das declarações oficiais de
-v8.7.0, e não uma API inventada nem uma cópia integral sem alterações.
-O bootloader binário deverá ser obtido no computador pessoal; não está incluído.
+## Current Features
 
-## Organização
+- Limine boot integration and a higher-half x86_64 kernel.
+- Bitmap framebuffer terminal and COM1 serial logging.
+- Validated boot memory map with usable/reclaimable memory totals.
+- Own GDT, 64-bit TSS and IST stacks for critical exceptions.
+- IDT with 256 entries and Assembly interrupt stubs.
+- CPU exception handling with register context and serial-first diagnostics.
+- Page fault diagnostics: CR2 and error-code decoding.
+- Legacy PIC 8259 remapping, interrupt masks and EOI handling.
+- PIT timer at a nominal 100 Hz with monotonic ticks.
+- PS/2 keyboard, scancode decoding and buffered input.
+- Interactive kernel shell and an interrupt-driven idle loop.
 
-```text
-UtamoOS/
-  kernel/
-    include/utamo/       contratos internos
-    core/                kernel_main, log, panic
-    arch/x86_64/         boot Limine, NASM, COM1, linker
-    drivers/video/      framebuffer, terminal, fonte
-    memory/              mapa físico validado
-    lib/                 memória, strings, formatter
-    interrupts/ fs/ scheduler/ syscall/ net/  reservas documentadas
-  userspace/ libc/       reservas documentadas, fora do build
-  third_party/limine/    header/proveniência; vendor futuro
-  tests/                testes de host e critérios de aceitação
-  scripts/              preparação explícita de ISO
-  assets/font/          documentação da fonte incorporada
-  docs/                 arquitetura, desenvolvimento e auditoria
-  Makefile limine.conf LICENSE CHANGELOG.md
-```
+Validation combines host tests, ELF/ABI inspection, headless QEMU and the
+maintainer's manual QEMU/VNC acceptance. Individual Double Fault, NMI and Machine
+Check delivery paths have not been deliberately triggered; their TSS/IST
+configuration is implemented and its layout is tested.
 
-## Dependências e comandos futuros
+## Shell
 
-**Execute os comandos desta seção somente no seu computador pessoal.**
-Nenhum deles foi executado durante esta entrega no computador corporativo.
+The prompt is `utamo>`. This is a shell inside the kernel; it does not run
+userspace programs.
 
-Use Linux nativo ou WSL2 Ubuntu. São necessários GCC e binutils para o host,
-cross GCC/binutils `x86_64-elf`, NASM, GNU Make, Bash, utilitários Unix e Git.
-A ISO requer xorriso e os arquivos do Limine **v8.7.0-binary**. QEMU e GDB
-são necessários somente para execução/debugging; OVMF para a validação UEFI.
-O kernel não usa a libc do host. O executável dos testes de host usa a libc
-somente no harness de testes.
+| Command | Action |
+| --- | --- |
+| `help` | List implemented commands |
+| `clear` | Clear the framebuffer terminal and send clear/home to the serial terminal |
+| `version` | Print UTAMO OS 0.1.0 |
+| `sysinfo` | Show known boot, memory, framebuffer and timer information |
+| `mem` | Show boot memory-map totals, not allocator statistics |
+| `uptime` | Show elapsed time estimated from PIT ticks |
+| `echo text` | Print the supplied text |
+| `halt` | Disable interrupts and stop the CPU |
+| `fault ud2` | Trigger an Invalid Opcode exception |
+| `fault div0` | Trigger a Divide Error exception |
+| `fault pf` | Trigger the controlled Page Fault probe |
 
-Siga primeiro [development-environment.md](docs/development-environment.md),
-incluindo preparação do cross compiler e `third_party/limine/vendor`.
-Depois, na raiz do projeto:
+`fault` commands are fatal diagnostic tests: restart the VM afterward.
+They never run automatically during normal boot. Input uses ASCII US scancodes;
+line length is bounded and there is no command history, quoting or piping.
 
-Os comandos simples abaixo pressupõem que `x86_64-elf-*` já esteja disponível
-no ambiente pessoal. Se seguiu a construção local em `toolchain/prefix`,
-acrescente `CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-"` a cada comando
-de build do kernel, ISO, inspeção ou QEMU, conforme o guia; isso não modifica
-PATH. `make test-host` usa somente o compilador nativo.
+## Current Boot
 
-```sh
-make test-host             # compila e executa apenas unidades portáveis
-make                       # default: somente kernel
-make inspect               # headers ELF, segmentos, símbolos indefinidos
-make iso                   # build/utamo-os-0.0.1.iso
-make run                   # QEMU TCG, BIOS, serial em stdio
-```
-
-Para depurar, use dois terminais:
-
-```sh
-# Terminal 1
-make debug
-
-# Terminal 2
-gdb build/utamo-kernel.elf
-# Dentro do GDB:
-target remote 127.0.0.1:1234
-hbreak kernel_main
-continue
-```
-
-`make run-uefi` usa OVMF; seus caminhos são configuráveis. `make clean`
-remove apenas `build/`. Nenhum target baixa dependências automaticamente.
-Veja [debugging.md](docs/debugging.md) antes de interpretar um halt como erro.
-
-## Saída esperada, ainda não observada
+Recorded serial output from the v0.1.0 QEMU validation
+(256 MiB VM, 1024×768 framebuffer):
 
 ```text
 UTAMO OS
 Experimental x86_64 Operating System
 
-Version: 0.0.1
+Version: 0.1.0
 Architecture: x86_64
 
 [ OK    ] Limine boot protocol (base revision 3)
 [ OK    ] Kernel loaded: utamo-kernel
-[ OK    ] Framebuffer detected: ...
+[ OK    ] Framebuffer detected: 1024x768, 32 bpp
 [ OK    ] Terminal initialized
-...
-Total usable memory: ... MiB
+[ OK    ] Serial COM1 initialized (115200 8N1)
+[ INFO  ] Memory map entries: 18
+Total usable memory: 254 MiB
+[ OK    ] GDT initialized
+[ OK    ] IDT initialized
+[ OK    ] CPU exception handlers initialized
+[ OK    ] PIC initialized
+[ OK    ] PIT timer initialized (100 Hz)
+[ OK    ] PS/2 keyboard initialized
+[ OK    ] Interrupts enabled
 
-Welcome to UTAMO OS.
+UTAMO OS ready.
 
-System halted safely.
+utamo>
 ```
 
-As dimensões e a memória dependem do ambiente. O total é a soma das regiões
-`USABLE` informadas no boot, arredondada para baixo em MiB; não é a RAM
-instalada nem um contador de páginas livres de um allocator.
+Memory totals and framebuffer dimensions depend on the boot environment.
+No screenshot is included yet; a real capture can be added after review.
 
-## Limites conhecidos e evolução
+## Architecture
 
-Falhas anteriores à inicialização do terminal dependem da serial para mostrar
-mensagens. Sem serial e sem framebuffer válidos, o kernel para sem saída visível.
-Sem IDT própria, uma exceção, NMI ou falha de mapeamento pode causar reset/triple
-fault em vez de chegar a `kernel_panic`. O panic trata falhas explícitas do código;
-não é um subsistema de captura de exceções.
+```text
+Firmware
+  |
+Limine
+  |
+UTAMO Kernel
+  +-- x86_64 architecture layer
+  +-- GDT / TSS / IST
+  +-- IDT / CPU exceptions
+  +-- PIC / PIT
+  +-- PS/2 keyboard and input buffer
+  +-- Framebuffer terminal / COM1
+  +-- Memory map
+  +-- Kernel shell
+```
 
-O terminal limpa a tela ao transbordar, não faz scrollback e não interpreta ANSI
-ou UTF-8. O logger ainda não é concorrente nem seguro para IRQs/SMP. O mapa
-aceita até 512 entradas; framebuffers têm limites documentados. Nenhuma memória
-do bootloader é liberada. Nenhum acesso a disco, rede ou firmware ACPI é feito.
+The current kernel runs on one CPU in ring 0. Interrupt handlers perform short
+hardware operations; input decoding and shell processing run in the main loop.
+See the [architecture](docs/architecture.md) and
+[interrupt frame documentation](docs/interrupts.md).
 
-Comece pela [validação de v0.0.1](tests/boot-validation.md), registre evidências
-reais e somente depois avance para GDT/IDT/exceções. O
-[roadmap](docs/roadmap.md) define a sequência até v1.0.
+## Project Structure
 
-## Documentação
+```text
+kernel/
+  arch/x86_64/   Boot adapter, CPU/port I/O, GDT, IDT, PIC, serial, stubs
+  core/         Initialization, logging, panic and shell
+  drivers/      Video, PIT timer and PS/2 keyboard
+  input/        Input ring buffer and scancode decoder
+  interrupts/   Exception diagnostics and IRQ dispatch
+  lib/          Freestanding helpers and shell parser
+  memory/       Boot memory-map representation
+  include/      Internal kernel interfaces
+docs/           Architecture, development and release records
+tests/          Host tests and validation guides
+scripts/        ISO creation, ELF checks and headless QEMU harness
+third_party/    Limine protocol header and provenance
+.github/        Issue and pull-request templates
+```
 
-- [Arquitetura](docs/architecture.md) e [processo de boot](docs/boot-process.md).
-- [Layout de memória](docs/memory-layout.md) e [padrão de código](docs/coding-style.md).
-- [Ambiente](docs/development-environment.md), [debugging](docs/debugging.md) e [testes](tests/README.md).
-- [Roadmap](docs/roadmap.md), [decisões](docs/development-log.md), [auditoria](docs/static-audit.md)
-  e [changelog](CHANGELOG.md).
-- [Relatório de geração](docs/generation-report.md) e [inventário completo](docs/file-index.md).
+Some directories reserve space for future subsystems; their presence does not
+imply an implemented filesystem, scheduler or userspace.
 
-Versões seguem Semantic Versioning quando aplicável; durante `0.x` as APIs
-internas podem mudar. `0.0.1` identifica este milestone de fontes, sem afirmar
-uma release já validada em máquina. Não foi inicializado Git nem publicado nada.
+## Building
+
+Use Linux or WSL2 Ubuntu, a project path without spaces, and the
+[development environment guide](docs/development-environment.md).
+
+Required tools: an **x86_64-elf GCC** cross compiler, GNU Binutils for that target,
+NASM, GNU Make, a host C compiler, Bash, Python 3, Git, xorriso and the pinned
+Limine **v8.7.0-binary** assets. QEMU and GDB are used for runtime validation.
+The validated toolchain used GCC 14.2.0, Binutils 2.43.1 and NASM 3.01.
+
+The commands below assume the cross toolchain is installed under
+`toolchain/prefix/` and the pinned Limine checkout is provisioned under
+`third_party/limine/vendor/`. These local directories are not committed.
+The Makefile does not download or install them.
+
+From the project root:
+
+```sh
+make test-host
+make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" kernel
+make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" inspect
+make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" iso
+```
+
+The native compiler is used only for host tests. The kernel must use the
+cross compiler. Outputs are `build/utamo-kernel.elf` and
+`build/utamo-os-0.1.0.iso`. `make clean` removes `build/`, including validation
+logs; archive any evidence you want to keep before cleaning.
+
+## Running
+
+For a bounded headless boot with serial output, after building the ISO:
+
+```sh
+timeout --signal=TERM --kill-after=2s 30s \
+  qemu-system-x86_64 -machine q35,accel=tcg -cpu qemu64 -m 256M -smp 1 \
+  -cdrom build/utamo-os-0.1.0.iso -boot d -display none \
+  -serial stdio -monitor none -nic none -no-reboot -no-shutdown
+```
+
+The VM stays at the shell prompt until the timeout ends it; exit code 124 is
+the timeout result, not a kernel exit code. No GTK/SDL window is required.
+Headless operation avoids the WSLg/RemoteApp display problems encountered in
+the development environment.
+
+To check the prompt, GDT/IDT and advancing ticks automatically:
+
+```sh
+python3 scripts/test-qemu.py --marker 'utamo> ' --name boot-local \
+  --check-gdt --check-idt --check-timer
+```
+
+Use a new `--name` for each run. The harness limits runtime and reaps its VM.
+Run one QEMU instance at a time.
+
+Serial is an output console; typing into the serial host terminal does not
+feed this PS/2 shell. Interactive keyboard acceptance was performed manually
+through QEMU/VNC. See [debugging](docs/debugging.md) for hardware inspection
+and controlled exception tests.
+
+## Testing
+
+The following results were recorded during v0.1.0 validation:
+
+| Validation | Checks | Failures |
+| --- | ---: | ---: |
+| Host tests | 5,214 | 0 |
+| ELF / ABI inspection | 1,303 | 0 |
+| QEMU headless | 126 | 0 |
+| **Total** | **6,643** | **0** |
+
+These are recorded results, not a guarantee for future builds or other
+hardware. The maintainer separately confirmed manual QEMU/VNC tests of PS/2
+input, character typing, Enter, Backspace, shell commands, `clear` and `halt`.
+Those manual checks are not added to the automated count.
+
+See the [test guide](tests/README.md),
+[implementation report](docs/v0.1-implementation-report.md) and
+[validation record](docs/validation-v0.1.json).
+
+## Roadmap
+
+Future milestones describe planned work, not implemented features.
+
+| Version | Milestone |
+| --- | --- |
+| v0.0.1 | Initial boot — validated baseline |
+| v0.1.0 | Interrupts, keyboard and kernel shell |
+| v0.2.0 | Physical and virtual memory management |
+| v0.3.0 | Kernel heap |
+| v0.4.0 | Threads and scheduler |
+| v0.5.0 | Ring 3, processes and syscalls |
+| v0.6.0 | VFS and userspace |
+| v0.7.0 | PCI and storage |
+| v0.8.0 | Networking |
+| v0.9.0 | Graphics / window system |
+| v1.0.0 | Stabilized experimental baseline |
+
+The [detailed roadmap](docs/roadmap.md) records dependencies and intermediate steps.
+
+## Documentation
+
+- [Architecture](docs/architecture.md)
+- [Development environment](docs/development-environment.md)
+- [Boot process](docs/boot-process.md) and [memory layout](docs/memory-layout.md)
+- [Interrupts and exception frame](docs/interrupts.md)
+- [PS/2 keyboard and shell](docs/keyboard.md)
+- [Debugging](docs/debugging.md) and [tests](tests/README.md)
+- [Coding style](docs/coding-style.md) and [development log](docs/development-log.md)
+- [Changelog](CHANGELOG.md) and [v0.1.0 release notes](docs/releases/v0.1.0.md)
+
+Technical documentation is currently primarily in Portuguese.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and
+[SECURITY.md](SECURITY.md) for the security policy.
+
+## License
+
+UTAMO OS is licensed under the [MIT License](LICENSE).
+Third-party notices and Limine provenance are documented in
+[third_party/limine](third_party/limine/README.md).
+
+## Project Status
+
+**UTAMO OS is experimental software and is not intended for production use.**
+
+There is no complete physical memory manager, own virtual memory manager,
+kernel heap, multitasking, processes, userspace, filesystem, networking or
+GUI/window manager yet. The framebuffer terminal is a text console, and the
+current shell runs in the kernel.

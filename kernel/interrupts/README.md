@@ -1,6 +1,6 @@
-# Interrupções — reservado para v0.1
+# Interrupções
 
-Nenhum handler ou IDT própria está implementado. O BSP mantém IF=0.
-Próximos contratos: frame de exceção em Assembly/C, GDT/TSS/IST, IDT, dispatch
-por vetor e IRQ routing. Instalar e validar exceções antes de `sti`; `cli` não
-mascara NMI nem exceções síncronas. Não há fonte C fictício neste diretório.
+A versão 0.1.0 implementa IDT completa, stubs x86_64, contexto normalizado,
+diagnósticos fatais e dispatch de IRQ PIC.
+Veja [interrupts.md](../../docs/interrupts.md).
+IRQs não logam. Exceções imprimem primeiro na serial e depois tentam o terminal.

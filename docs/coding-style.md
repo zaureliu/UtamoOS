@@ -69,5 +69,7 @@ de host, que são executáveis normais e não executam instruções privilegiada
 
 Toda alteração deve explicar contrato, comportamento de falha e efeito em boot.
 Use testes de unidades para lógica pura e testes de QEMU para hardware/ABI.
-Nesta entrega só se revisaram fontes; qualquer frase que afirme resultado real
-deve apontar a evidência obtida posteriormente.
+Distinga revisão estática, execução host, inspeção ELF, QEMU e confirmação
+manual. Toda afirmação de resultado real deve identificar a evidência e a
+versão testada. Consulte os [testes](../tests/README.md) e o
+[relatório v0.1](v0.1-implementation-report.md) como referência.

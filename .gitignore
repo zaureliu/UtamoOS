@@ -6,3 +6,13 @@
 *~
 .DS_Store
 Thumbs.db
+
+/validation-artifacts/
+
+# Generated compilation artifacts and Python bytecode.
+*.o
+*.d
+*.iso
+__pycache__/
+*.pyc
+*.pyo

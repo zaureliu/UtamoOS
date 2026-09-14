@@ -3,13 +3,20 @@
 #include <utamo/boot.h>
 #include <utamo/cpu.h>
 #include <utamo/kernel.h>
+#include <utamo/gdt.h>
+#include <utamo/idt.h>
+#include <utamo/pic.h>
+#include <utamo/pit.h>
+#include <utamo/keyboard.h>
+#include <utamo/shell.h>
+#include <utamo/interrupts.h>
 #include <utamo/log.h>
 #include <utamo/panic.h>
 #include <utamo/serial.h>
 #include <utamo/terminal.h>
 #include <utamo/version.h>
 
-/* Bootstrap-owned state; no heap, IRQs, APs or lifetime ambiguity. */
+/* Boot-owned state lives for the entire single-BSP kernel lifetime. */
 static struct framebuffer boot_framebuffer;
 static struct terminal boot_terminal;
 static struct memory_map boot_memory;
@@ -59,8 +66,35 @@ _Noreturn void kernel_main(void)
     LOG_INFO("Memory map entries: %llu", (unsigned long long)boot_memory.count);
     kprintf("Total usable memory: %llu MiB\n",
             (unsigned long long)(boot_memory.usable_bytes / (1024u * 1024u)));
-    kprintf("\nWelcome to UTAMO OS.\n\n");
-    kprintf("System halted safely.\n");
-    kprintf("==============================================\n");
-    cpu_halt();
+    gdt_init();
+    LOG_OK("GDT initialized");
+    exception_set_terminal(&boot_terminal);
+    if (!idt_init()) {
+        PANIC("Cannot initialize IDT");
+    }
+    LOG_OK("IDT initialized");
+    LOG_OK("CPU exception handlers initialized");
+    pic_init();
+    LOG_OK("PIC initialized");
+    pit_init();
+    LOG_OK("PIT timer initialized (100 Hz)");
+    if (!keyboard_init()) {
+        PANIC("Cannot initialize PS/2 keyboard");
+    }
+    LOG_OK("PS/2 keyboard initialized");
+    pic_unmask(0);
+    pic_unmask(1);
+    cpu_enable_interrupts();
+    LOG_OK("Interrupts enabled");
+    kprintf("\nUTAMO OS ready.\n\n");
+    shell_init(&boot_memory, &boot_terminal);
+    for (;;) {
+        shell_process_input();
+        cpu_disable_interrupts();
+        if (keyboard_has_pending()) {
+            cpu_enable_interrupts();
+        } else {
+            cpu_wait_interrupt();
+        }
+    }
 }

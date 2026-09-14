@@ -1,101 +1,122 @@
-# Arquitetura do UTAMO OS
+# Arquitetura do UTAMO OS 0.1.0
 
-## Objetivo e fronteiras
-
-O milestone 0.0.1 estabelece um kernel monolítico pequeno para estudo de sistemas
-x86_64. As prioridades são correção, clareza dos contratos e diagnóstico.
-Módulos separados no fonte não significam isolamento de memória: todo o código
-atual executa no ring 0 e compartilha o mesmo espaço virtual.
+O kernel monolítico x86_64 evolui o baseline funcional v0.0.1. Limine v8.7.0,
+ELF64 higher half, linker, stack bootstrap de 64 KiB, C17 freestanding,
+biblioteca, formatter, framebuffer e mapa físico mantêm seus contratos.
+A execução continua no BSP, ring 0, sem heap, scheduler, VMM ou userspace.
 
 ```mermaid
 flowchart TD
-    firmware[Firmware BIOS ou UEFI] --> limine[Limine v8.7.0]
-    limine --> entry[_start em NASM]
-    entry --> main[kernel_main em C17]
-    main --> boot[Adaptador Limine x86_64]
-    boot --> mem[Mapa físico próprio]
-    boot --> fb[Framebuffer próprio]
-    fb --> term[Terminal e fonte bitmap]
-    main --> logger[Logger e formatter]
-    logger --> term
-    logger --> serial[COM1 por I/O de portas]
-    main --> halt[Parada permanente da CPU]
+    firmware[Firmware BIOS / UEFI] --> limine[Limine v8.7.0]
+    limine --> entry[_start: CLI, stack própria]
+    entry --> main[kernel_main]
+    main --> boot[Serial, framebuffer, mapa físico]
+    main --> desc[GDT + TSS/IST + IDT]
+    desc --> irq[PIC + PIT + PS/2]
+    irq --> loop[STI e loop principal]
+    loop --> shell[Shell de kernel]
+    shell --> out[Formatter / serial / terminal]
+    irq --> input[Buffer de scancodes]
+    input --> shell
+    desc --> fault[Exceção fatal]
+    fault --> serial[Dump completo na serial]
+    serial --> display[Tentativa de dump no framebuffer]
+    display --> stop[CLI / HLT permanente]
 ```
 
-## Contratos por camada
+## Responsabilidades e interfaces
 
-| Diretório | Responsabilidade | Dependências permitidas |
-| --- | --- | --- |
-| `kernel/core` | Sequência de boot, log e panic | Interfaces `utamo/` |
-| `kernel/arch/x86_64` | ABI de boot, CPU, portas e COM1 | Contratos internos e header Limine apenas em `boot.c` |
-| `kernel/drivers/video` | Pixels e terminal | Tipos freestanding; nenhuma estrutura Limine |
-| `kernel/memory` | Metadados de regiões físicas | C17 e tipos próprios; nenhum acesso a hardware |
-| `kernel/lib` | Memória, strings, formatação | Headers freestanding do compilador |
-| `tests` | Harness executável no host | Unidades portáveis; não inclui I/O privilegiado |
+| Diretório | Responsabilidade |
+| --- | --- |
+| kernel/core | Boot, logger, panic e shell |
+| kernel/arch/x86_64 | Adaptador Limine, CPU/portas, COM1, GDT/TSS, IDT, stubs, PIC |
+| kernel/interrupts | Dispatch, nomes e diagnóstico de exceções, dispatch de IRQ |
+| kernel/drivers/timer | PIT e conversões de tempo |
+| kernel/drivers/input | Controlador PS/2 |
+| kernel/input | Buffer e decodificação independente do hardware |
+| kernel/drivers/video | Pixels, terminal bitmap e fonte existentes |
+| kernel/memory | Cópia/validação do memory map, sem alocação |
+| kernel/lib | Strings, memória, formatter e parser de linha freestanding |
+| tests | Lógica pura e modelos de portas/CPU; nunca instruções privilegiadas |
+| scripts | ISO, inspeção ELF e QEMU headless com duração limitada |
 
-`kernel_main` mantém os objetos framebuffer, terminal e mapa em armazenamento
-estático com vida útil igual à do kernel. Drivers não descobrem serviços globais
-por conta própria. APIs com objetos explícitos permitem novos dispositivos sem
-converter todas as funções em singletons.
+Headers internos seguem o padrão existente `kernel/include/utamo/`.
+Tipos Limine continuam restritos ao adaptador de boot. O estado de boot e
+as tabelas/pilhas têm armazenamento estático; nenhuma memória do bootloader
+é liberada. Objetos terminal e memory_map são passados explicitamente à shell.
 
-O logger é uma exceção deliberada: registro estático de até quatro pares
-`callback/contexto`. Hoje COM1 e terminal são registrados e recebem os mesmos
-caracteres. Arquivo e debug console poderão ser novos sinks; nenhum deles está
-implementado. Callbacks não podem chamar o logger recursivamente, bloquear
-esperando IRQs ou modificar o registro durante emissão.
+## GDT e pilhas
 
-## Execução e falhas
+| Seletor | Conteúdo |
+| --- | --- |
+| 0x00 | Null |
+| 0x08 | Kernel code, present, DPL0, L=1, D=0 |
+| 0x10 | Kernel data, present, DPL0, L=0 |
+| 0x18 / 0x20 | Reservados, não presentes, para futuro user mode |
+| 0x28 / 0x30 | Descritor TSS de 16 bytes |
 
-Nenhum AP é iniciado. Nenhuma instrução `sti` existe no kernel. Não há alocação,
-threads ou locks. O logger não é thread-safe; antes de permitir IRQs/SMP será
-necessário definir serialização, buffers por CPU e caminho de panic sem locks.
+A GDT possui 56 bytes; GDTR.limit=55. A CPU atualiza bits accessed/busy,
+portanto ela é gravável. A TSS64 tem 104 bytes, limite 103 e iomap_base 104
+(sem bitmap de permissões de I/O). RSP0 permanece sem uso, pois não há ring 3.
+Três stacks estáticas de 16 KiB, alinhadas a 16 bytes, alimentam IST1 Double Fault,
+IST2 NMI e IST3 Machine Check. Não há guard pages nesta versão.
 
-Retornos `bool` representam falhas recuperáveis da etapa de inicialização.
-`kernel_main` decide quando uma falha torna o milestone inviável e chama `PANIC`.
-Serial ausente é tolerada; framebuffer ausente, protocolo incompatível e mapa
-inválido interrompem o boot. Saídas anteriores à conexão do terminal existem
-somente na serial. Não se inventa mensagem de sucesso antes de verificar o retorno.
+`lgdt`, retorno far para recarregar CS, atualização de DS/ES/SS/FS/GS e
+`ltr` ficam em NASM. Não há `swapgs`, TLS ou troca de privilégio.
 
-`kernel_panic` desabilita interrupções, usa strings como dados (`%s`), informa
-arquivo/linha e termina em `cpu_halt`. Uma segunda chamada explícita usa uma
-mensagem serial simples. Isto não recupera page faults, stack overflow, NMI,
-machine checks ou falhas do próprio framebuffer. Não há IDT/IST própria em 0.0.1.
+## Interrupções e concorrência
 
-## Freestanding e ABI
+A IDT tem 256 gates de 16 bytes, tipo 0x8e (interrupt gate DPL0), CS 0x08.
+Vetores 0–31 são exceções, 32–47 são IRQs PIC, 48–255 têm tratamento fatal seguro.
+Detalhes do frame de 176 bytes, códigos de erro e tabela relativa dos stubs em
+[interrupts.md](interrupts.md).
 
-O código próprio usa C17, `stdint.h`, `stddef.h`, `stdbool.h`, `stdarg.h` e
-`limits.h`. Eles são fornecidos pelo compilador para este ambiente; `stdio.h`,
-`stdlib.h` e chamadas ao host pertencem somente aos testes.
+A ordem obrigatória é GDT → IDT → PIC mascarado → PIT/PS2 → desmascarar
+somente drivers prontos → STI. IRQs entram com IF=0, salvam 15 GPRs, limpam DF,
+alinham RSP antes de CALL e retornam com IRETQ. Flags do contexto são restauradas.
 
-O build desabilita PIE, red zone, stack protector sem runtime, unwind automático
-e geração de SIMD/FPU. Não há link com libc, CRT ou libgcc. A aritmética atual
-usa até 64 bits, suportada diretamente pelo target; operações de 128 bits e novas
-extensões exigirão nova inspeção de símbolos. `memmove` foi incluído além da lista
-mínima porque o compilador também pode exigir essa primitiva em código
-freestanding. [Referência GCC](https://gcc.gnu.org/onlinedocs/gcc/Standards.html).
+O PIC 8259 usa offsets 0x20/0x28; IRQ0 → 32 e IRQ1 → 33. Apenas essas linhas são abertas.
+O slave permanece mascarado. IRQ7/15 espúrias consultam ISR: IRQ7 espúria não
+recebe EOI; IRQ15 espúria reconhece apenas o cascade do master. IRQs reais
+recebem EOI no slave quando aplicável, seguido do master. Fontes sem driver
+são mascaradas. Futuro APIC/IOAPIC terá descoberta ACPI, mantendo essa camada
+de IRQ como fronteira; não há APIC implementado.
 
-As extensões GCC `__attribute__` estão restritas às seções/alinhamento/retenção
-de requests. O resto da biblioteca não depende de Assembly embutido. Port I/O,
-`cli` e `hlt` ficam em NASM com ABI SysV AMD64. Ponteiros de boot são confiados
-ao contrato do bootloader após validações estruturais; não existe page walker
-para provar que um endereço arbitrário está mapeado.
+PIT canal 0, modo 2, comando 0x34, divisor 11932, clock nominal 1193182 Hz:
+aproximadamente 99,99849 Hz, alvo 100 Hz. IRQ0 apenas incrementa contador uint64
+monotônico saturante. Uptime usa conversão nominal de 100 Hz; não é relógio civil,
+não é calibrado e pode perder ticks se IF ficar desabilitado por muito tempo.
 
-## Evolução sem implementação prematura
+IRQs não chamam o logger, terminal ou shell. O logger tem sinks fixos após
+bootstrap e é usado somente pelo fluxo principal; interrupções podem ocorrer
+durante output porque drivers não acessam esses sinks. Exceções não retornam:
+usam saída emergencial própria, primeiro serial, depois terminal, com guarda
+de recursão. Nenhum lock bloqueante é usado.
 
-- GDT, TSS, IDT e IST devem preceder o tratamento confiável de exceções e ring 3.
-- ACPI fornecerá descoberta de APIC e topologia. PIC/PIT podem ser etapa de diagnóstico;
-  temporização e IRQ routing terão interface própria para migração a APIC.
-- O PMM administrará frames físicos; VMM administrará mappings e permissões;
-  heap usará páginas do VMM. Nenhum deles deve depender de endereço HHDM fixo.
-- Scheduler separará estado de thread e processo; SMP exigirá dados por CPU,
-  sincronização, TLB shootdown e invariantes de ownership.
-- Ring 3 terá espaços virtuais próprios, ELF loader validado e cópias seguras
-  entre user/kernel. Syscalls não poderão confiar em ponteiros do chamador.
-- VFS separará namespace, handles e operações dos drivers de armazenamento.
-  RAM filesystem/initramfs virão antes de FAT32 e escrita em disco.
-- PCI/PCIe e DMA precisarão de modelo de dispositivos e de ownership dos buffers.
-- Rede terá parsing com comprimentos explícitos, limites por camada e timeouts.
-  GUI dependerá de input, memória, processos e uma interface gráfica acima do framebuffer.
+Acesso principal ao buffer de input e snapshots de ticks usam save/CLI/restore
+de IF. Chamadas NASM externas formam a fronteira do compilador; o build não usa
+LTO. Volatile expõe o contador assíncrono; exclusão de IRQ define ownership,
+sem alegar que volatile por si só fornece sincronização. Isso não é contrato SMP.
 
-Pastas futuras contêm apenas notas de escopo. Não há stubs que retornam sucesso
-para funcionalidades inexistentes, ABI de syscall fixada ou drivers fictícios.
+O loop processa input fora da ISR, desabilita IF, verifica novamente trabalho,
+e usa `sti; hlt` contíguos quando vazio. A sombra de STI evita a janela de
+perda de wakeup. HLT operacional retorna quando chega IRQ; `cpu_halt` mantém
+IF=0 e nunca retorna.
+
+## Input e shell
+
+[Teclado e shell](keyboard.md) descreve protocolo, buffer, line editor, limites
+e comandos. Trata-se de shell integrada ao kernel, sem processos, pipes,
+filesystem ou execução de programas externos. `mem` relata metadados reais
+do boot, não páginas livres de um allocator.
+
+## Evidência e próximos passos
+
+A matriz efetivamente executada e suas limitações ficam em
+[v0.1-implementation-report.md](v0.1-implementation-report.md).
+QEMU automatizado é sempre headless e sequencial. O usuário confirmou o aceite
+manual em QEMU/VNC: teclado PS/2, digitação, Enter, Backspace, comandos, clear
+e halt. A origem dessa confirmação e seus limites estão nas
+[notas da release](releases/v0.1.0.md).
+A evolução seguinte deve estabelecer PMM/VMM, reservas, page tables próprias
+e guard pages; ACPI/APIC é uma etapa independente antes de SMP.

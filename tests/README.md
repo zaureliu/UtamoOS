@@ -1,36 +1,64 @@
-# Testes do UTAMO OS
+# Testes do UTAMO OS 0.1.0
 
-Estado: infraestrutura implementada; testes pendentes no ambiente de
-desenvolvimento. Nenhum teste foi executado no computador corporativo.
+Os testes existentes do baseline v0.0.1 foram preservados e executados antes
+das alterações. O desenvolvimento v0.1 acrescenta testes host da lógica de
+interrupções/input/shell e validação headless do kernel real. Consulte o
+[relatório da implementação](../docs/v0.1-implementation-report.md) para a
+contagem final, comandos, hashes e resultados observados; uma cobertura
+implementada não é automaticamente uma validação de hardware.
 
-`test_main.c` exercita as implementações reais de `kernel/lib/string.c` e
-`kernel/lib/format.c` e `kernel/memory/memory_map.c`. O executável de testes é
-um programa de host, usa a libc
-do host apenas para o relatório e uma referência numérica de `snprintf`, e não
-integra o kernel. Os resultados de memória e texto são comparados por uma
-rotina independente, para não usar `memcmp`/`strcmp` como oráculos de si mesmos.
+## Resultados registrados de v0.1.0
 
-`test_video.c` é um segundo programa de host, com `main` próprio, que exercita
-framebuffer, terminal e fonte usando buffers em RAM. Os dois programas são
-compilados separadamente e executados pelo mesmo target `make test-host`.
-Consulte a [cobertura de vídeo](video-tests.md) para seus casos e limitações.
+| Camada | Checks aprovados |
+| --- | ---: |
+| Testes host | 5214 |
+| Inspeção ELF/ABI | 1303 |
+| QEMU headless | 126 |
+| **Total** | **6643** |
 
-## Execução futura
+A validação registrada terminou com zero falhas. As contagens identificam
+execuções e artefatos específicos, descritos no relatório e no
+[índice de evidências](../docs/validation-v0.1.json); não são uma promessa
+para futuras revisões ou outros ambientes. O aceite manual do usuário é
+registrado separadamente e não acrescenta checks automatizados.
 
-No ambiente Linux pessoal, a partir da raiz do repositório:
+## Execução
 
-```sh
+Em Linux/WSL2 Ubuntu, a partir da raiz do checkout:
+
+~~~sh
 make test-host
-```
+~~~
 
-O target deve compilar com GCC de host, C17 e os includes de `kernel/include`.
-As opções `-fno-builtin -fno-tree-loop-distribute-patterns` impedem que o
-compilador substitua os loops das funções de memória pelas próprias funções.
-Os mesmos cuidados valem para o build freestanding do kernel. Um retorno zero
-de cada executável significa que suas verificações executadas passaram; a geração
-dos fontes, por si só, não fornece esse resultado.
+O alvo compila os executáveis host separadamente com C17 e os warnings do
+projeto, incluindo `-Wall -Wextra -Wpedantic -Werror`. Um retorno zero de
+cada executável significa que suas verificações executadas passaram.
+`-fno-builtin -fno-tree-loop-distribute-patterns` evita que o compilador
+substitua loops das funções de memória pelas próprias funções testadas.
+O GCC nativo é usado apenas aqui; o kernel usa o cross compiler x86_64-elf.
 
-## Cobertura preparada
+| Arquivo | Cobertura e limite |
+| --- | --- |
+| `test_main.c` | Implementações reais de string/format e memory map; usa referências independentes para comparar texto/memória |
+| `test_video.c` | Framebuffer, terminal e fonte sobre buffers RAM; não prova MMIO nem aparência no guest |
+| `test_gdt.c` | Layout, selectors, descriptors e campos TSS; não executa LGDT/LTR |
+| `test_interrupts.c` | Layout IDT/frame, nomes e flags de exceção, diagnóstico formatado; não executa LIDT/IRETQ |
+| `test_pic.c` | Sequência de programação 8259, máscaras, cascade, EOI e IRQs espúrias com modelo host de portas/IF |
+| `test_pit.c` | Portas/divisor/modo, contador e conversão temporal com modelo host de portas/IF |
+| `test_input_shell.c` | Decoder set 1, modificadores, fila circular e edição/tokenização da linha |
+| `test_keyboard.c` | Inicialização/controlador PS/2 e tratamento de entrada com portas simuladas |
+| `test_shell_commands.c` | Shell real com efeitos de hardware simulados: comandos, limites de linha, saídas, clear/backspace e ações fatais |
+
+As funções privilegiadas são substituídas por modelos explícitos nos testes
+que precisam delas. Nenhuma instrução de IO, CLI/STI, LGDT/LIDT ou HLT é
+executada no processo host. Os executáveis de teste podem usar a libc apenas
+como infraestrutura de relatório/oráculo; ela não entra no kernel.
+
+A cobertura detalhada de vídeo está em [video-tests.md](video-tests.md).
+Os contratos de biblioteca abaixo continuam válidos para os testes herdados.
+
+
+## Cobertura da biblioteca preservada
 
 - Cópia, preenchimento, comparação por bytes sem sinal e guardas nas bordas.
 - `memmove` nos dois sentidos de sobreposição, origem igual ao destino e
@@ -89,21 +117,59 @@ internos artificialmente: overflow da soma utilizável não é alcançável por
 inserções válidas de regiões exclusivas sem sobreposição. As verificações
 defensivas dos contadores permanecem no código para evitar wraparound.
 
-## Etapas seguintes
+## ELF e kernel em QEMU
 
-1. Executar estes testes no computador pessoal, registrando comando, versões
-   de ferramentas, saída completa e código de retorno.
-2. Executar também a suíte de vídeo, conferindo seus resultados reais com
-   [video-tests.md](video-tests.md); buffers em RAM não validam mappings de MMIO.
-3. Cobrir bitmap allocator, listas e parsers quando forem implementados, com
-   casos vazios, fronteiras, overflow, falta de recursos e entradas inválidas.
-4. Acrescentar fuzzing e sanitizers em harnesses isolados. As funções com nomes
-   de libc podem interferir nos interceptadores dos sanitizers; adotar aliases
-   de teste antes de interpretar tais resultados.
-5. Validar boot, serial, framebuffer e halt em QEMU BIOS/UEFI; estes testes de
-   host não provam correção de boot, protocolo, ABI, paginação ou hardware.
+A validação do binário é separada dos testes host:
 
-Registrar os resultados reais conforme o [roteiro de validação](boot-validation.md),
-preservando relatórios e evidências selecionadas em `docs/validation/` quando
-essa pasta for criada no ambiente pessoal. Até lá, não apresentar os testes
-preparados como testes aprovados.
+~~~sh
+make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" kernel
+make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" inspect
+make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" iso
+python3 scripts/test-qemu.py --marker "utamo> " --name boot-review \
+    --check-gdt --check-idt --check-timer
+~~~
+
+`make inspect` inclui a inspeção Python, que verifica os bytes do ELF realmente ligado, incluindo as 256
+entradas da tabela relativa dos stubs, a distinção entre error code da CPU e
+sintético, destinos dos jumps, preservação/restauração de registradores,
+alinhamento antes do CALL e IRETQ. Ela não executa esses caminhos.
+A execução no QEMU é que permite observar GDT/IDT carregadas e ticks avançando.
+
+Todos os modos do harness usam `-display none`, uma única VM por vez e
+timeout. Os probes de exceção usam GDB e instruções reais; o boot normal não
+dispara testes fatais. O [guia de debugging](../docs/debugging.md) descreve
+os comandos para UD2/div0/page fault e o breakpoint `cpu_wait_interrupt`
+antes de HLT. A validação registrada observou UD2, divisão por zero, page fault e avanço
+do PIT; o relatório identifica a imagem final e os resultados de cada execução.
+
+Os artefatos ficam em `build/validation/<name>/`: serial, report JSON,
+registros GDB/HMP e, quando solicitado, log interno do QEMU.
+O relatório inclui os hashes do ELF/ISO e confirma se o processo foi
+encerrado. Use nomes novos para não sobrescrever evidências.
+`make clean` remove também esses diretórios; uma contagem copiada sem
+identificar a execução/artefato não é suficiente como evidência.
+
+## Validação manual e cobertura adicional
+
+O usuário confirmou em 2026-09-14 testes manuais no QEMU/VNC de teclado PS/2,
+digitação de caracteres, Enter, Backspace, comandos do shell, clear e halt.
+A release foi aceita com base nessa confirmação e nas evidências automatizadas
+anteriores. Veja as [notas da release](../docs/releases/v0.1.0.md).
+
+Os testes automatizados mantiveram a restrição headless. A suíte `--suite`,
+`--fault` via teclado e `--capture-framebuffer` não foi executada e não entra nas contagens de checks.
+O aceite informado pelo usuário é uma categoria separada de evidência.
+UEFI, hardware físico e casos de input/saída não citados explicitamente
+continuam sem comprovação específica.
+
+## Cobertura futura
+
+- PMM/bitmap allocator, listas e estruturas futuras: fronteiras, overflow,
+  regiões vazias, falta de recursos e entradas inválidas.
+- VMM: mapeamento, proteção e gerenciamento explícito de falhas; v0.1 somente
+  diagnostica page faults.
+- Fuzzing e sanitizers em harnesses isolados. Funções com nomes de libc podem
+  interferir nos interceptadores; adotar aliases de teste antes de interpretar
+  resultados desses instrumentos.
+- Casos adicionais de hardware, firmware e condições adversas, mantendo
+  separados os resultados de host, ELF, QEMU e observação manual.

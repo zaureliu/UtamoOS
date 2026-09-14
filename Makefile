@@ -1,4 +1,4 @@
-# UTAMO OS 0.0.1. Run only in the personal Linux/WSL development environment.
+# UTAMO OS. Run only in the personal Linux/WSL development environment.
 # The default target builds the kernel; it does not fetch tools or run a VM.
 SHELL := /bin/sh
 .DEFAULT_GOAL := all
@@ -25,7 +25,8 @@ OVMF_VARS ?= /usr/share/OVMF/OVMF_VARS_4M.fd
 # Generated files have a fixed project-local destination.
 override BUILD_DIR := build
 override KERNEL := $(BUILD_DIR)/utamo-kernel.elf
-override ISO := $(BUILD_DIR)/utamo-os-0.0.1.iso
+UTAMO_VERSION := $(shell awk '$$2 == "UTAMO_VERSION" { gsub(/"/, "", $$3); print $$3 }' kernel/include/utamo/version.h)
+override ISO := $(BUILD_DIR)/utamo-os-$(UTAMO_VERSION).iso
 LINKER_SCRIPT := kernel/arch/x86_64/linker.ld
 
 KERNEL_CPPFLAGS := -Ikernel/include -Ithird_party/limine
@@ -41,7 +42,7 @@ KERNEL_LDFLAGS := -nostdlib -static -no-pie -m64 -mcmodel=kernel \
     -Wl,-T,$(LINKER_SCRIPT) -Wl,-Map,$(BUILD_DIR)/utamo-kernel.map \
     -Wl,--build-id=none -Wl,--gc-sections -Wl,--orphan-handling=error \
     -Wl,-z,max-page-size=0x1000 -Wl,-z,noexecstack
-NASMFLAGS := -f elf64 -g -F dwarf -Wall -Werror -Wno-error=reloc-rel-dword -Wno-error=reloc-rel-dword
+NASMFLAGS := -f elf64 -g -F dwarf -Wall -Werror -Wno-error=reloc-rel-dword
 HOST_CFLAGS := -std=c17 -O2 -g -fno-builtin -fno-tree-loop-distribute-patterns \
     -Wall -Wextra -Wpedantic -Werror -Wshadow -Wconversion \
     -Wstrict-prototypes -Wmissing-prototypes -Wundef -Wvla
@@ -61,7 +62,7 @@ VIDEO_TEST_SOURCES := tests/test_video.c kernel/drivers/video/framebuffer.c \
 VIDEO_TEST := $(BUILD_DIR)/tests/utamo-video-tests
 
 QEMU_FLAGS := -machine q35,accel=tcg -cpu qemu64 -m 256M -smp 1 \
-    -serial stdio -monitor none -nic none -no-reboot -no-shutdown -boot d
+    -display none -serial stdio -monitor none -nic none -no-reboot -no-shutdown -boot d
 
 .PHONY: all kernel iso run debug run-uefi test-host inspect clean guard-build
 
@@ -114,13 +115,62 @@ $(VIDEO_TEST): $(VIDEO_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
 	@mkdir -p -- "$(@D)"
 	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(VIDEO_TEST_SOURCES) -o "$@"
 
-test-host: $(HOST_TEST) $(VIDEO_TEST)
+GDT_TEST := $(BUILD_DIR)/tests/utamo-gdt-tests
+$(GDT_TEST): tests/test_gdt.c kernel/arch/x86_64/gdt_layout.c $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include tests/test_gdt.c kernel/arch/x86_64/gdt_layout.c -o "$@"
+
+INTERRUPT_TEST := $(BUILD_DIR)/tests/utamo-interrupt-tests
+INTERRUPT_TEST_SOURCES := tests/test_interrupts.c kernel/arch/x86_64/idt_layout.c kernel/interrupts/exception_info.c kernel/interrupts/exception_format.c kernel/lib/format.c
+$(INTERRUPT_TEST): $(INTERRUPT_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(INTERRUPT_TEST_SOURCES) -o "$@"
+
+PIC_TEST := $(BUILD_DIR)/tests/utamo-pic-tests
+PIC_TEST_SOURCES := tests/test_pic.c kernel/arch/x86_64/pic.c
+$(PIC_TEST): $(PIC_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(PIC_TEST_SOURCES) -o "$@"
+
+PIT_TEST := $(BUILD_DIR)/tests/utamo-pit-tests
+PIT_TEST_SOURCES := tests/test_pit.c kernel/drivers/timer/pit.c kernel/drivers/timer/pit_time.c
+$(PIT_TEST): $(PIT_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(PIT_TEST_SOURCES) -o "$@"
+
+INPUT_TEST := $(BUILD_DIR)/tests/utamo-input-tests
+INPUT_TEST_SOURCES := tests/test_input_shell.c kernel/input/input.c kernel/lib/shell_line.c kernel/lib/string.c
+$(INPUT_TEST): $(INPUT_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(INPUT_TEST_SOURCES) -o "$@"
+
+KEYBOARD_TEST := $(BUILD_DIR)/tests/utamo-keyboard-tests
+KEYBOARD_TEST_SOURCES := tests/test_keyboard.c kernel/input/input.c kernel/drivers/input/keyboard.c
+$(KEYBOARD_TEST): $(KEYBOARD_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(KEYBOARD_TEST_SOURCES) -o "$@"
+
+SHELL_TEST := $(BUILD_DIR)/tests/utamo-shell-tests
+SHELL_TEST_SOURCES := tests/test_shell_commands.c kernel/core/shell.c kernel/lib/shell_line.c kernel/lib/string.c kernel/lib/format.c
+$(SHELL_TEST): $(SHELL_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(SHELL_TEST_SOURCES) -o "$@"
+
+test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) $(PIT_TEST) $(INPUT_TEST) $(KEYBOARD_TEST) $(SHELL_TEST)
 	"./$(HOST_TEST)"
 	"./$(VIDEO_TEST)"
+	"./$(GDT_TEST)"
+	"./$(INTERRUPT_TEST)"
+	"./$(PIC_TEST)"
+	"./$(PIT_TEST)"
+	"./$(INPUT_TEST)"
+	"./$(KEYBOARD_TEST)"
+	"./$(SHELL_TEST)"
 
 inspect: $(KERNEL)
 	$(READELF) -h -l -S "$(KERNEL)"
 	$(NM) -u "$(KERNEL)"
+	python3 scripts/inspect-elf.py "$(KERNEL)"
 
 # Only the literal build directory is removed; sources and vendor remain intact.
 clean:

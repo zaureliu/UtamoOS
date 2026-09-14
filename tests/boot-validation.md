@@ -1,4 +1,13 @@
-# Validação de boot — pendente
+# Roteiro histórico de validação de boot — v0.0.1
+
+> Este roteiro preserva a matriz preparada em 2026-09-13 para o baseline,
+> antes do primeiro boot validado. As marcações de pendência e as limitações
+> referem-se àquela geração; não descrevem o estado atual de v0.1.0.
+> Para testes atuais, use [README de testes](README.md),
+> [debugging](../docs/debugging.md) e o
+> [relatório v0.1](../docs/v0.1-implementation-report.md).
+> Não execute os antigos alvos interativos como testes automatizados: o
+> harness atual mantém QEMU headless, uma VM por vez e timeout.
 
 **Este documento é um roteiro para execução no computador pessoal. Nenhuma linha
 abaixo representa teste executado nesta geração.** Os fontes do milestone estão

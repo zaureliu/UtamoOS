@@ -1,6 +1,93 @@
 # Development log
 
+## 2026-09-14 — aceite manual e preparação da release v0.1.0
+
+O usuário confirmou que os testes manuais passaram no QEMU/VNC: teclado PS/2,
+digitação de caracteres, Enter, Backspace, comandos do shell, clear e halt.
+O relato é atribuído ao usuário e não contado como execução automatizada.
+
+O release check anterior passou 5214 checks host, 1303 checks ELF/ABI, build
+limpo e ISO. O ELF manteve o hash da validação QEMU anterior (126 checks).
+As evidências anteriores à limpeza foram preservadas dentro do projeto.
+
+O usuário autorizou criar main a partir de master, fazer merge --no-ff de
+v0.1-dev, criar v0.1.0 anotado, configurar origin e publicar main/tags no
+repositório zaureliu/UtamoOS. O baseline v0.0.1 permanece intacto; sem force push,
+sem publicação de build, toolchain ou vendor. O registro anterior abaixo
+descreve o estado histórico, anterior a esta confirmação.
+
+[Notas da release](releases/v0.1.0.md).
+
+
+## 2026-09-14 — evolução v0.1.0 sobre baseline validado
+
+Registro histórico anterior ao aceite manual acima.
+
+Implementação e validação automatizada concluídas no escopo headless;
+aceite integral pendente de input PS/2 e framebuffer visual manual.
+[Relatório completo](v0.1-implementation-report.md).
+
+O usuário confirmou boot real v0.0.1. Inspeção encontrou master limpo e
+tag v0.0.1 em 273e476. O checkout Git utilizado estava em `~/UtamoOS`, no filesystem Linux do WSL;
+a cópia inicial fora dele não continha o histórico Git. Criada v0.1-dev; master/tag preservados, sem push.
+Antes de alterar: 3044 checks host, zero falhas.
+
+### D008 — tabelas e diagnóstico
+
+GDT/TSS com stacks IST para DF/NMI/MC, IDT de 256 gates e frame de 176 bytes.
+Manuais Intel/AMD confirmam SS:RSP incondicional no modo 64-bit.
+Dump serial completo precede framebuffer. Probes UD2, DIV e PF são explícitos.
+NASM 3.01 exigiu trocar tabela absoluta por offsets relativos; nenhuma flag
+foi relaxada. A exceção reloc-rel-dword existente foi apenas deduplicada.
+
+### D009 — IRQ e input
+
+PIC em 0x20/0x28, fontes sem driver mascaradas, IRQ7/15 espúrias tratadas.
+PIT modo 2, divisor 11932, alvo 100 Hz; contador uint64 saturante.
+PS/2 set 1 explícito com ACK/RESEND, fila de 127 bytes úteis, decoder no
+fluxo principal. IRQs não logam; compartilhamento usa seções curtas IF=0.
+Não há contrato SMP.
+
+### D010 — shell e espera
+
+Nove comandos reais, parser limitado e edição numa linha preservam o
+terminal do baseline. CLI antes de consultar a fila e STI/HLT contíguos
+evitam perda de wakeup. Versão 0.1.0 centralizada no header; ISO deriva dela.
+Reboot não foi implementado.
+
+### D011 — evidências e restrição gráfica
+
+| Etapa | Checks host | Evidência |
+| --- | ---: | --- |
+| Baseline | 3044 | Antes de modificar |
+| A GDT | 3079 | Build/ISO/boot serial |
+| B IDT | 3185 | GDT e IDTR observados |
+| C diagnóstico | 3185 | UD2 por GDB; 37 checks QEMU |
+| D PIC | 3266 | Build/ISO/boot com fontes mascaradas |
+| E PIT | 3286 | Ticks reais crescentes |
+| F input | 5059 | Init PS/2 e PIT; sem teclas injetadas |
+| G shell | 5214 | Prompt serial e PIT |
+
+Todos os QEMU da sessão usaram display none, uma VM por vez e encerramento
+controlado. O usuário reiterou a proibição de GUI devido a WSLg/RemoteApp.
+Teclado QMP e capturas visuais foram apenas preparados. Não foram executados
+make run, make run-uefi, GTK ou SDL.
+
+O primeiro probe GDB numa CPU já halted deu timeout. Corrigido por breakpoint
+antes do HLT, com VM inicialmente pausada. Falha preservada em
+validation-artifacts/incremental/validation/milestone-c/; C2 passou.
+
+Após make clean: 5214 checks host, 1303 ELF, 126 QEMU: total 6643, zero falhas.
+Build e ISO aprovados. Boot final mostrou ticks 2→63 em 0,6 segundo.
+PF: vetor 14, erro 2, CR2=0x7ffffffff000. Processos QEMU recolhidos.
+[Índice de evidências](validation-v0.1.json).
+Nenhum pacote, toolchain, dependência externa ou configuração global alterado.
+
+
 ## 2026-09-13 — geração inicial 0.0.1
+
+Registro histórico da geração dos fontes, anterior ao boot validado do
+baseline e à implementação v0.1.0.
 
 Estado global: fontes implementados, com duas revisões estáticas. Nenhum
 compilador, teste, script de projeto, QEMU ou sistema operacional foi executado.

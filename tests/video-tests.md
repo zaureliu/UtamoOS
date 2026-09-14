@@ -1,10 +1,13 @@
 # Testes de framebuffer, fonte e terminal
 
-Estado: infraestrutura implementada; testes não executados. A compilação e
-execução estão pendentes no ambiente de desenvolvimento pessoal.
+A suíte host de vídeo foi executada no baseline e na validação v0.1.0.
+Ela integra os 5214 checks host registrados na release; esse total cobre
+as nove suítes, não somente vídeo. Resultados e limites estão no
+[README de testes](README.md) e no
+[relatório v0.1](../docs/v0.1-implementation-report.md).
 
 O arquivo test_video.c é um programa de teste para host, separado do kernel e
-da suíte de biblioteca. O target make test-host compila e executa as duas suítes,
+da suíte de biblioteca. O target `make test-host` compila e executa todas as suítes host,
 incluindo build/tests/utamo-video-tests. Nenhum driver de hardware, bootloader,
 comando privilegiado ou VM é necessário para os testes de vídeo.
 
@@ -12,7 +15,7 @@ O framebuffer recebe pequenos arrays de RAM como superfícies. As comparações
 usam bytes esperados e pontos geométricos fixos, sem chamar o empacotador de
 cores ou as funções de desenho como oráculo.
 
-Cobertura preparada:
+Cobertura exercitada nos testes host:
 
 - RGB de 24 e 32 bpp, ordem de canais invertida e bits não utilizados zerados.
 - Escalonamento para canais de um bit e para RGB565 armazenado em 24 bpp.
@@ -41,4 +44,6 @@ megabytes apenas para verificar as guardas de inicialização.
 Limites: buffers de RAM não validam mapeamento do framebuffer por Limine,
 atributos de cache, formatos efetivamente oferecidos pelo firmware, qualidade
 visual em QEMU ou hardware, nem legibilidade de todos os glifos. Essas
-verificações pertencem ao roteiro de boot real no computador pessoal.
+verificações exigem observação no guest. O usuário confirmou manualmente
+input e comandos do shell, incluindo `clear` e `halt`, em QEMU/VNC; isso não
+representa inspeção individual de todos os glifos, formatos ou modos de vídeo.

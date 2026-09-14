@@ -1,0 +1,1173 @@
+{
+  "version": "0.1.0",
+  "baseline_tag": "v0.0.1",
+  "baseline_commit": "273e47634b113497cfb667a4c9de602420634e2c",
+  "host_checks": 5214,
+  "elf_checks": 1303,
+  "qemu_checks": 126,
+  "final_total": 6643,
+  "host_failures": 0,
+  "elf_failures": 0,
+  "qemu_failures": 0,
+  "manual_pending": [
+    "UEFI"
+  ],
+  "runs": [
+    {
+      "started_utc": "2026-09-14T05:14:58Z",
+      "mode": "utamo> ",
+      "git_revision": "d6b946e559acc3ac099392228ecb81439f48def3",
+      "git_status": " M README.md\n M docs/architecture.md\n M docs/debugging.md\n M scripts/README.md\n M tests/README.md\n",
+      "iso": "build/utamo-os-0.1.0.iso",
+      "iso_sha256": "658f2bf77d1c959bc6814535fb4c9f55bb03d2b0bc25be9af1f8691eec762dae",
+      "elf_sha256": "cd1fb97cc4b3f8f924a52108e37bbbd8f7fab437286e04ea52200fed02c09e5b",
+      "checks": [
+        {
+          "check": "Incremental boot marker: utamo> ",
+          "passed": true
+        },
+        {
+          "check": "Loaded kernel CS is selector 0x08",
+          "passed": true
+        },
+        {
+          "check": "Own higher-half GDT loaded",
+          "passed": true,
+          "detail": "GDT=     ffffffff80014090 00000037"
+        },
+        {
+          "check": "256-entry IDT loaded",
+          "passed": true,
+          "detail": "IDT=     ffffffff800140e0 00000fff"
+        },
+        {
+          "check": "GDB operation: timer-0",
+          "passed": true,
+          "detail": {
+            "returncode": 0,
+            "output": "cpu_wait_interrupt () at kernel/arch/x86_64/cpu.asm:37\n37\t    ret\nUTAMO_TIMER_TICKS=2\n[Inferior 1 (process 1) detached]\n"
+          }
+        },
+        {
+          "check": "GDB observes real PIT tick counter sample 0",
+          "passed": true
+        },
+        {
+          "check": "GDB operation: timer-1",
+          "passed": true,
+          "detail": {
+            "returncode": 0,
+            "output": "cpu_wait_interrupt () at kernel/arch/x86_64/cpu.asm:37\n37\t    ret\nUTAMO_TIMER_TICKS=63\n[Inferior 1 (process 1) detached]\n"
+          }
+        },
+        {
+          "check": "GDB observes real PIT tick counter sample 1",
+          "passed": true
+        },
+        {
+          "check": "PIT ticks increase while the VM runs",
+          "passed": true,
+          "detail": {
+            "before": 2,
+            "after": 63,
+            "delay_seconds": 0.6
+          }
+        }
+      ],
+      "pending_manual": [
+        "PS/2 physical typing and visual framebuffer review"
+      ],
+      "artifacts": "build/validation/final-boot",
+      "qemu_command": [
+        "qemu-system-x86_64",
+        "-machine",
+        "q35,accel=tcg",
+        "-cpu",
+        "qemu64",
+        "-m",
+        "256M",
+        "-smp",
+        "1",
+        "-cdrom",
+        "<project>/build/utamo-os-0.1.0.iso",
+        "-boot",
+        "d",
+        "-display",
+        "none",
+        "-serial",
+        "file:<project>/build/validation/final-boot/serial.log",
+        "-qmp",
+        "unix:<project>/build/validation/final-boot/qmp.sock,server=on,wait=off",
+        "-monitor",
+        "none",
+        "-nic",
+        "none",
+        "-no-reboot",
+        "-no-shutdown",
+        "-chardev",
+        "socket,path=<project>/build/validation/final-boot/gdb.sock,server=on,wait=off,id=gdb0",
+        "-gdb",
+        "chardev:gdb0"
+      ],
+      "qemu_pid": 3313,
+      "qmp_greeting": {
+        "QMP": {
+          "version": {
+            "qemu": {
+              "micro": 1,
+              "minor": 2,
+              "major": 10
+            },
+            "package": "Debian 1:10.2.1+ds-1ubuntu3.2"
+          },
+          "capabilities": [
+            "oob"
+          ]
+        }
+      },
+      "qmp_events": [
+        {
+          "timestamp": {
+            "seconds": 1789362902,
+            "microseconds": 136488
+          },
+          "event": "STOP"
+        },
+        {
+          "timestamp": {
+            "seconds": 1789362902,
+            "microseconds": 242354
+          },
+          "event": "RESUME"
+        },
+        {
+          "timestamp": {
+            "seconds": 1789362902,
+            "microseconds": 851382
+          },
+          "event": "STOP"
+        },
+        {
+          "timestamp": {
+            "seconds": 1789362902,
+            "microseconds": 924266
+          },
+          "event": "RESUME"
+        },
+        {
+          "timestamp": {
+            "seconds": 1789362902,
+            "microseconds": 934215
+          },
+          "event": "SHUTDOWN",
+          "data": {
+            "guest": false,
+            "reason": "host-qmp-quit"
+          }
+        }
+      ],
+      "passed": true,
+      "qemu_exit_code": 0,
+      "qemu_process_reaped": true,
+      "finished_utc": "2026-09-14T05:15:02Z",
+      "check_count": 9
+    },
+    {
+      "started_utc": "2026-09-14T05:15:02Z",
+      "mode": "utamo> ",
+      "git_revision": "d6b946e559acc3ac099392228ecb81439f48def3",
+      "git_status": " M README.md\n M docs/architecture.md\n M docs/debugging.md\n M scripts/README.md\n M tests/README.md\n",
+      "iso": "build/utamo-os-0.1.0.iso",
+      "iso_sha256": "658f2bf77d1c959bc6814535fb4c9f55bb03d2b0bc25be9af1f8691eec762dae",
+      "elf_sha256": "cd1fb97cc4b3f8f924a52108e37bbbd8f7fab437286e04ea52200fed02c09e5b",
+      "checks": [
+        {
+          "check": "GDB operation: probe-arm",
+          "passed": true,
+          "detail": {
+            "returncode": 0,
+            "output": "0x000000000000fff0 in ?? ()\nHardware assisted breakpoint 1 at 0xffffffff80004775: file kernel/arch/x86_64/cpu.asm, line 35.\n\nBreakpoint 1, cpu_wait_interrupt () at kernel/arch/x86_64/cpu.asm:35\n35\t    sti\n\nCPU#0\nRAX=0000000000000000 RBX=0000000000000001 RCX=0000000000000000 RDX=0000000000000000\nRSI=ffffffff8002828e RDI=0000000000000082 RBP=ffffffff80028340 RSP=ffffffff80028328\nR8 =0000000000000008 R9 =0000000000000000 R10=0000000000001fe0 R11=0000000000000008\nR12=0000000000000000 R13=0000000000000000 R14=0000000000000000 R15=0000000000000000\nRIP=ffffffff80004775 RFL=00000046 [---Z-P-] CPL=0 II=0 A20=1 SMM=0 HLT=0\nES =0010 0000000000000000 ffffffff 00cf9300 DPL=0 DS   [-WA]\nCS =0008 0000000000000000 ffffffff 00af9a00 DPL=0 CS64 [-R-]\nSS =0010 0000000000000000 ffffffff 00cf9300 DPL=0 DS   [-WA]\nDS =0010 0000000000000000 ffffffff 00cf9300 DPL=0 DS   [-WA]\nFS =0000 0000000000000000 00000000 00000000\nGS =0000 0000000000000000 00000000 00000000\nLDT=0000 0000000000000000 00000000 00008200 DPL=0 LDT\nTR =0028 ffffffff80014020 00000067 00008900 DPL=0 TSS64-avl\nGDT=     ffffffff80014090 00000037\nIDT=     ffffffff800140e0 00000fff\nCR0=80010011 CR2=0000000000000000 CR3=000000000ff4c000 CR4=00000020\nDR0=0000000000000000 DR1=0000000000000000 DR2=0000000000000000 DR3=0000000000000000 \nDR6=00000000ffff0ff0 DR7=0000000000000400\nEFER=0000000000000d00\nFCW=037f FSW=0000 [ST=0] FTW=00 MXCSR=00001f80\nFPR0=0000000000000000 0000 FPR1=0000000000000000 0000\nFPR2=0000000000000000 0000 FPR3=0000000000000000 0000\nFPR4=0000000000000000 0000 FPR5=0000000000000000 0000\nFPR6=0000000000000000 0000 FPR7=0000000000000000 0000\nXMM00=0000000000000000 0000000000000000 XMM01=0000000000000000 0000000000000000\nXMM02=0000000000000000 0000000000000000 XMM03=0000000000000000 0000000000000000\nXMM04=0000000000000000 0000000000000000 XMM05=0000000000000000 0000000000000000\nXMM06=0000000000000000 0000000000000000 XMM07=0000000000000000 0000000000000000\nXMM08=0000000000000000 0000000000000000 XMM09=0000000000000000 0000000000000000\nXMM10=0000000000000000 0000000000000000 XMM11=0000000000000000 0000000000000000\nXMM12=0000000000000000 0000000000000000 XMM13=0000000000000000 0000000000000000\nXMM14=0000000000000000 0000000000000000 XMM15=0000000000000000 0000000000000000\n[Inferior 1 (process 1) detached]\n"
+          }
+        },
+        {
+          "check": "Incremental boot marker: utamo> ",
+          "passed": true
+        },
+        {
+          "check": "Loaded kernel CS is selector 0x08",
+          "passed": true
+        },
+        {
+          "check": "Own higher-half GDT loaded",
+          "passed": true,
+          "detail": "GDT=     ffffffff80014090 00000037"
+        },
+        {
+          "check": "256-entry IDT loaded",
+          "passed": true,
+          "detail": "IDT=     ffffffff800140e0 00000fff"
+        },
+        {
+          "check": "Kernel exception banner observed",
+          "passed": true
+        },
+        {
+          "check": "Expected CPU exception name: Invalid Opcode",
+          "passed": true
+        },
+        {
+          "check": "Expected CPU exception vector 6",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RIP",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes CS",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes SS",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RFLAGS",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RSP",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RAX",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RBX",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RCX",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RDX",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RSI",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RDI",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RBP",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R8",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R9",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R10",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R11",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R12",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R13",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R14",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R15",
+          "passed": true
+        },
+        {
+          "check": "Exception error code observed",
+          "passed": true
+        },
+        {
+          "check": "Expected normalized CPU error code 0x0",
+          "passed": true
+        },
+        {
+          "check": "Exception frame CS has kernel selector 0x8",
+          "passed": true
+        },
+        {
+          "check": "Exception frame SS has kernel selector 0x10",
+          "passed": true
+        },
+        {
+          "check": "Exception frame RIP is a canonical kernel address",
+          "passed": true
+        },
+        {
+          "check": "Exception frame RSP is a canonical kernel address",
+          "passed": true
+        },
+        {
+          "check": "Halted CPU has interrupts disabled",
+          "passed": true
+        },
+        {
+          "check": "Halted CPU RIP is stable across observations",
+          "passed": true
+        },
+        {
+          "check": "QEMU reports CPU halted (HLT=1)",
+          "passed": true
+        }
+      ],
+      "pending_manual": [
+        "PS/2 physical typing and visual framebuffer review"
+      ],
+      "artifacts": "build/validation/final-ud2",
+      "qemu_command": [
+        "qemu-system-x86_64",
+        "-machine",
+        "q35,accel=tcg",
+        "-cpu",
+        "qemu64",
+        "-m",
+        "256M",
+        "-smp",
+        "1",
+        "-cdrom",
+        "<project>/build/utamo-os-0.1.0.iso",
+        "-boot",
+        "d",
+        "-display",
+        "none",
+        "-serial",
+        "file:<project>/build/validation/final-ud2/serial.log",
+        "-qmp",
+        "unix:<project>/build/validation/final-ud2/qmp.sock,server=on,wait=off",
+        "-monitor",
+        "none",
+        "-nic",
+        "none",
+        "-no-reboot",
+        "-no-shutdown",
+        "-chardev",
+        "socket,path=<project>/build/validation/final-ud2/gdb.sock,server=on,wait=off,id=gdb0",
+        "-gdb",
+        "chardev:gdb0",
+        "-S"
+      ],
+      "qemu_pid": 3341,
+      "qmp_greeting": {
+        "QMP": {
+          "version": {
+            "qemu": {
+              "micro": 1,
+              "minor": 2,
+              "major": 10
+            },
+            "package": "Debian 1:10.2.1+ds-1ubuntu3.2"
+          },
+          "capabilities": [
+            "oob"
+          ]
+        }
+      },
+      "qmp_events": [
+        {
+          "timestamp": {
+            "seconds": 1789362903,
+            "microseconds": 91370
+          },
+          "event": "RESUME"
+        },
+        {
+          "timestamp": {
+            "seconds": 1789362906,
+            "microseconds": 584642
+          },
+          "event": "STOP"
+        },
+        {
+          "timestamp": {
+            "seconds": 1789362906,
+            "microseconds": 588265
+          },
+          "event": "RESUME"
+        },
+        {
+          "timestamp": {
+            "seconds": 1789362907,
+            "microseconds": 4863
+          },
+          "event": "SHUTDOWN",
+          "data": {
+            "guest": false,
+            "reason": "host-qmp-quit"
+          }
+        }
+      ],
+      "passed": true,
+      "qemu_exit_code": 0,
+      "qemu_process_reaped": true,
+      "finished_utc": "2026-09-14T05:15:07Z",
+      "check_count": 37
+    },
+    {
+      "started_utc": "2026-09-14T05:15:07Z",
+      "mode": "utamo> ",
+      "git_revision": "d6b946e559acc3ac099392228ecb81439f48def3",
+      "git_status": " M README.md\n M docs/architecture.md\n M docs/debugging.md\n M scripts/README.md\n M tests/README.md\n",
+      "iso": "build/utamo-os-0.1.0.iso",
+      "iso_sha256": "658f2bf77d1c959bc6814535fb4c9f55bb03d2b0bc25be9af1f8691eec762dae",
+      "elf_sha256": "cd1fb97cc4b3f8f924a52108e37bbbd8f7fab437286e04ea52200fed02c09e5b",
+      "checks": [
+        {
+          "check": "GDB operation: probe-arm",
+          "passed": true,
+          "detail": {
+            "returncode": 0,
+            "output": "0x000000000000fff0 in ?? ()\nHardware assisted breakpoint 1 at 0xffffffff80004775: file kernel/arch/x86_64/cpu.asm, line 35.\n\nBreakpoint 1, cpu_wait_interrupt () at kernel/arch/x86_64/cpu.asm:35\n35\t    sti\n\nCPU#0\nRAX=0000000000000000 RBX=0000000000000001 RCX=0000000000000000 RDX=0000000000000000\nRSI=ffffffff8002828e RDI=0000000000000082 RBP=ffffffff80028340 RSP=ffffffff80028328\nR8 =0000000000000008 R9 =0000000000000000 R10=0000000000001fe0 R11=0000000000000008\nR12=0000000000000000 R13=0000000000000000 R14=0000000000000000 R15=0000000000000000\nRIP=ffffffff80004775 RFL=00000046 [---Z-P-] CPL=0 II=0 A20=1 SMM=0 HLT=0\nES =0010 0000000000000000 ffffffff 00cf9300 DPL=0 DS   [-WA]\nCS =0008 0000000000000000 ffffffff 00af9a00 DPL=0 CS64 [-R-]\nSS =0010 0000000000000000 ffffffff 00cf9300 DPL=0 DS   [-WA]\nDS =0010 0000000000000000 ffffffff 00cf9300 DPL=0 DS   [-WA]\nFS =0000 0000000000000000 00000000 00000000\nGS =0000 0000000000000000 00000000 00000000\nLDT=0000 0000000000000000 00000000 00008200 DPL=0 LDT\nTR =0028 ffffffff80014020 00000067 00008900 DPL=0 TSS64-avl\nGDT=     ffffffff80014090 00000037\nIDT=     ffffffff800140e0 00000fff\nCR0=80010011 CR2=0000000000000000 CR3=000000000ff4c000 CR4=00000020\nDR0=0000000000000000 DR1=0000000000000000 DR2=0000000000000000 DR3=0000000000000000 \nDR6=00000000ffff0ff0 DR7=0000000000000400\nEFER=0000000000000d00\nFCW=037f FSW=0000 [ST=0] FTW=00 MXCSR=00001f80\nFPR0=0000000000000000 0000 FPR1=0000000000000000 0000\nFPR2=0000000000000000 0000 FPR3=0000000000000000 0000\nFPR4=0000000000000000 0000 FPR5=0000000000000000 0000\nFPR6=0000000000000000 0000 FPR7=0000000000000000 0000\nXMM00=0000000000000000 0000000000000000 XMM01=0000000000000000 0000000000000000\nXMM02=0000000000000000 0000000000000000 XMM03=0000000000000000 0000000000000000\nXMM04=0000000000000000 0000000000000000 XMM05=0000000000000000 0000000000000000\nXMM06=0000000000000000 0000000000000000 XMM07=0000000000000000 0000000000000000\nXMM08=0000000000000000 0000000000000000 XMM09=0000000000000000 0000000000000000\nXMM10=0000000000000000 0000000000000000 XMM11=0000000000000000 0000000000000000\nXMM12=0000000000000000 0000000000000000 XMM13=0000000000000000 0000000000000000\nXMM14=0000000000000000 0000000000000000 XMM15=0000000000000000 0000000000000000\n[Inferior 1 (process 1) detached]\n"
+          }
+        },
+        {
+          "check": "Incremental boot marker: utamo> ",
+          "passed": true
+        },
+        {
+          "check": "Kernel exception banner observed",
+          "passed": true
+        },
+        {
+          "check": "Expected CPU exception name: Divide Error",
+          "passed": true
+        },
+        {
+          "check": "Expected CPU exception vector 0",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RIP",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes CS",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes SS",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RFLAGS",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RSP",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RAX",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RBX",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RCX",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RDX",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RSI",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RDI",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RBP",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R8",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R9",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R10",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R11",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R12",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R13",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R14",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R15",
+          "passed": true
+        },
+        {
+          "check": "Exception error code observed",
+          "passed": true
+        },
+        {
+          "check": "Expected normalized CPU error code 0x0",
+          "passed": true
+        },
+        {
+          "check": "Exception frame CS has kernel selector 0x8",
+          "passed": true
+        },
+        {
+          "check": "Exception frame SS has kernel selector 0x10",
+          "passed": true
+        },
+        {
+          "check": "Exception frame RIP is a canonical kernel address",
+          "passed": true
+        },
+        {
+          "check": "Exception frame RSP is a canonical kernel address",
+          "passed": true
+        },
+        {
+          "check": "Halted CPU has interrupts disabled",
+          "passed": true
+        },
+        {
+          "check": "Halted CPU RIP is stable across observations",
+          "passed": true
+        },
+        {
+          "check": "QEMU reports CPU halted (HLT=1)",
+          "passed": true
+        }
+      ],
+      "pending_manual": [
+        "PS/2 physical typing and visual framebuffer review"
+      ],
+      "artifacts": "build/validation/final-div0",
+      "qemu_command": [
+        "qemu-system-x86_64",
+        "-machine",
+        "q35,accel=tcg",
+        "-cpu",
+        "qemu64",
+        "-m",
+        "256M",
+        "-smp",
+        "1",
+        "-cdrom",
+        "<project>/build/utamo-os-0.1.0.iso",
+        "-boot",
+        "d",
+        "-display",
+        "none",
+        "-serial",
+        "file:<project>/build/validation/final-div0/serial.log",
+        "-qmp",
+        "unix:<project>/build/validation/final-div0/qmp.sock,server=on,wait=off",
+        "-monitor",
+        "none",
+        "-nic",
+        "none",
+        "-no-reboot",
+        "-no-shutdown",
+        "-chardev",
+        "socket,path=<project>/build/validation/final-div0/gdb.sock,server=on,wait=off,id=gdb0",
+        "-gdb",
+        "chardev:gdb0",
+        "-S"
+      ],
+      "qemu_pid": 3359,
+      "qmp_greeting": {
+        "QMP": {
+          "version": {
+            "qemu": {
+              "micro": 1,
+              "minor": 2,
+              "major": 10
+            },
+            "package": "Debian 1:10.2.1+ds-1ubuntu3.2"
+          },
+          "capabilities": [
+            "oob"
+          ]
+        }
+      },
+      "qmp_events": [
+        {
+          "timestamp": {
+            "seconds": 1789362907,
+            "microseconds": 167867
+          },
+          "event": "RESUME"
+        },
+        {
+          "timestamp": {
+            "seconds": 1789362910,
+            "microseconds": 657098
+          },
+          "event": "STOP"
+        },
+        {
+          "timestamp": {
+            "seconds": 1789362910,
+            "microseconds": 660059
+          },
+          "event": "RESUME"
+        },
+        {
+          "timestamp": {
+            "seconds": 1789362911,
+            "microseconds": 73403
+          },
+          "event": "SHUTDOWN",
+          "data": {
+            "guest": false,
+            "reason": "host-qmp-quit"
+          }
+        }
+      ],
+      "passed": true,
+      "qemu_exit_code": 0,
+      "qemu_process_reaped": true,
+      "finished_utc": "2026-09-14T05:15:11Z",
+      "check_count": 34
+    },
+    {
+      "started_utc": "2026-09-14T05:15:11Z",
+      "mode": "utamo> ",
+      "git_revision": "d6b946e559acc3ac099392228ecb81439f48def3",
+      "git_status": " M README.md\n M docs/architecture.md\n M docs/debugging.md\n M scripts/README.md\n M tests/README.md\n",
+      "iso": "build/utamo-os-0.1.0.iso",
+      "iso_sha256": "658f2bf77d1c959bc6814535fb4c9f55bb03d2b0bc25be9af1f8691eec762dae",
+      "elf_sha256": "cd1fb97cc4b3f8f924a52108e37bbbd8f7fab437286e04ea52200fed02c09e5b",
+      "checks": [
+        {
+          "check": "GDB operation: probe-arm",
+          "passed": true,
+          "detail": {
+            "returncode": 0,
+            "output": "0x000000000000fff0 in ?? ()\nHardware assisted breakpoint 1 at 0xffffffff80004775: file kernel/arch/x86_64/cpu.asm, line 35.\n\nBreakpoint 1, cpu_wait_interrupt () at kernel/arch/x86_64/cpu.asm:35\n35\t    sti\n\nCPU#0\nRAX=0000000000000000 RBX=0000000000000001 RCX=0000000000000000 RDX=0000000000000000\nRSI=ffffffff8002828e RDI=0000000000000082 RBP=ffffffff80028340 RSP=ffffffff80028328\nR8 =0000000000000008 R9 =0000000000000000 R10=0000000000001fe0 R11=0000000000000008\nR12=0000000000000000 R13=0000000000000000 R14=0000000000000000 R15=0000000000000000\nRIP=ffffffff80004775 RFL=00000046 [---Z-P-] CPL=0 II=0 A20=1 SMM=0 HLT=0\nES =0010 0000000000000000 ffffffff 00cf9300 DPL=0 DS   [-WA]\nCS =0008 0000000000000000 ffffffff 00af9a00 DPL=0 CS64 [-R-]\nSS =0010 0000000000000000 ffffffff 00cf9300 DPL=0 DS   [-WA]\nDS =0010 0000000000000000 ffffffff 00cf9300 DPL=0 DS   [-WA]\nFS =0000 0000000000000000 00000000 00000000\nGS =0000 0000000000000000 00000000 00000000\nLDT=0000 0000000000000000 00000000 00008200 DPL=0 LDT\nTR =0028 ffffffff80014020 00000067 00008900 DPL=0 TSS64-avl\nGDT=     ffffffff80014090 00000037\nIDT=     ffffffff800140e0 00000fff\nCR0=80010011 CR2=0000000000000000 CR3=000000000ff4c000 CR4=00000020\nDR0=0000000000000000 DR1=0000000000000000 DR2=0000000000000000 DR3=0000000000000000 \nDR6=00000000ffff0ff0 DR7=0000000000000400\nEFER=0000000000000d00\nFCW=037f FSW=0000 [ST=0] FTW=00 MXCSR=00001f80\nFPR0=0000000000000000 0000 FPR1=0000000000000000 0000\nFPR2=0000000000000000 0000 FPR3=0000000000000000 0000\nFPR4=0000000000000000 0000 FPR5=0000000000000000 0000\nFPR6=0000000000000000 0000 FPR7=0000000000000000 0000\nXMM00=0000000000000000 0000000000000000 XMM01=0000000000000000 0000000000000000\nXMM02=0000000000000000 0000000000000000 XMM03=0000000000000000 0000000000000000\nXMM04=0000000000000000 0000000000000000 XMM05=0000000000000000 0000000000000000\nXMM06=0000000000000000 0000000000000000 XMM07=0000000000000000 0000000000000000\nXMM08=0000000000000000 0000000000000000 XMM09=0000000000000000 0000000000000000\nXMM10=0000000000000000 0000000000000000 XMM11=0000000000000000 0000000000000000\nXMM12=0000000000000000 0000000000000000 XMM13=0000000000000000 0000000000000000\nXMM14=0000000000000000 0000000000000000 XMM15=0000000000000000 0000000000000000\n[Inferior 1 (process 1) detached]\n"
+          }
+        },
+        {
+          "check": "Incremental boot marker: utamo> ",
+          "passed": true
+        },
+        {
+          "check": "Kernel exception banner observed",
+          "passed": true
+        },
+        {
+          "check": "Expected CPU exception name: Page Fault",
+          "passed": true
+        },
+        {
+          "check": "Expected CPU exception vector 14",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RIP",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes CS",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes SS",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RFLAGS",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RSP",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RAX",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RBX",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RCX",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RDX",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RSI",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RDI",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes RBP",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R8",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R9",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R10",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R11",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R12",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R13",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R14",
+          "passed": true
+        },
+        {
+          "check": "Exception context includes R15",
+          "passed": true
+        },
+        {
+          "check": "Exception error code observed",
+          "passed": true
+        },
+        {
+          "check": "Expected normalized CPU error code 0x2",
+          "passed": true
+        },
+        {
+          "check": "Exception frame CS has kernel selector 0x8",
+          "passed": true
+        },
+        {
+          "check": "Exception frame SS has kernel selector 0x10",
+          "passed": true
+        },
+        {
+          "check": "Exception frame RIP is a canonical kernel address",
+          "passed": true
+        },
+        {
+          "check": "Exception frame RSP is a canonical kernel address",
+          "passed": true
+        },
+        {
+          "check": "CR2 identifies the deliberate unmapped probe address",
+          "passed": true
+        },
+        {
+          "check": "Page fault flags decode to Present: No",
+          "passed": true
+        },
+        {
+          "check": "Page fault flags decode to Access: Write",
+          "passed": true
+        },
+        {
+          "check": "Page fault flags decode to Mode: Supervisor",
+          "passed": true
+        },
+        {
+          "check": "Page fault flags decode to Reserved bit violation: No",
+          "passed": true
+        },
+        {
+          "check": "Page fault flags decode to Instruction fetch: No",
+          "passed": true
+        },
+        {
+          "check": "Page fault diagnostic: Address:",
+          "passed": true
+        },
+        {
+          "check": "Page fault diagnostic: Present:",
+          "passed": true
+        },
+        {
+          "check": "Page fault diagnostic: Access:",
+          "passed": true
+        },
+        {
+          "check": "Page fault diagnostic: Mode:",
+          "passed": true
+        },
+        {
+          "check": "Page fault diagnostic: Reserved",
+          "passed": true
+        },
+        {
+          "check": "Page fault diagnostic: Instruction fetch:",
+          "passed": true
+        },
+        {
+          "check": "Halted CPU has interrupts disabled",
+          "passed": true
+        },
+        {
+          "check": "Halted CPU RIP is stable across observations",
+          "passed": true
+        },
+        {
+          "check": "QEMU reports CPU halted (HLT=1)",
+          "passed": true
+        }
+      ],
+      "pending_manual": [
+        "PS/2 physical typing and visual framebuffer review"
+      ],
+      "artifacts": "build/validation/final-pf",
+      "qemu_command": [
+        "qemu-system-x86_64",
+        "-machine",
+        "q35,accel=tcg",
+        "-cpu",
+        "qemu64",
+        "-m",
+        "256M",
+        "-smp",
+        "1",
+        "-cdrom",
+        "<project>/build/utamo-os-0.1.0.iso",
+        "-boot",
+        "d",
+        "-display",
+        "none",
+        "-serial",
+        "file:<project>/build/validation/final-pf/serial.log",
+        "-qmp",
+        "unix:<project>/build/validation/final-pf/qmp.sock,server=on,wait=off",
+        "-monitor",
+        "none",
+        "-nic",
+        "none",
+        "-no-reboot",
+        "-no-shutdown",
+        "-chardev",
+        "socket,path=<project>/build/validation/final-pf/gdb.sock,server=on,wait=off,id=gdb0",
+        "-gdb",
+        "chardev:gdb0",
+        "-S"
+      ],
+      "qemu_pid": 3377,
+      "qmp_greeting": {
+        "QMP": {
+          "version": {
+            "qemu": {
+              "micro": 1,
+              "minor": 2,
+              "major": 10
+            },
+            "package": "Debian 1:10.2.1+ds-1ubuntu3.2"
+          },
+          "capabilities": [
+            "oob"
+          ]
+        }
+      },
+      "qmp_events": [
+        {
+          "timestamp": {
+            "seconds": 1789362911,
+            "microseconds": 229877
+          },
+          "event": "RESUME"
+        },
+        {
+          "timestamp": {
+            "seconds": 1789362914,
+            "microseconds": 720378
+          },
+          "event": "STOP"
+        },
+        {
+          "timestamp": {
+            "seconds": 1789362914,
+            "microseconds": 724208
+          },
+          "event": "RESUME"
+        },
+        {
+          "timestamp": {
+            "seconds": 1789362915,
+            "microseconds": 136188
+          },
+          "event": "SHUTDOWN",
+          "data": {
+            "guest": false,
+            "reason": "host-qmp-quit"
+          }
+        }
+      ],
+      "passed": true,
+      "qemu_exit_code": 0,
+      "qemu_process_reaped": true,
+      "finished_utc": "2026-09-14T05:15:15Z",
+      "check_count": 46
+    }
+  ],
+  "artifacts": {
+    "build/utamo-kernel.elf": {
+      "bytes": 166736,
+      "sha256": "cd1fb97cc4b3f8f924a52108e37bbbd8f7fab437286e04ea52200fed02c09e5b"
+    },
+    "build/utamo-os-0.1.0.iso": {
+      "bytes": 4038656,
+      "sha256": "658f2bf77d1c959bc6814535fb4c9f55bb03d2b0bc25be9af1f8691eec762dae"
+    }
+  },
+  "release_acceptance": {
+    "status": "accepted_by_user",
+    "date": "2026-09-14",
+    "source": "explicit user confirmation in release conversation",
+    "environment": "QEMU/VNC",
+    "checks": [
+      "PS/2 keyboard",
+      "character typing",
+      "Enter",
+      "Backspace",
+      "shell commands",
+      "clear",
+      "halt"
+    ],
+    "performed_by": "user",
+    "observed_by_agent": false,
+    "manual_image_hash": "not supplied",
+    "authorization": {
+      "main_from": "master",
+      "merge_from": "v0.1-dev",
+      "annotated_tag": "v0.1.0",
+      "remote": "https://github.com/zaureliu/UtamoOS.git",
+      "push": [
+        "main",
+        "v0.0.1",
+        "v0.1.0"
+      ],
+      "force_push": false
+    }
+  },
+  "release_preflight": {
+    "started_utc": "20260914T053306Z",
+    "baseline": "273e47634b113497cfb667a4c9de602420634e2c",
+    "steps": [
+      {
+        "name": "branch",
+        "command": [
+          "git",
+          "switch",
+          "v0.1-dev"
+        ],
+        "exit_code": 0
+      },
+      {
+        "name": "host-tests",
+        "command": [
+          "make",
+          "test-host"
+        ],
+        "exit_code": 0
+      },
+      {
+        "name": "clean",
+        "command": [
+          "make",
+          "clean"
+        ],
+        "exit_code": 0
+      },
+      {
+        "name": "kernel",
+        "command": [
+          "make",
+          "CROSS_COMPILE=<project>/toolchain/prefix/bin/x86_64-elf-",
+          "kernel"
+        ],
+        "exit_code": 0
+      },
+      {
+        "name": "inspect",
+        "command": [
+          "make",
+          "CROSS_COMPILE=<project>/toolchain/prefix/bin/x86_64-elf-",
+          "inspect"
+        ],
+        "exit_code": 0
+      },
+      {
+        "name": "iso",
+        "command": [
+          "make",
+          "CROSS_COMPILE=<project>/toolchain/prefix/bin/x86_64-elf-",
+          "iso"
+        ],
+        "exit_code": 0
+      },
+      {
+        "name": "artifact-types",
+        "command": [
+          "file",
+          "build/utamo-kernel.elf",
+          "build/utamo-os-0.1.0.iso"
+        ],
+        "exit_code": 0
+      }
+    ],
+    "artifacts": {
+      "build/utamo-kernel.elf": {
+        "bytes": 166736,
+        "sha256": "cd1fb97cc4b3f8f924a52108e37bbbd8f7fab437286e04ea52200fed02c09e5b"
+      },
+      "build/utamo-os-0.1.0.iso": {
+        "bytes": 4038656,
+        "sha256": "ca7b1c6bb3cd4904ef84366a5085dccc49ff528ac57f6a69a538e69c6b982776"
+      }
+    },
+    "head": "aba8f8b220449065d121ea74f13c1a07da06f9b0",
+    "git_status": "",
+    "manual_confirmation": "pending; no merge, release tag, remote configuration or push performed",
+    "note": "Historical pre-confirmation check; release_acceptance records subsequent user approval."
+  },
+  "public_record_note": "Absolute local project paths normalized to <project>; counts, hashes and observations preserved. Original run-level pending_manual fields describe their historical execution; release_acceptance records later maintainer confirmation.",
+  "public_preparation_validation": {
+    "date": "2026-09-14",
+    "host_checks": 5214,
+    "elf_checks": 1303,
+    "qemu_checks": 126,
+    "total": 6643,
+    "failures": 0,
+    "steps": [
+      {
+        "name": "host",
+        "exit_code": 0
+      },
+      {
+        "name": "kernel",
+        "exit_code": 0
+      },
+      {
+        "name": "inspect",
+        "exit_code": 0
+      },
+      {
+        "name": "iso",
+        "exit_code": 0
+      },
+      {
+        "name": "iso-syntax",
+        "exit_code": 0
+      }
+    ],
+    "qemu_runs": [
+      {
+        "name": "public-boot-final",
+        "started_utc": "2026-09-14T05:52:15Z",
+        "finished_utc": "2026-09-14T05:52:19Z",
+        "check_count": 9,
+        "passed": true,
+        "qemu_exit_code": 0,
+        "qemu_process_reaped": true,
+        "iso_sha256": "10ef79dfe317e569868afd4aef25c52f7311dba4cd04085e97545c7164b4d63f",
+        "elf_sha256": "cd1fb97cc4b3f8f924a52108e37bbbd8f7fab437286e04ea52200fed02c09e5b"
+      },
+      {
+        "name": "public-ud2-final",
+        "started_utc": "2026-09-14T05:53:19Z",
+        "finished_utc": "2026-09-14T05:53:23Z",
+        "check_count": 37,
+        "passed": true,
+        "qemu_exit_code": 0,
+        "qemu_process_reaped": true,
+        "iso_sha256": "10ef79dfe317e569868afd4aef25c52f7311dba4cd04085e97545c7164b4d63f",
+        "elf_sha256": "cd1fb97cc4b3f8f924a52108e37bbbd8f7fab437286e04ea52200fed02c09e5b"
+      },
+      {
+        "name": "public-div0",
+        "started_utc": "2026-09-14T05:52:23Z",
+        "finished_utc": "2026-09-14T05:52:27Z",
+        "check_count": 34,
+        "passed": true,
+        "qemu_exit_code": 0,
+        "qemu_process_reaped": true,
+        "iso_sha256": "10ef79dfe317e569868afd4aef25c52f7311dba4cd04085e97545c7164b4d63f",
+        "elf_sha256": "cd1fb97cc4b3f8f924a52108e37bbbd8f7fab437286e04ea52200fed02c09e5b"
+      },
+      {
+        "name": "public-pf",
+        "started_utc": "2026-09-14T05:52:27Z",
+        "finished_utc": "2026-09-14T05:52:31Z",
+        "check_count": 46,
+        "passed": true,
+        "qemu_exit_code": 0,
+        "qemu_process_reaped": true,
+        "iso_sha256": "10ef79dfe317e569868afd4aef25c52f7311dba4cd04085e97545c7164b4d63f",
+        "elf_sha256": "cd1fb97cc4b3f8f924a52108e37bbbd8f7fab437286e04ea52200fed02c09e5b"
+      }
+    ],
+    "artifacts": {
+      "build/utamo-kernel.elf": {
+        "bytes": 166736,
+        "sha256": "cd1fb97cc4b3f8f924a52108e37bbbd8f7fab437286e04ea52200fed02c09e5b"
+      },
+      "build/utamo-os-0.1.0.iso": {
+        "bytes": 4038656,
+        "sha256": "10ef79dfe317e569868afd4aef25c52f7311dba4cd04085e97545c7164b4d63f"
+      }
+    },
+    "note": "Repeated acceptance matrix, not additional checks added to the historical total. A prior project VNC VM was closed before headless runs; initial refusal and intermediate UD2 run are retained in local logs. No kernel changes."
+  }
+}

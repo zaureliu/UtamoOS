@@ -14,7 +14,10 @@ enum log_level {
     UTAMO_LOG_DEBUG
 };
 
-/* Bootstrap only: one CPU, IF=0, non-reentrant, no callback may log. */
+/* Register sinks only during bootstrap with IF=0. Afterward main-context
+ * output may be interrupted: IRQ drivers NEVER log or touch these sinks.
+ * No SMP, recursive callbacks or sink mutation during output. Fatal CPU
+ * exceptions use a separate serial-first path and never resume this logger. */
 bool log_add_sink(format_emit_fn emit, void *context);
 void kvprintf(const char *format, va_list args);
 void kprintf(const char *format, ...);
