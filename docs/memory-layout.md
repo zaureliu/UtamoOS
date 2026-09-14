@@ -75,3 +75,11 @@ Logo, permissões dos segmentos e probes RO/NX não demonstram W^X global.
 
 A etapa v0.3 introduzirá kernel heap; revisão dos aliases, guard pages,
 recuperação de tabelas, processos e TLB shootdown exigem trabalho separado.
+
+## v0.7 MMIO window
+
+PCI devices use supervisor UC mappings in the 4 MiB window beginning at
+0xffffc00080000000, beyond the existing heap/thread arenas. Ordinary RAM
+map/protect/unmap operations reject this window. Physical RAM/HHDM types are
+never admitted as device apertures. Mappings and table frames remain permanent.
+See [storage](storage.md) for PAT validation and DMA ownership.

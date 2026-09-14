@@ -1,0 +1,385 @@
+{
+  "version": "0.7.0",
+  "status": "GREEN; local unreleased milestone",
+  "last_known_good_commit": "0cfca41fadfb298297bd740a347bc3dfcb022ebe",
+  "candidate_directory": "validation-artifacts/astra-v07-candidate-20260914T134705Z",
+  "final_directory": "validation-artifacts/astra-v07-final-20260914T140308Z",
+  "host_checks": 30022,
+  "elf_checks": 1916,
+  "candidate_qemu_checks": 12202,
+  "final_qemu_checks": 403,
+  "candidate_vm_runs": 34,
+  "final_vm_runs": 3,
+  "passed_vm_runs": 37,
+  "attempted_vm_runs_including_incremental": 40,
+  "gate_failures": 0,
+  "historical_failed_attempts": [
+    {
+      "name": "astra-v07-disk-first",
+      "kind": "QEMU launch refusal",
+      "root_cause": "ide-hd does not accept a readonly block node",
+      "resolution": "snapshot overlay in build/tests; base opened readonly",
+      "reaped": true,
+      "counted_in_passing_gate": false
+    },
+    {
+      "name": "astra-v07-gate-disk-64M (first candidate)",
+      "kind": "native test expectation",
+      "root_cause": "SEEK returns the resulting offset; test expected zero at offset 2040",
+      "resolution": "Expected 2040 and added source-line diagnostics; no kernel ABI change",
+      "reaped": true,
+      "counted_in_passing_gate": false
+    }
+  ],
+  "preliminary_passing_run_excluded": "astra-v07-disk-snapshot",
+  "elf_sha256": "8c3e2be8b8552379045e074744c900b1cbaab28d82673220d11c12dd545256d4",
+  "iso_sha256": "c76e6a542bff80124bee3c36de8ba1a1230f7605d27f3a711cf0e8c9d3b1f5a6",
+  "initramfs_sha256": "3eb6bb58373e4e6ed559537b39fe423046c8d233ab0323ccc1f14a3a37b2eda4",
+  "binary_comparison": {
+    "kernel_identical_sections": {
+      ".text": true,
+      ".data": true,
+      ".limine_requests": true
+    },
+    "rodata_changed_bytes": 1,
+    "userspace_identical_complete_elf": {
+      "init": true,
+      "hello": true,
+      "echo": true,
+      "sysinfo": true,
+      "filetest": true,
+      "badptr": true,
+      "diskread": true
+    },
+    "initramfs_identical": true
+  },
+  "candidate_matrix": [
+    {
+      "name": "astra-v07-gate-disk-64M",
+      "exit": 0,
+      "checks": 179,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-disk-256M",
+      "exit": 0,
+      "checks": 179,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-disk-512M",
+      "exit": 0,
+      "checks": 179,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-disk-no-nx",
+      "exit": 0,
+      "checks": 175,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-bad-bpb",
+      "exit": 0,
+      "checks": 30,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-root-loop",
+      "exit": 0,
+      "checks": 30,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-file-loop",
+      "exit": 0,
+      "checks": 30,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-bad-cluster",
+      "exit": 0,
+      "checks": 30,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-cross-link",
+      "exit": 0,
+      "checks": 30,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-mirror-mismatch",
+      "exit": 0,
+      "checks": 30,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-no-disk",
+      "exit": 0,
+      "checks": 17,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-fs-64M",
+      "exit": 0,
+      "checks": 307,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-fs-256M",
+      "exit": 0,
+      "checks": 307,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-fs-512M",
+      "exit": 0,
+      "checks": 307,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-fs-no-nx",
+      "exit": 0,
+      "checks": 110,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-process-64M",
+      "exit": 0,
+      "checks": 2286,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-process-256M",
+      "exit": 0,
+      "checks": 2286,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-process-512M",
+      "exit": 0,
+      "checks": 2286,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-process-no-nx",
+      "exit": 0,
+      "checks": 783,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-scheduler",
+      "exit": 0,
+      "checks": 1191,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-heap",
+      "exit": 0,
+      "checks": 639,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-memory",
+      "exit": 0,
+      "checks": 301,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-fault-vmm",
+      "exit": 0,
+      "checks": 43,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-fault-ro",
+      "exit": 0,
+      "checks": 49,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-fault-nx",
+      "exit": 0,
+      "checks": 49,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-fault-pf",
+      "exit": 0,
+      "checks": 43,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-fault-stack",
+      "exit": 0,
+      "checks": 43,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-legacy-fault-ud2",
+      "exit": 0,
+      "checks": 32,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-legacy-fault-div0",
+      "exit": 0,
+      "checks": 32,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-legacy-fault-pf",
+      "exit": 0,
+      "checks": 44,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-legacy-shell",
+      "exit": 0,
+      "checks": 38,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-gdb-fault-ud2",
+      "exit": 0,
+      "checks": 35,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-gdb-fault-div0",
+      "exit": 0,
+      "checks": 35,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-gate-gdb-fault-pf",
+      "exit": 0,
+      "checks": 47,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    }
+  ],
+  "final_matrix": [
+    {
+      "name": "astra-v07-final-disk",
+      "exit": 0,
+      "checks": 179,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-final-no-nx",
+      "exit": 0,
+      "checks": 175,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v07-final-ro",
+      "exit": 0,
+      "checks": 49,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    }
+  ],
+  "supplemental_sanitizers": {
+    "fat32": 3799,
+    "storage_core": 92,
+    "ahci_driver_scenarios": 11,
+    "failures": 0,
+    "counted_in_total": false
+  },
+  "validation_note": "Final clean host/ELF counted once plus full candidate QEMU matrix and three final-stamp confirmations. The full RAM matrix was not repeated after stamping. Kernel text/data/requests and all complete user ELFs/initramfs are identical; only one kernel rodata version byte changed. Earlier failed and preliminary attempts are retained separately. Assertions are not unique tests or coverage.",
+  "iso_path": "build/utamo-os-0.7.0.iso",
+  "elf_path": "build/utamo-kernel.elf",
+  "qemu_checks": 12605,
+  "total_checks": 44543,
+  "storage_stress": {
+    "runs": 18,
+    "imports": 162,
+    "checked_imports": 144
+  },
+  "embedded_probe_stress": {
+    "runs": 9,
+    "created": 360,
+    "reaped": 360,
+    "faults": 117,
+    "syscalls": 2951100
+  },
+  "elf_stress": {
+    "runs": 9,
+    "created_reaped": 315
+  },
+  "fixture_hashes_preserved": true
+}

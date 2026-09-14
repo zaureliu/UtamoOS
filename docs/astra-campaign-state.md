@@ -6,17 +6,17 @@ main, release or public tag is authorized during the campaign.
 | Field | Current value |
 | --- | --- |
 | Current milestone | v0.7.0 — PCI, block layer, AHCI and FAT32 |
-| Current status | CANDIDATE GATE PASSED; 34 VMs, 12,202 QEMU checks; final version confirmation pending |
-| Highest GREEN milestone | v0.6.0 — VFS, initramfs and native ELF userspace |
-| Last known good commit | `c5b2a915422df7c6d71e353335e6fc812225ea62` |
-| Kernel version | 0.6.0; advance only after the next milestone passes |
-| Last known good ELF SHA-256 | `ee6dd92b975e294d857323629e5d9297d4ed3a004e0c28ebb05ddb4cc46fe0ec` |
-| Last known good ISO SHA-256 | `cef89221c9df0b0cb6328240db3292a2d76188878b9895f83c0b7a6e28a1de1b` |
-| Host validation | v0.6 final: 25,926 checks, 0 failures |
-| ELF validation | v0.6 final: 1,843 checks, 0 failures (kernel and six native ELFs) |
-| QEMU validation | 11,293 candidate + 466 final checks; 26 passing VMs reaped; one corrected historical harness timeout |
-| Known blockers | None observed at the completed v0.6 gate |
-| Next task | Run the clean v0.7 gate, RAM/NX matrix, corrupt media and existing regressions; audit before promotion |
+| Current status | GREEN; final clean build and both QEMU phases passed; networking is next |
+| Highest GREEN milestone | v0.7.0 — PCI, readonly AHCI/block and FAT32 |
+| Last known good commit | `0cfca41fadfb298297bd740a347bc3dfcb022ebe` |
+| Kernel version | 0.7.0; advance only after the next milestone passes |
+| Last known good ELF SHA-256 | `8c3e2be8b8552379045e074744c900b1cbaab28d82673220d11c12dd545256d4` |
+| Last known good ISO SHA-256 | `c76e6a542bff80124bee3c36de8ba1a1230f7605d27f3a711cf0e8c9d3b1f5a6` |
+| Host validation | v0.7 final: 30,022 checks, 0 failures |
+| ELF validation | v0.7 final: 1,916 checks, 0 failures (kernel and seven native ELFs) |
+| QEMU validation | 12,202 candidate + 403 final checks; 37 passing gate VMs reaped; historical attempts retained separately |
+| Known blockers | None observed at the completed v0.7 gate |
+| Next task | Begin v0.8 E1000, Ethernet, ARP, IPv4, ICMP, UDP, DHCP and DNS with local network fixtures |
 
 ## Last known good history
 
@@ -27,6 +27,7 @@ main, release or public tag is authorized during the campaign.
 | v0.4.0 | GREEN, 2026-09-14 | `7e07719f2207fca29de4c7bafcaa296d2dd30b8a` | `validation-artifacts/astra-v04-final-20260914T084853Z/summary.json` |
 | v0.5.0 | GREEN, 2026-09-14 | `4f303c8aeca26051f4affe92b0ba5af4e2296026` | `validation-artifacts/astra-v05-final-20260914T101644Z/summary.json` |
 | v0.6.0 | GREEN, 2026-09-14 | `c5b2a915422df7c6d71e353335e6fc812225ea62` | `validation-artifacts/astra-v06-final-20260914T130610Z/summary.json` |
+| v0.7.0 | GREEN, 2026-09-14 | `0cfca41fadfb298297bd740a347bc3dfcb022ebe` | `validation-artifacts/astra-v07-final-20260914T140308Z/summary.json` |
 
 Baseline was rebuilt from a clean build directory before campaign edits:
 host, cross kernel, ELF/ABI, ISO and the full existing headless matrix passed.
@@ -148,3 +149,29 @@ probe stress remains separately counted. See validation-astra-v0.6.json for
 phases, hashes, counts and history, and audit-astra-v0.6.md for the review.
 The frozen v0.6 ELF, ISO, archive and user binaries are in
 validation-artifacts/astra-last-known-good/v0.6.0/.
+
+## v0.7 gate evidence
+
+PCI/MMIO/AHCI work was committed in 7a3cb94; FAT32/VFS/native disk validation
+in bb054e1. Commit 0cfca41 stamps the gated implementation as 0.7.0.
+
+Final clean host/ELF passed 30,022 / 1,916 assertions. The full candidate matrix
+passed 12,202 QEMU assertions in 34 VMs. Final storage, NX-off and RO-fault
+checks added 403 in three VMs. Passing total: 44,543, zero gate failures;
+37 passing gate VMs were reaped. All seven disk bases retained their hashes.
+
+One initial QEMU launch refused a readonly ATA block node; a project-local
+snapshot overlay solved it. One first-candidate native assertion expected the
+wrong SEEK return value and was corrected without changing the ABI. One
+preliminary passing VM is excluded. All 40 attempted VMs were reaped and their
+evidence is retained. Earlier GREEN checkpoints remain untouched.
+
+Kernel text/data/requests, seven complete userspace ELFs and initramfs are
+identical across stamping. Kernel rodata differs by the one version byte.
+The full RAM matrix was not repeated after stamping; host/ELF count once.
+
+Eighteen storage stress commands performed 162 imports (144 checked plus
+18 warmups). VFS/ELF stress created/reaped 315 processes; embedded probe stress
+created/reaped 360 and contained 117 user faults. Startup/explicit exec checks
+are separate. See validation-astra-v0.7.json and audit-astra-v0.7.md.
+Frozen artifacts: validation-artifacts/astra-last-known-good/v0.7.0/.

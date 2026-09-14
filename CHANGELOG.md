@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.7.0 (unreleased)
+
+GREEN local at 0cfca41fadfb298297bd740a347bc3dfcb022ebe; no push, merge or tag.
+
+### Added
+
+- Generic PCI enumeration/BAR decoding and bootstrap BAR sizing with restoration.
+- Dedicated supervisor UC MMIO mappings and bounded readonly AHCI DMA.
+- Bounds-checked block reads and transactional FAT32 snapshot import at /disk.
+- Short-name root/subdirectories, corruption rejection and readonly cached VFS mounts.
+- lspci/storage/disktest diagnostics and native Ring 3 diskread validation.
+
+### Validation and limits
+
+Final clean host/ELF: 30,022 / 1,916. Candidate QEMU: 12,202 in 34 VMs;
+final confirmation: 403 in three VMs. Passing total 44,543, zero gate failures.
+All 37 gate VMs were reaped. One preliminary pass and two historical failures
+remain separate (40 total attempts). Runtime sections, seven complete user ELFs
+and initramfs match across stamping; only one kernel version byte changed.
+
+Eighteen storage stress runs performed 162 fresh imports, with exact snapshot
+and allocator comparisons. Single-disk 512-byte LBA48 reads only; no storage
+writes, partition discovery, hotplug or recovery. FAT32 is a bounded immutable
+8.3 cache, not a full compatibility implementation. Ambiguous DMA failures
+quarantine the owned pages. See [storage](docs/storage.md),
+[the audit](docs/audit-astra-v0.7.md) and [evidence](docs/validation-astra-v0.7.json).
+
 ## v0.6.0 (unreleased)
 
 GREEN local at c5b2a915422df7c6d71e353335e6fc812225ea62; no push, merge or tag.

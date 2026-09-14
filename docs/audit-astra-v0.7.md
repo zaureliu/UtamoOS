@@ -1,7 +1,7 @@
 # Astra v0.7 storage audit
 
 Status: implementation review and clean candidate gate passed (34 headless VMs,
-12,202 QEMU assertions). Final version confirmation follows. This is
+12,202 QEMU assertions). Final version confirmation passed in three additional VMs (403 checks). This is
 a local single-BSP/Q35 acceptance scope, not a physical hardware certification.
 
 ## Reviewed ownership and boundaries
@@ -86,3 +86,10 @@ IOMMU/SMP and the earlier native userspace ABI limits remain documented.
 Quarantined DMA is an explicit reservation after hardware failure, not a
 successful cleanup claim. UEFI, physical SATA devices and visual acceptance
 remain separate manual work.
+
+Final clean host/ELF plus both QEMU phases total 44,543 passing assertions.
+The 37 gate VMs passed and were reaped; 40 total attempts include one preliminary
+pass and two historical failures outside the passing totals. The one-byte
+version change leaves kernel runtime sections, seven user ELFs and initramfs
+otherwise identical. All seven disk bases match their pre-VM fixture hashes.
+The full matrix was not repeated after stamping. See validation-astra-v0.7.json.

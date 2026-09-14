@@ -43,3 +43,11 @@ userspace shell is claimed. The existing keyboard consumer and kernel shell rema
 `make initramfs` packs separately linked ELF files and fixed /etc content using
 Python's standard library. Archive order, inode numbers, modes, uid/gid and
 timestamps are deterministic. `make iso` places that archive on the ISO.
+
+## v0.7 extension
+
+The root initramfs remains immutable. Up to three additional verified top-level
+subtrees can be published before PID 1, without shadowing or unmounting.
+Readonly FAT32 is imported through block reads into a bounded cache at /disk;
+open descriptors keep stable nodes and use the existing offset/copy contracts.
+See [storage](storage.md) for ownership and format limits.

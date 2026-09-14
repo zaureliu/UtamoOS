@@ -43,3 +43,9 @@ The headless filesystem suite observes an actual ELF entry through GDB, tests
 filesystem behavior through the PS/2 shell, executes hostile-pointer programs and
 compares process/PMM/heap accounting across repeated lifetimes. These are separate
 from manual visual, physical keyboard, UEFI and real hardware acceptance.
+
+## v0.7 disk probe
+
+/bin/diskread is a seventh native ELF. With the supplied FAT32 fixture mounted,
+it checks every byte of the fragmented file through OPEN/READ/FSTAT, EOF, seek
+and failed user-copy rollback. FAT files remain readonly and non-executable.
