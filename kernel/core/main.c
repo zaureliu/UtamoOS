@@ -7,6 +7,7 @@
 #include <utamo/idt.h>
 #include <utamo/pic.h>
 #include <utamo/pit.h>
+#include <utamo/keyboard.h>
 #include <utamo/interrupts.h>
 #include <utamo/log.h>
 #include <utamo/panic.h>
@@ -76,7 +77,12 @@ _Noreturn void kernel_main(void)
     LOG_OK("PIC initialized");
     pit_init();
     LOG_OK("PIT timer initialized (100 Hz)");
+    if (!keyboard_init()) {
+        PANIC("Cannot initialize PS/2 keyboard");
+    }
+    LOG_OK("PS/2 keyboard initialized");
     pic_unmask(0);
+    pic_unmask(1);
     cpu_enable_interrupts();
     LOG_OK("Interrupts enabled");
     while (pit_get_ticks() < 5u) {

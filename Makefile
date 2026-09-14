@@ -137,13 +137,27 @@ $(PIT_TEST): $(PIT_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
 	@mkdir -p -- "$(@D)"
 	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(PIT_TEST_SOURCES) -o "$@"
 
-test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) $(PIT_TEST)
+INPUT_TEST := $(BUILD_DIR)/tests/utamo-input-tests
+INPUT_TEST_SOURCES := tests/test_input_shell.c kernel/input/input.c kernel/lib/shell_line.c kernel/lib/string.c
+$(INPUT_TEST): $(INPUT_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(INPUT_TEST_SOURCES) -o "$@"
+
+KEYBOARD_TEST := $(BUILD_DIR)/tests/utamo-keyboard-tests
+KEYBOARD_TEST_SOURCES := tests/test_keyboard.c kernel/input/input.c kernel/drivers/input/keyboard.c
+$(KEYBOARD_TEST): $(KEYBOARD_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(KEYBOARD_TEST_SOURCES) -o "$@"
+
+test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) $(PIT_TEST) $(INPUT_TEST) $(KEYBOARD_TEST)
 	"./$(HOST_TEST)"
 	"./$(VIDEO_TEST)"
 	"./$(GDT_TEST)"
 	"./$(INTERRUPT_TEST)"
 	"./$(PIC_TEST)"
 	"./$(PIT_TEST)"
+	"./$(INPUT_TEST)"
+	"./$(KEYBOARD_TEST)"
 
 inspect: $(KERNEL)
 	$(READELF) -h -l -S "$(KERNEL)"
