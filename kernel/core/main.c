@@ -12,6 +12,7 @@
 #include <utamo/interrupts.h>
 #include <utamo/log.h>
 #include <utamo/panic.h>
+#include <utamo/memory.h>
 #include <utamo/serial.h>
 #include <utamo/terminal.h>
 #include <utamo/version.h>
@@ -74,6 +75,9 @@ _Noreturn void kernel_main(void)
     }
     LOG_OK("IDT initialized");
     LOG_OK("CPU exception handlers initialized");
+    if (!memory_init(&boot_memory, &boot_framebuffer)) {
+        PANIC("Cannot initialize physical/virtual memory safely");
+    }
     pic_init();
     LOG_OK("PIC initialized");
     pit_init();

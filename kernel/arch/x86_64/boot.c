@@ -45,6 +45,22 @@ static volatile struct limine_paging_mode_request paging_request = {
     .min_mode = LIMINE_PAGING_MODE_X86_64_4LVL
 };
 
+_Static_assert(sizeof(struct limine_hhdm_request) == 48, "HHDM request ABI");
+_Static_assert(sizeof(struct limine_hhdm_response) == 16, "HHDM response ABI");
+_Static_assert(sizeof(struct limine_executable_address_response) == 24,
+               "executable address ABI");
+_Static_assert(offsetof(struct limine_executable_address_request, response) == 40,
+               "executable address response pointer ABI");
+
+__attribute__((used, section(".limine_requests"), aligned(8)))
+static volatile struct limine_hhdm_request hhdm_request = {
+    .id = LIMINE_HHDM_REQUEST, .revision = 0, .response = NULL
+};
+__attribute__((used, section(".limine_requests"), aligned(8)))
+static volatile struct limine_executable_address_request address_request = {
+    .id = LIMINE_EXECUTABLE_ADDRESS_REQUEST, .revision = 0, .response = NULL
+};
+
 __attribute__((used, section(".limine_requests_end"), aligned(8)))
 static volatile LIMINE_REQUESTS_END_MARKER
 
@@ -138,4 +154,19 @@ bool boot_read_memory_map(struct memory_map *map)
         }
     }
     return map->count != 0;
+}
+
+bool boot_read_memory_layout(struct boot_memory_layout *out)
+{
+    const struct limine_hhdm_response *hhdm = hhdm_request.response;
+    const struct limine_executable_address_response *address = address_request.response;
+    if (out == NULL || hhdm == NULL || address == NULL) {
+        return false;
+    }
+    *out = (struct boot_memory_layout){
+        .hhdm_offset = hhdm->offset,
+        .kernel_phys = address->physical_base,
+        .kernel_virt = address->virtual_base
+    };
+    return true;
 }

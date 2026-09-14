@@ -146,4 +146,29 @@ struct limine_paging_mode_request {
     uint64_t min_mode;
 };
 
+/* Additional v8.7.0 API revision 2 features used by UTAMO v0.2. */
+#define LIMINE_HHDM_REQUEST \
+    { LIMINE_COMMON_MAGIC, 0x48dcf1cb8ad2b852, 0x63984e959a98244b }
+struct limine_hhdm_response {
+    uint64_t revision;
+    uint64_t offset;
+};
+struct limine_hhdm_request {
+    uint64_t id[4];
+    uint64_t revision;
+    struct limine_hhdm_response *response;
+};
+#define LIMINE_EXECUTABLE_ADDRESS_REQUEST \
+    { LIMINE_COMMON_MAGIC, 0x71ba76863cc55f63, 0xb2644a48c516a487 }
+struct limine_executable_address_response {
+    uint64_t revision;
+    uint64_t physical_base;
+    uint64_t virtual_base;
+};
+struct limine_executable_address_request {
+    uint64_t id[4];
+    uint64_t revision;
+    struct limine_executable_address_response *response;
+};
+
 #endif

@@ -12,4 +12,12 @@ bool boot_paging_supported(void);
 bool boot_init_framebuffer(struct framebuffer *framebuffer);
 bool boot_read_memory_map(struct memory_map *map);
 
+struct boot_memory_layout {
+    uint64_t hhdm_offset;
+    uint64_t kernel_phys;
+    uint64_t kernel_virt;
+};
+/* Copy request responses; callers validate ranges against the copied map. */
+bool boot_read_memory_layout(struct boot_memory_layout *out);
+
 #endif
