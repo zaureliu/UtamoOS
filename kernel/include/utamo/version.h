@@ -2,7 +2,7 @@
 #ifndef UTAMO_VERSION_H
 #define UTAMO_VERSION_H
 
-#define UTAMO_VERSION "0.5.0"
+#define UTAMO_VERSION "0.6.0"
 #define UTAMO_KERNEL_NAME "utamo-kernel"
 
 #endif
