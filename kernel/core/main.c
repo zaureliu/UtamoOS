@@ -5,6 +5,8 @@
 #include <utamo/kernel.h>
 #include <utamo/gdt.h>
 #include <utamo/idt.h>
+#include <utamo/pic.h>
+#include <utamo/pit.h>
 #include <utamo/interrupts.h>
 #include <utamo/log.h>
 #include <utamo/panic.h>
@@ -70,8 +72,20 @@ _Noreturn void kernel_main(void)
     }
     LOG_OK("IDT initialized");
     LOG_OK("CPU exception handlers initialized");
-    kprintf("\nWelcome to UTAMO OS.\n\n");
-    kprintf("System halted safely.\n");
-    kprintf("==============================================\n");
-    cpu_halt();
+    pic_init();
+    LOG_OK("PIC initialized");
+    pit_init();
+    LOG_OK("PIT timer initialized (100 Hz)");
+    pic_unmask(0);
+    cpu_enable_interrupts();
+    LOG_OK("Interrupts enabled");
+    while (pit_get_ticks() < 5u) {
+        cpu_disable_interrupts();
+        cpu_wait_interrupt();
+    }
+    LOG_OK("PIT ticks observed: %llu", (unsigned long long)pit_get_ticks());
+    for (;;) {
+        cpu_disable_interrupts();
+        cpu_wait_interrupt();
+    }
 }

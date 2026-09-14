@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 #include <utamo/cpu.h>
+#include <utamo/irq.h>
+#include <utamo/pic.h>
 #include <utamo/interrupts.h>
 #include <utamo/serial.h>
 #include <utamo/terminal.h>
@@ -19,6 +21,11 @@ void exception_set_terminal(struct terminal *term)
 void interrupt_dispatch(struct interrupt_frame *frame)
 {
     cpu_disable_interrupts();
+    if (frame->vector >= UTAMO_PIC_VECTOR_BASE &&
+        frame->vector < UTAMO_PIC_VECTOR_BASE + UTAMO_PIC_IRQ_COUNT) {
+        irq_dispatch((uint8_t)(frame->vector - UTAMO_PIC_VECTOR_BASE));
+        return;
+    }
     if (exception_active) {
         if (!recursive_active) {
             recursive_active = true;

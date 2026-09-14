@@ -125,11 +125,25 @@ $(INTERRUPT_TEST): $(INTERRUPT_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-bu
 	@mkdir -p -- "$(@D)"
 	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(INTERRUPT_TEST_SOURCES) -o "$@"
 
-test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST)
+PIC_TEST := $(BUILD_DIR)/tests/utamo-pic-tests
+PIC_TEST_SOURCES := tests/test_pic.c kernel/arch/x86_64/pic.c
+$(PIC_TEST): $(PIC_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(PIC_TEST_SOURCES) -o "$@"
+
+PIT_TEST := $(BUILD_DIR)/tests/utamo-pit-tests
+PIT_TEST_SOURCES := tests/test_pit.c kernel/drivers/timer/pit.c kernel/drivers/timer/pit_time.c
+$(PIT_TEST): $(PIT_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(PIT_TEST_SOURCES) -o "$@"
+
+test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) $(PIT_TEST)
 	"./$(HOST_TEST)"
 	"./$(VIDEO_TEST)"
 	"./$(GDT_TEST)"
 	"./$(INTERRUPT_TEST)"
+	"./$(PIC_TEST)"
+	"./$(PIT_TEST)"
 
 inspect: $(KERNEL)
 	$(READELF) -h -l -S "$(KERNEL)"
