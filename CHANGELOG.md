@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.8.0 (unreleased)
+
+The clean candidate gate passed: 36,527 host, 1,987 kernel/native ELF and
+13,551 QEMU assertions in 40 headless VMs. Final version confirmation follows
+the local promotion commit. No push, main merge, release or tag.
+
+### Added
+
+- Bounded E1000 DMA rings, supervisor UC MMIO and retained quarantine ownership.
+- Ethernet, ARP, IPv4, ICMP echo and checked UDP request/reply transactions.
+- DHCP configuration learned from packets and bounded DNS A/CNAME resolution.
+- Kernel netinfo/dhcp/ping/resolve/nettest commands and a loopback-only fixture.
+- Packet capture evidence, link recovery, absent NIC and RAM/NX/subnet/MAC gates.
+
+### Limits
+
+Single owning thread and explicit polling; no IPv4 options/fragments, automatic
+DHCP renewal, userspace sockets, TCP or HTTP. Published DMA stays reserved.
+See [networking](docs/networking.md) and [the audit](docs/audit-astra-v0.8.md).
+
 ## v0.7.0 (unreleased)
 
 GREEN local at 0cfca41fadfb298297bd740a347bc3dfcb022ebe; no push, merge or tag.
