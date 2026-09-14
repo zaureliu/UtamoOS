@@ -6,17 +6,17 @@ main, release or public tag is authorized during the campaign.
 | Field | Current value |
 | --- | --- |
 | Current milestone | v0.4.0 — Kernel threads and preemptive scheduler |
-| Current status | PLANNING; no v0.4 gate claimed |
+| Current status | IMPLEMENTED; candidate matrix running, no v0.4 GREEN claim |
 | Highest GREEN milestone | v0.3.0 — Kernel Heap |
 | Last known good commit | `2fb66be740ed8c153b3d733fc1d16bc978f2364f` |
 | Kernel version | 0.3.0; advance only after the next milestone passes |
-| Kernel ELF SHA-256 | `e8b103f7632c6fa04186db0b6034d3a223babd5187abe04a91d8c2806d3bcff6` |
-| ISO SHA-256 | `67040ab6949cfe343e212a74b9750cd1b03c2f489afb52ea3f5a35e69ed4b111` |
+| Last known good ELF SHA-256 | `e8b103f7632c6fa04186db0b6034d3a223babd5187abe04a91d8c2806d3bcff6` |
+| Last known good ISO SHA-256 | `67040ab6949cfe343e212a74b9750cd1b03c2f489afb52ea3f5a35e69ed4b111` |
 | Host validation | v0.3 final: 18,994 checks, 0 failures |
 | ELF validation | v0.3 final: 1,482 checks, 0 failures |
 | QEMU validation | v0.3 final: 3,203 checks, 0 failures; 14 sequential VMs reaped |
 | Known blockers | None observed at the v0.3 gate |
-| Next task | Plan kernel-thread context switching and scheduler contracts against the preserved v0.3 baseline |
+| Next task | Complete RAM/NX and regression matrix, then commit and validate the v0.4 version stamp |
 
 ## Last known good history
 
@@ -60,3 +60,20 @@ networking v0.8 begin only after all prerequisites pass. No GUI, SMP, USB or aud
 - Existing cross compiler, Binutils, NASM and Limine are reused without updates.
 - All QEMU runs are headless, bounded, sequential and explicitly reaped.
 - Manual/visual, UEFI and physical hardware acceptance remain separate evidence.
+
+
+## v0.4 work in progress
+
+Kernel threads, guarded stacks, round-robin preemption, sleep/wakeup, deferred
+reaping and diagnostic shell commands are implemented locally. Candidate host
+validation passed 22,794 checks and ELF/ABI inspection passed 1,563 checks.
+The 256 MiB and 64 MiB scheduler suites each passed 1,191 headless checks;
+the remaining RAM/NX and regression matrix is still pending. This does not
+promote v0.4 or replace the v0.3 last-known-good commit.
+
+During review, thread-name validation was moved into its IF-protected copy
+transaction; fatal console output was kept independent of scheduler integrity.
+New stack fixtures aggregate repeated callback/empty-slot checks per scenario:
+1,096 assertions still inspect all original cases, pages and bytes. No existing
+v0.3 test was removed. Full raw runs, including the earlier verbose assertion
+count, remain under validation-artifacts/thread-stack-agent/.
