@@ -3,13 +3,14 @@
 UTAMO OS is an experimental x86_64 operating system built from scratch in C17
 and NASM Assembly for learning and exploring low-level operating-system development.
 
-![Version v0.1.0](https://img.shields.io/badge/version-v0.1.0-blue)
+![Development v0.2.0](https://img.shields.io/badge/development-v0.2.0-blue)
 [![License MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 ![Architecture x86_64](https://img.shields.io/badge/architecture-x86__64-lightgrey)
 
 | | |
 | --- | --- |
-| Current version | **v0.1.0** |
+| Development version | **v0.2.0** on `v0.2-dev` |
+| Latest public release | **v0.1.0** |
 | Architecture | x86_64 |
 | Kernel | Freestanding C17 + NASM Assembly |
 | Bootloader | Limine v8.7.0 |
@@ -22,63 +23,80 @@ UTAMO OS has its own kernel, boot entry, terminal, drivers and small
 freestanding library. It is not a Linux distribution and does not use the
 Linux kernel. Linux or WSL2 provides the development environment.
 
-The project explores real OSDev foundations incrementally: booting an ELF64
-kernel, handling CPU exceptions and hardware interrupts, and accepting keyboard
-input in a small kernel shell. The validated v0.0.1 baseline remains preserved
-in Git; v0.1.0 builds on that history.
+Development proceeds through preserved milestones. The public baseline is
+[v0.1.0](docs/releases/v0.1.0.md); this branch implements **v0.2.0 physical and
+virtual memory management**. It is awaiting maintainer acceptance and has not
+been tagged or published. Both existing baseline tags remain unchanged.
 
 ## Current Features
 
 - Limine boot integration and a higher-half x86_64 kernel.
 - Bitmap framebuffer terminal and COM1 serial logging.
-- Validated boot memory map with usable/reclaimable memory totals.
-- Own GDT, 64-bit TSS and IST stacks for critical exceptions.
-- IDT with 256 entries and Assembly interrupt stubs.
-- CPU exception handling with register context and serial-first diagnostics.
-- Page fault diagnostics: CR2 and error-code decoding.
-- Legacy PIC 8259 remapping, interrupt masks and EOI handling.
-- PIT timer at a nominal 100 Hz with monotonic ticks.
-- PS/2 keyboard, scancode decoding and buffered input.
-- Interactive kernel shell and an interrupt-driven idle loop.
+- Validated boot memory map, explicit HHDM translation and reserved-memory policy.
+- Own GDT, 64-bit TSS and IST stacks; 256-entry IDT and NASM interrupt stubs.
+- CPU exception context and serial-first page fault diagnostics with a VMM query.
+- Legacy PIC 8259, PIT at nominal 100 Hz and an interrupt-driven idle loop.
+- PS/2 keyboard, scancode decoding, buffered input and a kernel shell.
+- PMM with 4 KiB frames, dynamically placed eligibility/occupancy bitmaps,
+  contiguous allocation, checked free, accounting and permanent reservations.
+- Four-level VMM using the inherited CR3: map, unmap, query and protect;
+  PMM-owned intermediate tables, rollback on allocation failure and `invlpg`.
+- CPUID-based NX detection, NXE handling and primary kernel-section protections.
+- Controlled PMM/VMM stress tests and unmap, read-only and NX fault probes.
 
-Validation combines host tests, ELF/ABI inspection, headless QEMU and the
-maintainer's manual QEMU/VNC acceptance. Individual Double Fault, NMI and Machine
-Check delivery paths have not been deliberately triggered; their TSS/IST
-configuration is implemented and its layout is tested.
+New mappings use 4 KiB pages. Existing 2 MiB/1 GiB leaves are queried and
+preserved; they are never silently split. The public mapping API modifies only its
+reserved virtual arena. HHDM aliases retain bootloader permissions, so section
+protections do **not** establish global W^X.
+
+See [memory management](docs/memory-management.md) for ownership rules,
+CPU requirements and limits. Individual Double Fault, NMI and Machine Check
+delivery paths have not been deliberately triggered.
 
 ## Shell
 
-The prompt is `utamo>`. This is a shell inside the kernel; it does not run
+The prompt is `utamo>`. Commands execute inside the kernel; there are no
 userspace programs.
 
 | Command | Action |
 | --- | --- |
 | `help` | List implemented commands |
-| `clear` | Clear the framebuffer terminal and send clear/home to the serial terminal |
-| `version` | Print UTAMO OS 0.1.0 |
+| `clear` | Clear the framebuffer terminal and send clear/home to serial |
+| `version` | Print UTAMO OS 0.2.0 |
 | `sysinfo` | Show known boot, memory, framebuffer and timer information |
-| `mem` | Show boot memory-map totals, not allocator statistics |
+| `mem` | Show boot-map totals, PMM accounting and VMM configuration |
+| `pmm` | Show managed/used/free frames and bitmap storage |
+| `vmm` | Show CR3 root, HHDM, address width, NX and table accounting |
+| `mapinfo <hex-address>` | Query a canonical address without changing page tables |
+| `pmmtest` | Run bounded allocation, marker, free and accounting checks |
+| `vmmtest` | Exercise mapping, permissions, partial unmap and table reuse |
 | `uptime` | Show elapsed time estimated from PIT ticks |
 | `echo text` | Print the supplied text |
 | `halt` | Disable interrupts and stop the CPU |
 | `fault ud2` | Trigger an Invalid Opcode exception |
 | `fault div0` | Trigger a Divide Error exception |
-| `fault pf` | Trigger the controlled Page Fault probe |
+| `fault pf` | Trigger the original controlled Page Fault probe |
+| `fault vmm` | Trigger a Page Fault after mapping and unmapping a test page |
 
 `fault` commands are fatal diagnostic tests: restart the VM afterward.
-They never run automatically during normal boot. Input uses ASCII US scancodes;
-line length is bounded and there is no command history, quoting or piping.
+Read-only and NX probes are available through the headless debug harness, not
+as arbitrary page-table editing commands. No memory selftest or fatal probe
+runs automatically during normal boot.
+
+Input uses ASCII US scancodes; line length is bounded and there is no command
+history, quoting or piping. The first `vmmtest` retains its intermediate page
+tables; repeated runs reuse them. Data frames are released.
 
 ## Current Boot
 
-Recorded serial output from the v0.1.0 QEMU validation
-(256 MiB VM, 1024×768 framebuffer):
+Recorded serial output from the final v0.2.0 headless boot
+(256 MiB VM, 1024x768 framebuffer reported by Limine):
 
 ```text
 UTAMO OS
 Experimental x86_64 Operating System
 
-Version: 0.1.0
+Version: 0.2.0
 Architecture: x86_64
 
 [ OK    ] Limine boot protocol (base revision 3)
@@ -86,11 +104,20 @@ Architecture: x86_64
 [ OK    ] Framebuffer detected: 1024x768, 32 bpp
 [ OK    ] Terminal initialized
 [ OK    ] Serial COM1 initialized (115200 8N1)
-[ INFO  ] Memory map entries: 18
+[ INFO  ] Memory map entries: 16
 Total usable memory: 254 MiB
 [ OK    ] GDT initialized
 [ OK    ] IDT initialized
 [ OK    ] CPU exception handlers initialized
+[ OK    ] PMM initialized
+[ INFO  ] Physical frames: 65027
+[ INFO  ] Free frames: 65023
+[ INFO  ] PMM metadata: phys=0x53000, 16384 bytes
+[ OK    ] VMM initialized
+[ INFO  ] HHDM offset: 0xffff800000000000
+[ INFO  ] CR3 preserved: 0xff4c000; inherited table visits: 10
+[ INFO  ] NX supported: Yes; enabled: Yes
+[ INFO  ] Kernel section protections: applied
 [ OK    ] PIC initialized
 [ OK    ] PIT timer initialized (100 Hz)
 [ OK    ] PS/2 keyboard initialized
@@ -101,8 +128,8 @@ UTAMO OS ready.
 utamo>
 ```
 
-Memory totals and framebuffer dimensions depend on the boot environment.
-No screenshot is included yet; a real capture can be added after review.
+Memory totals and addresses depend on the boot environment. This is serial
+evidence; no screenshot or visual framebuffer result is implied.
 
 ## Architecture
 
@@ -118,13 +145,16 @@ UTAMO Kernel
   +-- PIC / PIT
   +-- PS/2 keyboard and input buffer
   +-- Framebuffer terminal / COM1
-  +-- Memory map
+  +-- Memory map / HHDM
+  +-- PMM: physical frames and reservations
+  +-- VMM: page tables, permissions and TLB
   +-- Kernel shell
 ```
 
 The current kernel runs on one CPU in ring 0. Interrupt handlers perform short
 hardware operations; input decoding and shell processing run in the main loop.
-See the [architecture](docs/architecture.md) and
+See [memory management](docs/memory-management.md), the
+[architecture](docs/architecture.md) and
 [interrupt frame documentation](docs/interrupts.md).
 
 ## Project Structure
@@ -137,7 +167,7 @@ kernel/
   input/        Input ring buffer and scancode decoder
   interrupts/   Exception diagnostics and IRQ dispatch
   lib/          Freestanding helpers and shell parser
-  memory/       Boot memory-map representation
+  memory/       Memory map, HHDM, PMM, VMM and bounded selftests
   include/      Internal kernel interfaces
 docs/           Architecture, development and release records
 tests/          Host tests and validation guides
@@ -175,7 +205,7 @@ make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" iso
 
 The native compiler is used only for host tests. The kernel must use the
 cross compiler. Outputs are `build/utamo-kernel.elf` and
-`build/utamo-os-0.1.0.iso`. `make clean` removes `build/`, including validation
+`build/utamo-os-0.2.0.iso`. `make clean` removes `build/`, including validation
 logs; archive any evidence you want to keep before cleaning.
 
 ## Running
@@ -185,7 +215,7 @@ For a bounded headless boot with serial output, after building the ISO:
 ```sh
 timeout --signal=TERM --kill-after=2s 30s \
   qemu-system-x86_64 -machine q35,accel=tcg -cpu qemu64 -m 256M -smp 1 \
-  -cdrom build/utamo-os-0.1.0.iso -boot d -display none \
+  -cdrom build/utamo-os-0.2.0.iso -boot d -display none \
   -serial stdio -monitor none -nic none -no-reboot -no-shutdown
 ```
 
@@ -205,29 +235,41 @@ Use a new `--name` for each run. The harness limits runtime and reaps its VM.
 Run one QEMU instance at a time.
 
 Serial is an output console; typing into the serial host terminal does not
-feed this PS/2 shell. Interactive keyboard acceptance was performed manually
-through QEMU/VNC. See [debugging](docs/debugging.md) for hardware inspection
-and controlled exception tests.
+feed this PS/2 shell. The headless memory harness
+feeds emulated PS/2 input using QMP, with serial as the primary evidence:
+
+```sh
+python3 scripts/test-memory-qemu.py --suite --name memory-local --ram 256M
+```
+
+This also exercises shell commands, selftests, editing and halt. See
+[debugging](docs/debugging.md) for controlled faults and the NX-disabled case.
+No window opens and no framebuffer capture is required.
 
 ## Testing
 
-The following results were recorded during v0.1.0 validation:
+The final v0.2.0 validation record is described in the
+[implementation report](docs/v0.2-implementation-report.md) and
+[machine-readable evidence](docs/validation-v0.2.json).
 
 | Validation | Checks | Failures |
 | --- | ---: | ---: |
-| Host tests | 5,214 | 0 |
-| ELF / ABI inspection | 1,303 | 0 |
-| QEMU headless | 126 | 0 |
-| **Total** | **6,643** | **0** |
+| Host tests | 11,224 | 0 |
+| ELF / ABI inspection | 1,439 | 0 |
+| QEMU headless | 1,550 | 0 |
+| **Total** | **14,213** | **0** |
 
-These are recorded results, not a guarantee for future builds or other
-hardware. The maintainer separately confirmed manual QEMU/VNC tests of PS/2
-input, character typing, Enter, Backspace, shell commands, `clear` and `halt`.
-Those manual checks are not added to the automated count.
+These counts describe recorded runs, not a guarantee for future builds or
+other hardware. All existing host checks remain in the suite. Baseline
+v0.1.0 was rebuilt successfully before implementation; its historical
+[6,643-check record](docs/validation-v0.1.json) remains separate.
 
-See the [test guide](tests/README.md),
-[implementation report](docs/v0.1-implementation-report.md) and
-[validation record](docs/validation-v0.1.json).
+The v0.2 matrix uses serial output, QMP PS/2 input and GDB in BIOS QEMU/TCG.
+Physical keyboard interaction, visual framebuffer review, UEFI and physical
+hardware acceptance for this milestone remain manual. The maintainer's earlier
+QEMU/VNC acceptance applies to v0.1.0.
+
+See the [test guide](tests/README.md) for coverage and reproduction commands.
 
 ## Roadmap
 
@@ -236,9 +278,9 @@ Future milestones describe planned work, not implemented features.
 | Version | Milestone |
 | --- | --- |
 | v0.0.1 | Initial boot — validated baseline |
-| v0.1.0 | Interrupts, keyboard and kernel shell |
-| v0.2.0 | Physical and virtual memory management |
-| v0.3.0 | Kernel heap |
+| v0.1.0 | Interrupts, keyboard and kernel shell - public baseline |
+| v0.2.0 | Physical and virtual memory management - implemented locally, awaiting acceptance |
+| v0.3.0 | Kernel heap - next planned milestone |
 | v0.4.0 | Threads and scheduler |
 | v0.5.0 | Ring 3, processes and syscalls |
 | v0.6.0 | VFS and userspace |
@@ -251,6 +293,7 @@ The [detailed roadmap](docs/roadmap.md) records dependencies and intermediate st
 
 ## Documentation
 
+- [Memory management](docs/memory-management.md) and [v0.2 implementation report](docs/v0.2-implementation-report.md)
 - [Architecture](docs/architecture.md)
 - [Development environment](docs/development-environment.md)
 - [Boot process](docs/boot-process.md) and [memory layout](docs/memory-layout.md)
@@ -274,7 +317,8 @@ Third-party notices and Limine provenance are documented in
 
 **UTAMO OS is experimental software and is not intended for production use.**
 
-There is no complete physical memory manager, own virtual memory manager,
-kernel heap, multitasking, processes, userspace, filesystem, networking or
-GUI/window manager yet. The framebuffer terminal is a text console, and the
-current shell runs in the kernel.
+PMM and the initial VMM are implemented. There is no kernel heap,
+multitasking, processes, userspace, filesystem, networking or GUI/window manager.
+The framebuffer terminal is a text console, and the current shell runs in the
+kernel. There is no SMP memory synchronization, page-table reclamation,
+bootloader-memory reclaim or global HHDM alias hardening yet.

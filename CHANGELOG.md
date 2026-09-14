@@ -1,5 +1,61 @@
 # Changelog
 
+## v0.2.0 (unreleased)
+
+Implemented locally on `v0.2-dev`; awaiting maintainer acceptance. No release
+tag, merge into `main` or push was performed for this milestone.
+
+### Added
+
+- Physical page-frame allocator for 4 KiB frames, contiguous next-fit allocation,
+  checked free, double-free rejection and explicit accounting.
+- Dynamically placed eligibility/occupancy bitmaps, permanent metadata/table
+  reservations and a USABLE-only allocation policy.
+- Validated Limine HHDM/executable-address requests and checked physical/virtual
+  translation; bootloader and ACPI memory remain reserved.
+- Four-level VMM on the inherited CR3: map, unmap, query and protect, with
+  PMM-owned table pages, failure rollback and per-page TLB invalidation.
+- Canonical-address, alignment, physical-width and page-entry validation.
+  Existing 2 MiB/1 GiB mappings are detected and preserved.
+- CPUID/NXE handling, CR0.WP enforcement and primary kernel-section permissions.
+- Allocation-free VMM context in the existing page-fault report.
+- Memory diagnostics: `mem`, `pmm`, `vmm`, `mapinfo`, `pmmtest`, `vmmtest`
+  and `fault vmm`; controlled read-only/NX probes for the debug harness.
+- Host fixtures, expanded ELF checks and a bounded headless memory test matrix.
+
+### Changed
+
+- Memory initialization runs after GDT/IDT and before PIC/drivers/STI.
+- Existing architecture, shell commands, interrupt ABI and strict warnings remain.
+- Version is 0.2.0 in the central kernel header; ISO naming remains derived.
+- The existing QEMU shell suite reads the expected kernel version instead of
+  hardcoding 0.1.0.
+- Memory contracts, debugging, roadmap and implementation evidence are documented.
+
+### Validation
+
+Baseline v0.1.0 passed 5,214 host and 1,303 ELF checks, kernel build and ISO
+generation before implementation. Final v0.2.0 results: **11,224 host,
+1,439 ELF/ABI and 1,550 headless QEMU checks; 14,213 checks, zero failures**.
+
+The 13 sequential QEMU runs used the same final ISO/ELF. They include memory
+suites with 64/256/512 MiB, a 64 MiB CPU without NX, controlled page faults,
+the original shell suite and exception regressions. Every VM was reaped.
+These are assertions across recorded runs, not a unique-test or coverage count.
+
+### Known limits
+
+- Single CPU, four-level paging; no heap, scheduler, userspace or other v0.3+ work.
+- Empty intermediate tables are retained; unmap does not free data frames.
+- No reclaim, page-table teardown or huge-page splitting.
+- Primary section permissions do not harden writable/executable HHDM aliases.
+- Maintainer acceptance of v0.2.0, visual framebuffer/physical keyboard review,
+  UEFI and physical hardware validation remain pending.
+
+See the [implementation report](docs/v0.2-implementation-report.md),
+[validation record](docs/validation-v0.2.json) and
+[memory-management guide](docs/memory-management.md).
+
 ## v0.1.0
 
 Released milestone: interrupts, keyboard and an interactive kernel shell.
