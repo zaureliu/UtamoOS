@@ -5,6 +5,7 @@
 #include <setjmp.h>
 #include <stdio.h>
 #include <utamo/cpu.h>
+#include <utamo/heap.h>
 #include <utamo/interrupts.h>
 #include <utamo/keyboard.h>
 #include <utamo/log.h>
@@ -28,6 +29,10 @@ static unsigned int backspaces;
 static unsigned int interrupt_disables;
 static uint64_t timer_ticks = 366123u;
 static jmp_buf stop_target;
+static bool heap_ready = true;
+static bool heap_valid = true;
+static bool heap_test_passes = true;
+static unsigned int heap_test_calls;
 static bool pmm_ready = true;
 static bool vmm_ready = true;
 static bool mock_mapped = true;
@@ -139,6 +144,31 @@ _Noreturn void exception_fault_page(void)
 _Noreturn void memory_fault_unmapped(void)
 {
     longjmp(stop_target, 5);
+}
+
+bool heap_get_stats(struct heap_stats *stats)
+{
+    if (!heap_ready) {
+        return false;
+    }
+    *stats = (struct heap_stats){
+        .mapped_bytes = 65536u, .used_bytes = 256u, .free_bytes = 65000u,
+        .overhead_bytes = 280u, .live_allocations = 2u, .allocations = 7u,
+        .frees = 5u, .peak_usage = 8192u, .failed_allocations = 3u,
+        .invalid_frees = 1u, .largest_free_bytes = 64000u
+    };
+    return true;
+}
+
+bool heap_validate(void)
+{
+    return heap_valid;
+}
+
+bool heap_selftest(void)
+{
+    ++heap_test_calls;
+    return heap_test_passes;
 }
 
 bool pmm_get_stats(struct pmm_stats *stats)
@@ -403,6 +433,39 @@ static void test_memory_commands(void)
     CHECK(contains("Usage: fault"));
 }
 
+static void test_heap_commands(void)
+{
+    issue("help\n");
+    CHECK(contains("heap     Kernel heap accounting"));
+    CHECK(contains("heaptest Bounded deterministic"));
+    issue("heap extra\n");
+    CHECK(contains("Unexpected arguments."));
+    issue("heap\n");
+    CHECK(contains("Kernel Heap\nHeap base: 0xffffc00001000000"));
+    CHECK(contains("Mapped bytes: 65536\nUsed bytes: 256\nFree bytes: 65000"));
+    CHECK(contains("Overhead bytes: 280\nLive allocations: 2"));
+    CHECK(contains("Allocations: 7\nFrees: 5\nPeak usage: 8192"));
+    CHECK(contains("Failed allocations: 3\nInvalid frees: 1"));
+    CHECK(contains("Largest free block: 64000"));
+    CHECK(contains("Heap integrity: OK"));
+    heap_valid = false;
+    issue("heap\n");
+    CHECK(contains("Heap integrity: FAILED") && !contains("Heap integrity: OK"));
+    heap_valid = true;
+    heap_ready = false;
+    issue("heap\n");
+    CHECK(contains("Kernel heap: unavailable") && !contains("Mapped bytes:"));
+    heap_ready = true;
+    issue("heaptest extra\n");
+    CHECK(contains("Unexpected arguments.") && heap_test_calls == 0u);
+    issue("heaptest\n");
+    CHECK(contains("Heap self-test: PASS") && heap_test_calls == 1u);
+    heap_test_passes = false;
+    issue("heaptest\n");
+    CHECK(contains("Heap self-test: FAIL") && heap_test_calls == 2u);
+    CHECK(contains("utamo> "));
+}
+
 static void test_stop(const char *command, int expected)
 {
     const int result = setjmp(stop_target);
@@ -427,6 +490,7 @@ int main(void)
 {
     test_commands();
     test_memory_commands();
+    test_heap_commands();
     test_stop("halt\n", 1);
     test_stop("fault ud2\n", 2);
     test_stop("fault div0\n", 3);

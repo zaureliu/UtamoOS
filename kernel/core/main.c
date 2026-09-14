@@ -4,6 +4,7 @@
 #include <utamo/cpu.h>
 #include <utamo/kernel.h>
 #include <utamo/gdt.h>
+#include <utamo/heap.h>
 #include <utamo/idt.h>
 #include <utamo/pic.h>
 #include <utamo/pit.h>
@@ -78,6 +79,10 @@ _Noreturn void kernel_main(void)
     if (!memory_init(&boot_memory, &boot_framebuffer)) {
         PANIC("Cannot initialize physical/virtual memory safely");
     }
+    if (!heap_init()) {
+        PANIC("Cannot initialize kernel heap");
+    }
+    LOG_OK("Kernel heap initialized");
     pic_init();
     LOG_OK("PIC initialized");
     pit_init();

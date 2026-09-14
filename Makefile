@@ -174,7 +174,19 @@ $(MEMORY_HELPER_TEST): $(MEMORY_HELPER_TEST_SOURCES) $(HOST_HEADERS) Makefile | 
 	@mkdir -p -- "$(@D)"
 	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(MEMORY_HELPER_TEST_SOURCES) -o "$@"
 
-test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) $(PIT_TEST) $(INPUT_TEST) $(KEYBOARD_TEST) $(SHELL_TEST) $(PMM_TEST) $(VMM_TEST) $(MEMORY_HELPER_TEST)
+HEAP_TEST := $(BUILD_DIR)/tests/utamo-heap-tests
+HEAP_TEST_SOURCES := tests/test_heap.c kernel/memory/heap_core.c kernel/lib/string.c
+$(HEAP_TEST): $(HEAP_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(HEAP_TEST_SOURCES) -o "$@"
+
+HEAP_PAGES_TEST := $(BUILD_DIR)/tests/utamo-heap-pages-tests
+HEAP_PAGES_TEST_SOURCES := tests/test_heap_pages.c kernel/memory/heap_pages.c kernel/memory/memory_helpers.c
+$(HEAP_PAGES_TEST): $(HEAP_PAGES_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(HEAP_PAGES_TEST_SOURCES) -o "$@"
+
+test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) $(PIT_TEST) $(INPUT_TEST) $(KEYBOARD_TEST) $(SHELL_TEST) $(PMM_TEST) $(VMM_TEST) $(MEMORY_HELPER_TEST) $(HEAP_TEST) $(HEAP_PAGES_TEST)
 	"./$(HOST_TEST)"
 	"./$(VIDEO_TEST)"
 	"./$(GDT_TEST)"
@@ -187,6 +199,8 @@ test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) 
 	"./$(PMM_TEST)"
 	"./$(VMM_TEST)"
 	"./$(MEMORY_HELPER_TEST)"
+	"./$(HEAP_TEST)"
+	"./$(HEAP_PAGES_TEST)"
 
 inspect: $(KERNEL)
 	$(READELF) -h -l -S "$(KERNEL)"

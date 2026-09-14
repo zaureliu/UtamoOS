@@ -2,6 +2,7 @@
 #include <utamo/shell.h>
 
 #include <utamo/cpu.h>
+#include <utamo/heap.h>
 #include <utamo/interrupts.h>
 #include <utamo/keyboard.h>
 #include <utamo/log.h>
@@ -116,6 +117,33 @@ static void show_mapping(char *arguments)
             (const char *)((mapping.flags & VMM_NX) != 0u ? "Yes" : "No"));
 }
 
+static void show_heap(void)
+{
+    struct heap_stats stats;
+    if (!heap_get_stats(&stats)) {
+        kprintf("Kernel heap: unavailable\n");
+        return;
+    }
+    kprintf("Kernel Heap\nHeap base: 0x%llx\n",
+            (unsigned long long)UTAMO_HEAP_BASE);
+    kprintf("Mapped bytes: %llu\nUsed bytes: %llu\nFree bytes: %llu\nOverhead bytes: %llu\n",
+            (unsigned long long)stats.mapped_bytes,
+            (unsigned long long)stats.used_bytes,
+            (unsigned long long)stats.free_bytes,
+            (unsigned long long)stats.overhead_bytes);
+    kprintf("Live allocations: %llu\nAllocations: %llu\nFrees: %llu\nPeak usage: %llu\n",
+            (unsigned long long)stats.live_allocations,
+            (unsigned long long)stats.allocations,
+            (unsigned long long)stats.frees,
+            (unsigned long long)stats.peak_usage);
+    kprintf("Failed allocations: %llu\nInvalid frees: %llu\nLargest free block: %llu\n",
+            (unsigned long long)stats.failed_allocations,
+            (unsigned long long)stats.invalid_frees,
+            (unsigned long long)stats.largest_free_bytes);
+    kprintf("Heap integrity: %s\n",
+            (const char *)(heap_validate() ? "OK" : "FAILED"));
+}
+
 static void show_memory(void)
 {
     kprintf("Memory map entries: %llu\nUsable memory: %llu MiB (%llu bytes)\n",
@@ -200,6 +228,8 @@ static void execute_line(void)
         kprintf("mapinfo  Query a hexadecimal virtual address\n");
         kprintf("pmmtest  Bounded physical frame self-test\n");
         kprintf("vmmtest  Bounded virtual mapping self-test\n");
+        kprintf("heap     Kernel heap accounting and integrity\n");
+        kprintf("heaptest Bounded deterministic heap stress\n");
         kprintf("uptime   PIT uptime and ticks\n");
         kprintf("echo     Repeat following text\n");
         kprintf("halt     Disable interrupts and stop CPU\n");
@@ -224,6 +254,11 @@ static void execute_line(void)
     } else if (strcmp(name, "vmmtest") == 0) {
         kprintf("VMM self-test: %s\n",
                 (const char *)(memory_vmm_selftest() ? "PASS" : "FAIL"));
+    } else if (strcmp(name, "heap") == 0) {
+        show_heap();
+    } else if (strcmp(name, "heaptest") == 0) {
+        kprintf("Heap self-test: %s\n",
+                (const char *)(heap_selftest() ? "PASS" : "FAIL"));
     } else if (strcmp(name, "uptime") == 0) {
         const uint64_t ticks = pit_get_ticks();
         const uint64_t seconds = pit_ticks_to_seconds(ticks);
