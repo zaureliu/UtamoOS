@@ -3,6 +3,7 @@
 #include <utamo/boot.h>
 #include <utamo/cpu.h>
 #include <utamo/kernel.h>
+#include <utamo/gdt.h>
 #include <utamo/log.h>
 #include <utamo/panic.h>
 #include <utamo/serial.h>
@@ -59,6 +60,8 @@ _Noreturn void kernel_main(void)
     LOG_INFO("Memory map entries: %llu", (unsigned long long)boot_memory.count);
     kprintf("Total usable memory: %llu MiB\n",
             (unsigned long long)(boot_memory.usable_bytes / (1024u * 1024u)));
+    gdt_init();
+    LOG_OK("GDT initialized");
     kprintf("\nWelcome to UTAMO OS.\n\n");
     kprintf("System halted safely.\n");
     kprintf("==============================================\n");

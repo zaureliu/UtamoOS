@@ -41,7 +41,7 @@ KERNEL_LDFLAGS := -nostdlib -static -no-pie -m64 -mcmodel=kernel \
     -Wl,-T,$(LINKER_SCRIPT) -Wl,-Map,$(BUILD_DIR)/utamo-kernel.map \
     -Wl,--build-id=none -Wl,--gc-sections -Wl,--orphan-handling=error \
     -Wl,-z,max-page-size=0x1000 -Wl,-z,noexecstack
-NASMFLAGS := -f elf64 -g -F dwarf -Wall -Werror -Wno-error=reloc-rel-dword -Wno-error=reloc-rel-dword
+NASMFLAGS := -f elf64 -g -F dwarf -Wall -Werror -Wno-error=reloc-rel-dword
 HOST_CFLAGS := -std=c17 -O2 -g -fno-builtin -fno-tree-loop-distribute-patterns \
     -Wall -Wextra -Wpedantic -Werror -Wshadow -Wconversion \
     -Wstrict-prototypes -Wmissing-prototypes -Wundef -Wvla
@@ -114,9 +114,15 @@ $(VIDEO_TEST): $(VIDEO_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
 	@mkdir -p -- "$(@D)"
 	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(VIDEO_TEST_SOURCES) -o "$@"
 
-test-host: $(HOST_TEST) $(VIDEO_TEST)
+GDT_TEST := $(BUILD_DIR)/tests/utamo-gdt-tests
+$(GDT_TEST): tests/test_gdt.c kernel/arch/x86_64/gdt_layout.c $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include tests/test_gdt.c kernel/arch/x86_64/gdt_layout.c -o "$@"
+
+test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST)
 	"./$(HOST_TEST)"
 	"./$(VIDEO_TEST)"
+	"./$(GDT_TEST)"
 
 inspect: $(KERNEL)
 	$(READELF) -h -l -S "$(KERNEL)"
