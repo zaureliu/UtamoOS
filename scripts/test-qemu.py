@@ -7,9 +7,8 @@ Examples:
   python3 scripts/test-qemu.py --suite --name shell
   python3 scripts/test-qemu.py --fault ud2 --name exception-ud2
 
-All modes force -display none. Interactive PS/2 modes --suite/--fault are
-prepared for a later user-authorized/manual validation session, not part of
-the current headless milestone acceptance. Framebuffer capture is opt-in.
+All modes force -display none. PS/2 modes use QMP keyboard injection
+and serial evidence without opening a graphical window. Framebuffer capture is opt-in.
 
 Only Python's standard library and the existing QEMU installation are used.
 No guest serial input is injected: every character travels through QMP send-key
@@ -412,7 +411,7 @@ def framebuffer_clear_check(vm, path):
 
 def suite(vm):
     boot = vm.wait_for(PROMPT)
-    for marker in ("UTAMO OS", "Version: 0.1.0", "GDT initialized",
+    for marker in ("UTAMO OS", "Version: " + vm.args.version, "GDT initialized",
                    "IDT initialized", "PIC initialized", "PIT timer initialized",
                    "PS/2 keyboard initialized", "Interrupts enabled", "UTAMO OS ready."):
         vm.check(marker in boot, "Boot marker: " + marker)
@@ -421,14 +420,14 @@ def suite(vm):
         vm.screenshot("boot")
     vm.command("help", ("help", "clear", "version", "sysinfo", "mem",
                         "uptime", "echo", "halt", "fault"))
-    vm.command("version", ("UTAMO OS 0.1.0",))
+    vm.command("version", ("UTAMO OS " + vm.args.version,))
     first = vm.command("sysinfo", ("x86_64", "Limine", "100 Hz", "Ticks:"))
     vm.command("mem", ("MiB",))
     uptime = vm.command("uptime")
     vm.check(bool(re.search(r"\d", uptime)), "Uptime command reports a numeric duration")
     vm.command("echo hello world", ("hello world",))
     vm.command("echo AbC 123 !?", ("AbC 123 !?",))
-    vm.command("versioxx\b\bn", ("UTAMO OS 0.1.0",))
+    vm.command("versioxx\b\bn", ("UTAMO OS " + vm.args.version,))
     # Delay between observations is bounded and runs with the guest alive.
     time.sleep(1.1)
     second = vm.command("sysinfo", ("Ticks:",))
@@ -445,7 +444,7 @@ def suite(vm):
         framebuffer_clear_check(vm, vm.screenshot("clear"))
     else:
         vm.report.setdefault("pending_manual", []).append("clear framebuffer appearance")
-    vm.command("version", ("UTAMO OS 0.1.0",))
+    vm.command("version", ("UTAMO OS " + vm.args.version,))
     start = len(vm.serial())
     vm.type_text("halt\n")
     vm.wait_for("System halted", start)
@@ -516,6 +515,7 @@ def main():
     parser.add_argument("--name", required=True, help="Unique artifact directory name")
     parser.add_argument("--iso", type=project_path)
     parser.add_argument("--qemu", default="qemu-system-x86_64")
+    parser.add_argument("--version", help="Expected kernel version; defaults to version.h")
     parser.add_argument("--timeout", type=float, default=90.0)
     parser.add_argument("--debug", action="store_true", help="Save QEMU interrupt/reset log")
     parser.add_argument("--gdb-port", type=int, help="Optional localhost-only GDB listener")
@@ -547,6 +547,14 @@ def main():
         parser.error("--check-timer needs --marker, a counter ELF identifier, and no --gdb-port")
     if args.gdb_port is not None and not 1024 <= args.gdb_port <= 65535:
         parser.error("GDB port must be between 1024 and 65535")
+    if args.version is None:
+        match = re.search(r'^#define UTAMO_VERSION "([^"]+)"$',
+                          (ROOT / "kernel/include/utamo/version.h").read_text(), re.M)
+        if not match:
+            parser.error("Cannot read current UTAMO_VERSION")
+        args.version = match.group(1)
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", args.version):
+        parser.error("--version must be a semantic version such as 0.2.0")
     if args.iso is None:
         candidates = sorted((ROOT / "build").glob("utamo-os-*.iso"))
         if len(candidates) != 1:
@@ -563,6 +571,7 @@ def main():
             ["git", "status", "--short"], cwd=ROOT, text=True),
         "iso": str(args.iso.relative_to(ROOT)), "iso_sha256": digest(args.iso),
         "elf_sha256": digest(ROOT / "build/utamo-kernel.elf"), "checks": [],
+        "expected_version": args.version,
         "pending_manual": ["PS/2 physical typing and visual framebuffer review"]
                           if not args.suite else [],
     }
