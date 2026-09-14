@@ -1,92 +1,77 @@
-# Layout e estratégia de memória
+# Layout de memória — UTAMO OS v0.2
 
-## Estado de v0.1.0
+O kernel ELF64 permanece ligado em `0xffffffff80000000`. Limine informa a
+base física real e o offset HHDM por requests explícitos; nenhuma base física
+ou identidade físico/virtual é presumida. O VMM mantém o CR3 e a árvore de
+quatro níveis do boot, validando e estendendo essa árvore em região própria.
+O contrato completo está em [memory-management.md](memory-management.md).
 
-O kernel é ELF64 estático, ligado no higher half em `0xffffffff80000000`.
-O endereço físico de carga é escolhido pelo loader e não é presumido igual
-ao virtual. A paginação inicial de quatro níveis permanece a do bootloader.
-O kernel não modifica CR3 nem cria mappings novos em v0.1.0. Page faults
-são diagnosticados; não há recuperação de página nem VMM próprio.
+## Imagem e stacks
 
-| Região do ELF | Alinhamento | Flags do segmento | Uso |
+| Região | Alinhamento | ELF | Mapping principal após proteção, com NX |
 | --- | --- | --- | --- |
-| `.limine_requests` | 8 bytes, início em página | RW | Tags e respostas do loader |
-| `.text` | Página de 4096 bytes | RX | Código C/NASM |
-| `.rodata` | Página de 4096 bytes | R | Strings e bitmap da fonte |
-| `.data` e `.bss` | Segmento em página; BSS 16 bytes | RW | Estado estático e pilha |
-| `.debug_*` | Endereço não carregado | Sem PT_LOAD | GDB no host |
+| `.limine_requests` | Requests em 8 bytes; segmento em página | RW | RW/NX |
+| `.text` | 4096 bytes | RX | RX |
+| `.rodata` | 4096 bytes | R | RO/NX |
+| `.data` e `.bss` | Início em página | RW | RW/NX |
+| `.debug_*` | Fora dos segmentos carregados | Não ALLOC | Somente arquivo ELF no host |
 
-`__kernel_start`, `__kernel_end`, `__bss_start` e `__bss_end` delimitam o ELF.
-O script define `PT_GNU_STACK` sem execução. Isto descreve permissões dos
-segmentos; não promete W^X global, pois aliases herdados do HHDM ainda existem.
-Uma política de permissões completa depende do VMM próprio e da revisão dos aliases.
+O linker exporta limites de kernel, text, rodata, data e BSS para inspeção e
+proteção. `PT_GNU_STACK` não é executável. A aplicação de permissões é
+registrada como aplicada ou adiada; não presume poder dividir huge pages herdadas.
 
-A pilha bootstrap tem 65536 bytes em `.bss`; RSP começa no topo e cresce para
-endereços menores. Não há guard page, stack canary ou detector de overflow.
-O build usa `-mno-red-zone` e frame pointers. O mapa, terminal e framebuffer
-ficam em estado estático para evitar grandes temporários na pilha.
+Stack bootstrap de 64 KiB, três stacks IST de 16 KiB, GDT/TSS e IDT continuam
+na imagem estática do kernel. O build usa `-mno-red-zone` e frame pointers.
+A região física KERNEL_AND_MODULES não é distribuída pelo PMM.
+Não há guard pages ou heap em v0.2.
 
-GDT, TSS, IDT e três pilhas de emergência de 16 KiB também são estáticas.
-IST1, IST2 e IST3 atendem Double Fault, NMI e Machine Check respectivamente;
-RSP0 da TSS ainda não é usado. Esses objetos pertencem aos segmentos de dados
-do kernel e precisarão ser incluídos nas reservas do futuro PMM. O layout
-está descrito em [arquitetura](architecture.md) e [interrupções](interrupts.md).
+## HHDM e mapa físico
 
-## Mapa físico
+O mapa próprio conserva até 512 regiões, com intervalos semiabertos, validação
+de overflow, ordenação e reservas. Tipos desconhecidos do protocolo continuam
+reservados. Somente regiões USABLE fornecem frames livres.
+BOOTLOADER_RECLAIMABLE e ACPI RECLAIMABLE continuam indisponíveis para alocação.
 
-`struct memory_region` conserva base física, comprimento e tipo interno.
-`struct memory_map` possui até 512 entradas, contagem e totais utilizável e
-bootloader-reclaimable em bytes. `boot_read_memory_map` copia valores e não
-armazena ponteiros Limine dentro do mapa próprio.
+Conversões HHDM aceitam apenas USABLE, BOOTLOADER_RECLAIMABLE,
+KERNEL_AND_MODULES e FRAMEBUFFER, segundo o contrato da base revision 3.
+Exigem range inteiro dentro de uma região e endereços canônicos. O VMM
+verifica os mappings reais antes de inicializar os bitmaps.
+Page tables herdadas devem ser BOOTLOADER_RECLAIMABLE, evitando sobreposição
+com a primeira escrita de metadados do PMM.
 
-A importação rejeita contagem excessiva, ponteiros nulos, intervalos com overflow,
-ordem decrescente, alinhamento inválido de usable/reclaimable e sobreposição
-envolvendo essas regiões. Entradas de comprimento zero são ignoradas pelo
-adaptador. Sobreposições entre regiões reservadas são toleradas; tipos futuros
-desconhecidos são tratados como reservados. Falha descarta a contagem e os totais,
-sem disponibilizar um mapa parcial ao fluxo normal.
+O framebuffer permanece acessado por seu ponteiro virtual, pitch e máscaras
+RGB originais; o VMM confere a correspondência física do range completo.
+Não cria outro alias com cache policy diferente. Os limites de 8192 pixels
+por eixo e 256 MiB, incluindo padding, continuam em `framebuffer.h`.
 
-O modelo reconhece usable, reserved, ACPI reclaimable, ACPI NVS, bad memory,
-bootloader reclaimable, kernel/modules e framebuffer. Somente `usable_bytes`
-entra no número `Total usable memory`, dividido por 1048576. Não se somam todas
-as regiões para obter RAM instalada: regiões reservadas podem representar MMIO
-e sobrepor outras descrições.
+## Metadados e arena dinâmica
 
-Invariantes e interpretação foram confrontadas com a
-[seção Memory Map do protocolo selecionado](https://github.com/limine-bootloader/limine/blob/v8.7.0/PROTOCOL.md#memory-map-feature).
-Checks de nulidade/aritmética não comprovam que um ponteiro arbitrário é válido:
-o bootloader continua parte da base de confiança.
+| Região | Contrato |
+| --- | --- |
+| Página física zero | Reservada; nunca retornada pelo PMM |
+| Bitmaps PMM | Dois bits por frame do span; storage alinhado, escolhido em USABLE e reservado |
+| Tabelas herdadas | Conservadas, sem reclaim do bootloader |
+| Novas page tables | Frames PMM zerados, publicados e fixados permanentemente |
+| `[0xffffc00000000000, 0xffffc08000000000)` | Slot PML4 384, 512 GiB para mutações públicas |
+| `[0xffffc00000000000, 0xffffc00000400000)` | Primeiros 4 MiB dedicados aos selftests |
 
-## Framebuffer
+A arena começa vazia e deve ser disjunta de HHDM/kernel.
+Só recebe mappings de 4 KiB sobre RAM USABLE alocada pelo PMM.
+A consulta aceita outros endereços canônicos, inclusive folhas herdadas de
+2 MiB/1 GiB. As operações públicas não alteram mappings do bootloader nem
+fazem split dessas folhas.
 
-A abstração armazena endereço virtual, pitch em bytes, dimensões e máscaras RGB.
-Escreve bytes `volatile`, respeitando pitch e formato; não pressupõe que toda
-linha tenha exatamente `width * 4` bytes ou que RGB seja sempre BGRX.
-O terminal só escreve pixels, sem ler MMIO para scroll.
+Unmap remove a tradução; o chamador ainda deve liberar o frame de dados.
+Tabelas intermediárias vazias permanecem fixadas e reutilizáveis.
+Não há alocador de endereços virtuais, destruição de address space ou contagem
+automática de aliases.
 
-O adaptador seleciona até 64 descritores informados no boot. A implementação
-de framebuffer limita geometria/extensão, valida multiplicações e soma do
-endereço final antes de permitir desenho. Limites exatos estão em `framebuffer.h`.
-Essas restrições são deliberadas para manter o bootstrap limitado: 8192 pixels
-por eixo e 256 MiB incluindo padding. A validade do mapeamento continua sendo
-responsabilidade do chamador; não é verificada por esses limites aritméticos.
+## Limite de proteção
 
-## Próximas etapas
+O mapping principal usa RX/RO/NX/RW/NX conforme as seções quando compatível.
+CR0.WP está habilitado e NX depende de CPUID/EFER.NXE.
+Aliases HHDM herdados podem continuar graváveis e executáveis.
+Logo, permissões dos segmentos e probes RO/NX não demonstram W^X global.
 
-GDT/IDT/TSS/IST próprios e diagnóstico de exceções já fazem parte de v0.1.0.
-As etapas de gerenciamento de memória seguintes ainda são propostas:
-
-1. Obter explicitamente HHDM e endereço físico/virtual do kernel via requests
-   específicos, copiar os metadados necessários e registrar todas as reservas.
-2. Criar bitmap do PMM em memória previamente reservada. Começar com tudo ocupado,
-   liberar apenas páginas inteiras de regiões usable e reservar o frame zero
-   por política própria, kernel, módulos, framebuffer e metadados do allocator.
-3. Manter as páginas do bootloader e page tables ocupadas até substituir
-   todas as dependências remanescentes. ACPI reclaimable tem ciclo de vida separado.
-4. Construir VMM com permissões por mapping, checagem de endereços e guard pages.
-   Definir ownership e contabilização antes de `kmalloc`/`kfree`.
-5. Introduzir espaços virtuais por processo, cópia user/kernel e TLB shootdown
-   antes de SMP e isolamento de processos.
-
-As etapas acima são projeto futuro. Nenhuma página é alocada, liberada ou
-reivindicada por um PMM nesta versão.
+A etapa v0.3 introduzirá kernel heap; revisão dos aliases, guard pages,
+recuperação de tabelas, processos e TLB shootdown exigem trabalho separado.

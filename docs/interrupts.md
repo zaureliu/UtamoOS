@@ -1,4 +1,4 @@
-# Interrupções e exceções do UTAMO OS 0.1.0
+# Interrupções e exceções do UTAMO OS v0.2
 
 ## Escopo
 
@@ -54,7 +54,7 @@ Somente após construir todos os gates, `idt_init` executa `lidt`.
 
 O uso de interrupt gates limpa IF ao entrar. IRQ handlers retornam por
 `iretq`, que restaura o IF anterior; o handler não deve executar `sti`.
-IRQ drivers não usam logger nem terminal.
+IRQ drivers não usam logger/terminal, não alocam frames e não modificam page tables.
 
 ## Convenção do frame Assembly/C
 
@@ -99,10 +99,13 @@ salvamento de SIMD/FPU ou mudança de privilégio. O kernel mantém
 O caminho fatal executa `cli`, registra uma guarda de recursão, lê CR2
 para #PF e emite **todo** o relatório por polling COM1 antes de tocar o
 framebuffer. A serial tem limite de polling e pode estar ausente. O diagnóstico
-não usa o logger global, não espera IRQ e não adquire locks. Em seguida,
-reinicializa o terminal registrado e imprime o relatório gráfico, quando houver.
+não usa o logger global, não espera IRQ e não adquire locks. Para page fault,
+depois de terminar esse relatório original, consulta o VMM sem alocar e
+acrescenta presença, tradução, flags efetivas e tamanho da folha, ou indica
+query indisponível. Só depois reinicializa o terminal registrado e tenta
+o relatório gráfico, incluindo o mesmo snapshot.
 
-Uma exceção durante a saída gráfica encontra a guarda e tenta apenas uma
+Uma exceção durante a consulta VMM ou saída gráfica encontra a guarda e tenta apenas uma
 mensagem serial curta, terminando em `cpu_halt`. Uma segunda falha nesse
 caminho curto para sem tentar outra emissão. Isto limita recursão; não promete
 recuperação diante de corrupção de memória, machine check ou hardware defeituoso.
@@ -110,7 +113,11 @@ recuperação diante de corrupção de memória, machine check ou hardware defei
 O relatório contém nome, vetor, error code, RIP, CS, SS, RFLAGS, RSP e os
 quinze GPRs. Valores hexadecimais têm dezesseis dígitos. Para #PF, inclui
 CR2 e decodifica P, W/R, U/S, RSVD e I/D. Bits adicionais permanecem disponíveis
-no error code bruto. Nenhum VMM é implementado.
+no error code bruto. O VMM v0.2 mantém o diagnóstico fatal: não resolve page
+faults, não faz page-in e não aloca no caminho de exceção.
+A consulta distingue endereço ausente de walk indisponível/inseguro.
+O dump original precede a consulta para continuar útil se as tabelas estiverem
+corrompidas. [Gerenciamento de memória](memory-management.md) detalha o contrato.
 
 ## Probes controlados
 
@@ -121,16 +128,23 @@ no error code bruto. Nenhum VMM é implementado.
   canônico deixado sem mapping pelo bootstrap Limine atual. Espera #PF/vetor
   14, CR2 igual ao endereço e W/R=1; precisa ser revisado se o VMM futuro mapear
   essa página.
+- `memory_fault_unmapped()`: aloca/mapeia na arena VMM, remove/libera e escreve
+  em 0xffffc00000000000; espera page fault ausente, error code 2.
+- `memory_fault_readonly()`: cria página de teste, remove RW e tenta escrever;
+  com CR0.WP espera page fault de proteção, error code 3.
+- `memory_fault_nx()`: tenta executar a página de teste NX; exige EFER.NXE e
+  espera page fault de instruction fetch, error code 17.
 
-Os probes são expostos pelo shell como `fault ud2`, `fault div0` e
-`fault pf`. Nunca são chamados no boot normal. Cada teste fatal exige novo
+O shell expõe `fault ud2`, `fault div0`, `fault pf` e `fault vmm`.
+RO/NX são probes internos selecionados pelo harness/GDB, não comandos
+`fault ro` ou `fault nx`. Nenhum probe é chamado no boot normal. Cada teste fatal exige novo
 boot; nenhuma exceção fatal é tratada como comando retornável.
 
 ## Evidência e limites de testes
 
 `tests/test_interrupts.c` testa bytes de gate contra representação
 arquitetural independente, rejeição sem mutação, limites canônicos, nomes,
-decodificação dos flags de #PF e relatório dos registradores. Não executa
+decodificação dos flags de #PF, registradores e formatação do snapshot VMM. Não executa
 `lidt`, `iretq` ou qualquer instrução privilegiada no host.
 
 Build e testes host não validam a ABI real de uma interrupção. A validação

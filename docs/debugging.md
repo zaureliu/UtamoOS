@@ -1,21 +1,17 @@
-# Debugging UTAMO OS 0.1.0
+# Debugging — UTAMO OS v0.2
 
-Execute os comandos a partir da raiz do checkout em Linux/WSL2 Ubuntu.
-GDT, IDT, exceções UD2/div0/page fault e avanço do contador PIT foram validados
-em QEMU **headless**, por serial e GDB, na imagem v0.1.0. Os comandos deste
-documento permitem repetir essas observações; só uma execução concluída gera
-evidência. O [relatório da implementação](v0.1-implementation-report.md) e o
-[development log](development-log.md) registram resultados e limitações.
+Execute os comandos na raiz do checkout Linux/WSL2, usando a toolchain existente.
+Este guia descreve como repetir verificações; a existência de um teste não
+equivale a sua execução. Resultados e limitações são registrados no
+[development log](development-log.md). Os
+[resultados v0.1](v0.1-implementation-report.md) permanecem históricos.
 
-Toda execução automatizada mantém `-display none`, uma única VM por vez e
-tempo limitado. Em 2026-09-14, o usuário confirmou manualmente teclado PS/2,
-digitação, Enter, Backspace, comandos, clear e halt em QEMU/VNC, aceitando a
-release. Essa confirmação é distinta dos testes automatizados descritos aqui.
-Os testes automatizados não abriram janelas gráficas.
+A automação usa `-display none`, uma VM por vez e timeout.
+Na evolução v0.2, entrada QMP no PS/2 emulado foi autorizada para testes
+headless. Isso permite exercitar IRQ1 e comandos sem GTK, SDL ou WSLg;
+não equivale a digitação física ou revisão visual do framebuffer.
 
-## Build e inspeção antes da VM
-
-Execute na raiz do projeto, com a toolchain existente:
+## Build e inspeção
 
 ~~~sh
 make test-host
@@ -24,106 +20,135 @@ make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" inspect
 make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" iso
 ~~~
 
-O GCC nativo compila apenas os executáveis de teste host. O kernel continua
-C17 freestanding, com o cross compiler x86_64-elf. `make inspect` executa `readelf`, `nm -u` e `inspect-elf.py`; o script
-Python também pode ser chamado separadamente para inspecionar um ELF já
-construído, com resultado explícito. Consulte a descrição de cada script em
-[scripts/README.md](../scripts/README.md).
+O compilador nativo só compila testes host. Kernel é C17 freestanding com
+cross compiler x86_64-elf, sem libc/CRT/libgcc. Warnings continuam erros,
+incluindo `-Wall -Wextra -Wpedantic -Werror`.
+O NASM mantém a exceção específica `-Wno-error=reloc-rel-dword`; não remova
+`-Werror` para contornar falhas.
 
-Confira ELF64 x86-64 `EXEC`, entry point `_start`, segmentos `LOAD` com
-permissões separadas, ausência de `INTERP`/`DYNAMIC`, símbolos indefinidos
-e segmentos simultaneamente graváveis e executáveis. O mapa de link fica em
-`build/utamo-kernel.map`. `-mgeneral-regs-only` mantém o código C fora do
-contexto FPU/SIMD, ainda não administrado pelo kernel.
+`make inspect` executa readelf, nm e a inspeção Python do ELF realmente
+ligado: ELF64 EXEC x86-64 higher half, segmentos, símbolos, requests,
+ausência de runtime dinâmico e convenção de interrupções.
+O linker exporta limites de text/rodata/data/BSS para o VMM.
+`-mgeneral-regs-only` evita uso de contexto SIMD/FPU não administrado.
 
-O NASM 3.01 usa `-Werror -Wno-error=reloc-rel-dword`: a exceção é específica
-ao diagnóstico de relocation já conhecido. Não remova `-Werror` para contornar
-uma falha. Os offsets dos interrupt stubs ficam na mesma seção do código;
-a inspeção do ELF verifica o resultado efetivamente ligado.
-
-## Boot e timer sem interface gráfica
-
-Depois de gerar a ISO, execute uma VM por vez:
+## Boot, descritores e PIT
 
 ~~~sh
-python3 scripts/test-qemu.py --marker "utamo> " --name boot-v01 \
+python3 scripts/test-qemu.py --marker "utamo> " --name boot-v02 \
     --check-gdt --check-idt --check-timer
 ~~~
 
-O script usa q35/TCG, CPU `qemu64`, 256 MiB, um core, sem rede, e serial
-em arquivo. Escolhe a ISO UTAMO quando há exatamente uma em `build/`;
-use `--iso build/utamo-os-0.1.0.iso` se houver mais de uma.
-O timeout padrão é 90 segundos. O arquivo de lock serializa as instâncias do
-harness; uma busca em `/proc` recusa iniciar se outro QEMU já estiver rodando.
-Isso não autoriza encerrar VMs criadas por outra pessoa ou outro processo.
+O harness usa q35/TCG, CPU qemu64, 256 MiB, um core e sem rede.
+Seleciona a única ISO UTAMO em `build/`; se houver mais de uma, informe
+`--iso build/utamo-os-0.2.0.iso`. O timeout padrão desse harness é 90 s.
+Cada `--name` deve ser novo. Lock e inspeção de /proc evitam VMs concorrentes;
+somente o subprocesso criado pelo harness é encerrado.
 
-`--check-gdt` observa CS e GDTR; `--check-idt` também verifica IDTR com
-limite `0xfff`, correspondente a 256 gates de 16 bytes.
-`--check-timer` lê o contador real `ticks` via GDB, deixa a VM executar
-por 0,6 segundo e faz outra leitura. A diferença positiva demonstra IRQs do
-PIT atravessando a IDT/PIC e retornando à execução; não altera o contador.
-`--timer-symbol` permite indicar outro nome se esse símbolo for refatorado.
-As interrupções ficam prontas antes de IF ser habilitado.
+Checks GDT/IDT leem estado real por HMP/QMP.
+O teste de timer lê `ticks` por GDB em dois momentos de execução;
+incremento comprova IRQs do PIT atravessando PIC/IDT e retornando.
+A COM1 continua saída por polling a 115200 8N1; escrever na serial do host
+não fornece entrada para o shell PS/2.
 
-A COM1 de saída usa polling, 115200 baud, 8N1. Ela não é uma entrada de shell.
-Texto escrito no terminal host conectado à serial não testa IRQ1 nem o
-teclado PS/2. O loop ocioso usa `sti; hlt`; esse repouso permite interrupções,
-enquanto `cpu_halt` usa `cli; hlt` e não retoma a operação normal.
+## Memória e comandos via PS/2 headless
 
-## Exceções controladas por GDB
-
-Os probes não são executados no boot normal. Para testar a imagem final sem
-entrada de teclado, redirecione a execução no primeiro repouso, depois de o
-shell e a infraestrutura de interrupções estarem prontos:
+Depois de recompilar kernel/ISO:
 
 ~~~sh
-python3 scripts/test-qemu.py --marker "utamo> " --name fault-ud2-v01 \
+python3 scripts/test-memory-qemu.py --suite --name memory-v02 --timeout 180
+~~~
+
+O harness de memória reaproveita o controle de VM do script anterior.
+Envia comandos por QMP ao teclado emulado e observa a serial.
+Espera PMM/VMM prontos e o prompt; verifica CR0.WP, CR3, CR4.LA57,
+EFER.NXE, MAXPHYADDR, descritores e permissões por seção.
+Consulta os endereços reais dos símbolos no ELF e os mappings pelo comando
+`mapinfo`, incluindo o alias HHDM dos bitmaps e a arena inicialmente ausente.
+
+Executa `pmmtest` repetidamente, verifica restituição exata de contadores,
+depois executa `vmmtest` repetidamente.
+A primeira execução pode reter tabelas intermediárias fixadas; o custo deve
+corresponder ao incremento de `PMM-owned page tables`.
+Repetições devem reutilizá-las, liberar frames de dados e manter accounting.
+Ao final, confere texto RX, timer ainda avançando, echo, Shift, Backspace,
+Enter, clear e halt. Clear é verificado pela sequência serial; não se infere
+aparência gráfica sem uma captura analisada.
+
+`--ram` e `--cpu` permitem cenários adicionais, registrados no relatório.
+Por padrão a suíte espera NX habilitado; o caso sem NX usa uma expectativa
+explícita, mantendo os demais checks e exigindo que bits NX não sejam aplicados:
+
+~~~sh
+python3 scripts/test-memory-qemu.py --suite --name memory-no-nx-v02 \
+    --ram 64M --cpu qemu64,-nx --expect-nx off --timeout 180
+~~~
+
+Esse caso testa o fallback sem proteção de execução; não executa o probe NX. `--version` pode fixar o banner esperado; por padrão lê version.h,
+portanto uma ISO desatualizada deve falhar em vez de produzir falso sucesso.
+
+## Page faults de memória
+
+Cada comando abaixo inicia e recolhe uma VM separada:
+
+~~~sh
+python3 scripts/test-memory-qemu.py --fault vmm --name memory-unmapped-v02
+python3 scripts/test-memory-qemu.py --fault ro --name memory-readonly-v02
+python3 scripts/test-memory-qemu.py --fault nx --name memory-nx-v02
+python3 scripts/test-memory-qemu.py --fault pf --name memory-legacy-pf-v02
+~~~
+
+| Modo | Disparo | CR2 esperado | Error code |
+| --- | --- | --- | --- |
+| vmm | Shell `fault vmm`: map, unmap, free e escrita ausente | 0xffffc00000000000 | 2 |
+| ro | GDB → `memory_fault_readonly`: escrita em mapping RO | 0xffffc00000000000 | 3 |
+| nx | GDB → `memory_fault_nx`: execução em mapping NX | 0xffffc00000000000 | 17 |
+| pf | Shell `fault pf`: probe herdado | 0x00007ffffffff000 | 2 |
+
+Os números são expectativas que o harness compara com o hardware,
+não resultados atribuídos automaticamente a qualquer execução.
+Os modos RO/NX param por hardware em `cpu_wait_interrupt` antes de HLT
+e redirecionam RIP ao probe. Não são comandos `fault ro` ou `fault nx`.
+
+O teste exige vetor 14, registradores e selectors completos, CR2, bits
+P/W/R/U/S/RSVD/I/D, parada real com IF=0 e snapshot VMM coerente.
+O dump serial original deve terminar antes de `Virtual memory context`.
+Página ausente não pode ganhar uma tradução física fictícia.
+A consulta não aloca nem tenta recuperar a falha.
+
+Uma proteção RO/NX eficaz no endereço testado não prova W^X global:
+aliases HHDM herdados podem continuar graváveis e executáveis.
+Veja [gerenciamento de memória](memory-management.md).
+
+## Exceções preservadas
+
+~~~sh
+python3 scripts/test-qemu.py --marker "utamo> " --name fault-ud2-v02 \
     --check-gdt --check-idt --probe exception_fault_ud2 \
     --probe-at cpu_wait_interrupt --debug
-python3 scripts/test-qemu.py --marker "utamo> " --name fault-div0-v01 \
+python3 scripts/test-qemu.py --marker "utamo> " --name fault-div0-v02 \
     --check-gdt --check-idt --probe exception_fault_div0 \
-    --probe-at cpu_wait_interrupt --debug
-python3 scripts/test-qemu.py --marker "utamo> " --name fault-page-v01 \
-    --check-gdt --check-idt --probe exception_fault_page \
     --probe-at cpu_wait_interrupt --debug
 ~~~
 
-São três execuções sequenciais e independentes. Cada probe inicia QEMU com
-`-S`, conecta GDB por socket Unix local ao projeto e estabelece um breakpoint
-de hardware em `cpu_wait_interrupt`. Quando o kernel chega a esse ponto,
-o harness remove o breakpoint, direciona RIP ao probe, limpa IF e retoma a
-CPU. O kernel executa a instrução real que causa a exceção. GDT, IDT, stubs e
-diagnósticos continuam sendo os mesmos da imagem normal.
+Probes nunca rodam no boot normal. No desenvolvimento v0.1, alterar RIP
+depois de HLT não retirou a CPU do estado halted observado no QEMU.
+O harness usa `-S` e breakpoint antes de HLT por esse motivo.
+Timeout não constitui aprovação; não injete outra exceção para mascarar o problema.
 
-O teste compara nome/vector, error code normalizado, registradores, selectors
-CS/SS e endereços canônicos RIP/RSP. Para page fault, compara também CR2 com
-`0x00007ffffffff000` e verifica acesso de escrita supervisor a página ausente.
-No fim, observa RIP estável, IF=0 e `HLT=1`; uma linha de texto isolada não
-basta para comprovar a parada da CPU.
+## GDB manual, ainda headless
 
-O primeiro teste incremental de GDB tentou alterar RIP após a CPU já estar
-em `HLT` e ficou aguardando `stepi`. No QEMU observado, essa alteração não
-retirou a CPU do estado interno halted. A correção foi parar **antes** de HLT
-com `-S` e breakpoint de hardware. O novo teste UD2 passou 37 checks, com
-o processo QEMU encerrado corretamente. No marco anterior ao shell, esse
-breakpoint era `cpu_halt`; na imagem final use `cpu_wait_interrupt`.
-O timeout original não foi tratado como aprovação.
-
-## Inspeção interativa pelo debugger
-
-Para investigar o início do boot, primeiro conclua os builds e encerre qualquer
-VM anterior. Uma sessão manual de debugger também pode permanecer headless e
-limitada a 120 segundos:
+Uma sessão de diagnóstico pode usar a mesma ISO e timeout:
 
 ~~~sh
 timeout --signal=TERM --kill-after=2s 120s \
     qemu-system-x86_64 -machine q35,accel=tcg -cpu qemu64 -m 256M -smp 1 \
-    -cdrom build/utamo-os-0.1.0.iso -boot d -display none \
+    -cdrom build/utamo-os-0.2.0.iso -boot d -display none \
     -serial file:build/debug-serial.log -monitor none -nic none \
     -no-reboot -no-shutdown -S -gdb tcp:127.0.0.1:1234
 ~~~
 
-Em outro terminal do mesmo projeto:
+Em outro terminal do projeto:
 
 ~~~sh
 gdb build/utamo-kernel.elf
@@ -142,63 +167,36 @@ monitor info registers
 monitor info pic
 ~~~
 
-Um breakpoint de hardware funciona antes de Limine mapear o endereço virtual
-do kernel. Os frame pointers e DWARF ajudam no diagnóstico, mas `-O2` pode
-eliminar variáveis. Use também breakpoints em `interrupt_dispatch`,
-`kernel_panic`, `cpu_wait_interrupt` e `cpu_halt`.
-Não use `load` para substituir a imagem carregada pelo bootloader.
+Breakpoints úteis: `memory_init`, `pmm_core_init`, `vmm_space_map`,
+`interrupt_dispatch`, `kernel_panic` e `cpu_wait_interrupt`.
+Com `-O2`, variáveis podem estar otimizadas; consulte também o mapa de link,
+nm e objdump. Não use GDB `load` para substituir a imagem de Limine.
+O endpoint é loopback; o harness normal usa socket Unix no projeto.
+`detach` desconecta GDB, mas não encerra a VM.
 
-O endpoint fica restrito a loopback; o harness usa um socket Unix no projeto.
-A [documentação GDB do QEMU](https://www.qemu.org/docs/master/system/gdb.html)
-descreve ambos os meios de conexão.
-Ao sair, encerre a VM que abriu; `detach` por si só apenas desconecta o GDB.
+## Diagnóstico e evidências
 
-## Evidências e diagnóstico
-
-Cada `--name` cria um diretório novo em `build/validation/`, sem sobrescrever
-uma execução anterior. `report.json` contém horário, revisão/status do Git,
-hashes do ELF/ISO, versão e argumentos do QEMU, checks e confirmação de
-encerramento do processo. A serial e as inspeções GDB/HMP ficam ao lado.
-`--debug` acrescenta `qemu-debug.log` com interrupções, resets e guest errors.
-O script sempre recolhe o processo que criou, incluindo falhas e timeouts.
-
-`make clean` remove todo `build/`, inclusive essas evidências. Registre os
-resultados no development log antes de limpar; mantenha as evidências da
-validação final disponíveis para revisão. Uma nova compilação não torna
-automaticamente válidos os resultados obtidos com outro hash de ELF/ISO.
-
-| Sintoma | Inspeção útil |
+| Sintoma | Inspeção |
 | --- | --- |
-| Limine não encontra o kernel | ISO, `boot/limine.conf`, caminho do ELF e assets Limine fixados |
-| Serial vazia | `hbreak _start`, entry point, stack e inicialização de COM1 |
-| Triple fault ou reset | `--debug`, base/limite IDT, selectors GDT, stack e gate do vector |
-| GP na entrada/saída de IRQ | Gate, selector, frame, alinhamento antes de CALL e `iretq` |
-| Page fault | CR2, error code, RIP e bits P/W/R/U/S/RSVD/I/D do relatório |
-| Ticks não avançam | IF, divisor do PIT, máscaras/offsets PIC, IRQ0 e EOI |
-| Teclado não produz comandos | Inicialização PS/2, máscara IRQ1, fila de scancodes e parser; interação ainda manual |
-| Serial completa e framebuffer incompleto | Endereço, pitch, RGB e saída de emergência; revisão visual ainda manual |
-| Relocation ou seção órfã | Objeto de origem, `objdump -dr`, linker script e mapa |
-| GDB não retoma um probe depois de HLT | Reiniciar com `-S` e breakpoint antes de HLT; não injetar outra exceção para acordar a CPU |
+| Falha de inicialização PMM/VMM | Responses HHDM/executable, tipos do mapa, MAXPHYADDR, slot 384 e validação das tabelas herdadas |
+| Bitmap ou kernel sobrescrito | Reservas, classificações USABLE, ownership e ordem de validação antes do bitmap |
+| map/protect retorna false | Arena, alinhamento de 4 KiB, frame alocado, flags, mapping existente/huge e restrições dos ancestrais |
+| Contador usado cresce | Comparar frames de dados com page tables fixadas; repetições devem estabilizar |
+| Page fault | CR2, RIP, error code e snapshot VMM posterior ao dump original |
+| NX/RO não gera fault | CPUID/EFER.NXE, CR0.WP, flags efetivas e endereço exato/alias acessado |
+| Triple fault/reset | Log `--debug`, IDT/IST/CS, stack, frame e mappings de código/dados |
+| Ticks ou teclado param | IF, PIC, IRQ0/IRQ1, EOI e duração das seções críticas |
+| Dump serial completo, gráfico incompleto | Mapping/pitch/RGB e revisão visual separada |
+| GDB não retoma depois de HLT | Reiniciar com breakpoint antes de HLT |
 
-`cli` não bloqueia NMI, exceções nem machine checks. O relatório fatal escreve
-serial antes de framebuffer e tem contenção de recursão, mas não substitui
-um debugger nem um gerenciador de memória virtual. Não há scheduler,
-recuperação de page fault ou backtrace automático no kernel.
+Cada execução cria `build/validation/<name>/` com serial, JSON, registros
+e logs pertinentes. O JSON identifica revisão/status Git, hashes ELF/ISO,
+configuração e checks, falha/timeout e processo recolhido.
+`make clean` também remove essas evidências; preserve os resultados dentro
+do projeto antes de limpar. Uma recompilação não transfere evidência entre hashes.
 
-## Validação manual e cobertura adicional
-
-Em 2026-09-14, o usuário confirmou em QEMU/VNC: teclado PS/2, digitação de
-caracteres, Enter, Backspace, comandos do shell, clear e halt. Esse aceite
-manual autoriza a release v0.1.0 e está registrado nas
-[notas da release](releases/v0.1.0.md).
-
-A validação automatizada registrada não executou a suíte de teclado QMP nem
-capturas de framebuffer.
-As opções `--suite`, `--fault` e `--capture-framebuffer` continuam disponíveis
-para sessões futuras. Aprovação manual não transforma essas opções em
-testes automatizados executados.
-
-UEFI, hardware físico, todas as combinações de modificadores e legibilidade
-de todos os dumps gráficos não foram confirmados individualmente. Essas
-coberturas adicionais exigem evidência própria; não são atribuídas ao aceite
-genérico dos comandos nem aos resultados de host/serial.
+O aceite manual QEMU/VNC do v0.1 permanece nas
+[notas históricas](releases/v0.1.0.md).
+A sessão v0.2 diferencia QMP/PS2 emulado, observação serial e inspeção de
+registradores de teclado físico, legibilidade gráfica, UEFI e hardware real.
+Não há recuperação de page fault, scheduler ou backtrace automático no kernel.

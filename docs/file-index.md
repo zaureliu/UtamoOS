@@ -1,8 +1,8 @@
 # Índice do projeto
 
-Este índice organiza a árvore atual do UTAMO OS v0.1.0 por responsabilidade.
-O inventário detalhado de arquivos criados/modificados durante a evolução
-está no [relatório de implementação](v0.1-implementation-report.md).
+Este índice organiza a árvore atual do UTAMO OS v0.2 por responsabilidade.
+A arquitetura de memória está em [memory-management.md](memory-management.md).
+O [relatório v0.1](v0.1-implementation-report.md) é um inventário histórico.
 O tag v0.0.1 preserva os fontes e a documentação originais do baseline.
 
 ## Entrada pública
@@ -25,7 +25,7 @@ O tag v0.0.1 preserva os fontes e a documentação originais do baseline.
 | [kernel/input](../kernel/input/) | Buffer de scancodes e decoder set 1 |
 | [kernel/interrupts](../kernel/interrupts/) | Dispatch de exceções/IRQs e diagnóstico fatal |
 | [kernel/lib](../kernel/lib/) | Biblioteca freestanding, formatter e parser de linha |
-| [kernel/memory](../kernel/memory/) | Importação e validação do mapa físico |
+| [kernel/memory](../kernel/memory/) | Mapa físico, helpers/HHDM, PMM, VMM e selftests |
 | [kernel/include/utamo](../kernel/include/utamo/) | Interfaces e versão central do kernel |
 
 Os diretórios [kernel/fs](../kernel/fs/), [kernel/net](../kernel/net/),
@@ -38,6 +38,7 @@ não implementações desses subsistemas.
 - [Makefile](../Makefile): kernel, host tests, inspeção e ISO.
 - [limine.conf](../limine.conf): configuração de boot.
 - [Scripts](../scripts/README.md): ISO, inspeção ELF/ABI e QEMU headless.
+- [Suíte de memória QEMU](../scripts/test-memory-qemu.py): PMM/VMM, comandos, accounting e probes PF.
 - [Testes](../tests/README.md): cobertura executada e limites da evidência.
 - [Limine](../third_party/limine/README.md): versão fixada e proveniência.
 - [Fonte bitmap](../assets/font/README.md): origem e licença do asset.
@@ -50,12 +51,14 @@ fora do versionamento, conforme [.gitignore](../.gitignore).
 - [Arquitetura](architecture.md) e [processo de boot](boot-process.md).
 - [Interrupções e frame](interrupts.md), [GDT/IDT](architecture.md) e
   [teclado/shell](keyboard.md).
-- [Layout de memória](memory-layout.md).
+- [Layout de memória](memory-layout.md) e [gerenciamento PMM/VMM](memory-management.md).
 - [Ambiente](development-environment.md), [coding style](coding-style.md) e
   [debugging](debugging.md).
 - [Roadmap](roadmap.md) e [development log](development-log.md).
-- [Relatório v0.1](v0.1-implementation-report.md) e
-  [índice de evidências](validation-v0.1.json).
+- [Relatório v0.2](v0.2-implementation-report.md) e
+  [evidências v0.2](validation-v0.2.json).
+- [Relatório histórico v0.1](v0.1-implementation-report.md) e
+  [evidências v0.1](validation-v0.1.json).
 
 [Relatório de geração](generation-report.md),
 [auditoria estática inicial](static-audit.md) e

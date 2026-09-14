@@ -1,4 +1,4 @@
-# Teclado e shell do UTAMO OS 0.1.0
+# Teclado e shell do UTAMO OS v0.2
 
 ## Controlador e IRQ1
 
@@ -61,19 +61,25 @@ Backspace não apaga o prompt. No framebuffer usa o contrato preexistente
 
 | Comando | Efeito real |
 | --- | --- |
-| `help` | Lista os nove comandos implementados |
+| `help` | Lista os comandos implementados |
 | `clear` | Limpa o framebuffer e envia ANSI clear/home apenas à serial |
 | `version` | Exibe a fonte de versão em `utamo/version.h` |
 | `sysinfo` | Versão, arquitetura, bootloader, mapa, PIT/ticks e framebuffer |
-| `mem` | Totais reais do mapa de boot; não representa alocador de memória |
+| `mem` | Mapa de boot e estatísticas reais PMM/VMM |
+| `pmm` | Frames totais/livres/usados e metadados do allocator |
+| `vmm` | CR3, HHDM, NX, MAXPHYADDR e tabelas próprias |
+| `mapinfo hex` | Presença, tradução, flags efetivas e tamanho da folha |
+| `pmmtest` | Stress limitado de frames físicos e contabilidade |
+| `vmmtest` | Stress limitado de mappings, proteção, unmap/remap e contabilidade |
 | `uptime` | Horas/minutos/segundos desde o PIT, sem relógio civil |
 | `echo texto` | Exibe argumentos como dados, inclusive caracteres `%` |
 | `halt` | CLI, mensagem e parada permanente da CPU |
-| `fault ud2/div0/pf` | Dispara uma exceção fatal explícita para diagnóstico |
+| `fault ud2/div0/pf/vmm` | Dispara exceção fatal; vmm acessa página removida pelo VMM |
 
 Comandos sem argumentos rejeitam texto extra. `fault` exige exatamente um tipo
 reconhecido. Não há comando fictício `reboot`. `fault` nunca é executado no
-boot normal.
+boot normal. Os contratos dos comandos de memória e dos probes internos RO/NX
+estão em [memory-management.md](memory-management.md). Não há comando de heap.
 
 ## Evidência de teste e fronteiras
 
@@ -83,10 +89,13 @@ um modelo determinístico de ACK/RESEND, consulta de set, timeouts e bytes de IR
 O teste de comandos substitui teclado, timer, framebuffer, serial e instruções
 privilegiadas por efeitos observáveis no processo host.
 
-Esses testes não provam entrega real de IRQ1, captura de teclado pela janela
-QEMU, aparência da tela ou apagamento em um terminal serial externo.
-Em 2026-09-14, o usuário confirmou testes manuais em QEMU/VNC de teclado
-PS/2, digitação de caracteres, Enter, Backspace, comandos do shell, clear e
-halt. Esse aceite encerra a pendência de interação da release; não é um
-resultado do harness automatizado. Casos não especificados, como cobertura
-de todas as combinações Shift, não recebem uma afirmação adicional de teste.
+Testes host não provam entrega real de IRQ1 ou aparência da tela.
+Na evolução v0.2, o usuário autorizou teclado QMP no PS/2 emulado para
+a suíte headless de memória. Quando executada, ela percorre IRQ1, fila,
+decoder e shell, observando o resultado serial. Isso não equivale a digitação
+física ou validação visual do framebuffer.
+
+O aceite manual em QEMU/VNC informado em 2026-09-14 pertence à release
+v0.1.0: teclado PS/2, digitação, Enter, Backspace, comandos, clear e halt.
+É evidência histórica atribuída ao usuário, separada dos testes automatizados
+e da matriz v0.2. Combinações de teclas não citadas não recebem cobertura presumida.

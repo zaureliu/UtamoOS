@@ -1,15 +1,15 @@
 # Roadmap
 
-Versões indicam marcos técnicos, não prazos. v0.0.1 é o baseline de boot
-validado; v0.1.0 acrescenta interrupções, teclado e shell, com testes
-automatizados e aceite manual registrado. Todos os marcos a partir de
-v0.2.0 são planos, sujeitos a revisão conforme dependências e evidências.
+Versões indicam marcos técnicos, não prazos. v0.0.1/v0.1.0 são baselines
+preservados; v0.1.0 tem aceite manual registrado. O v0.2 implementa PMM/VMM
+sobre essa arquitetura; sua validação host/ELF/QEMU está registrada no development log.
+Marcos a partir de v0.3.0 são planos, sujeitos a revisão pelas evidências.
 
 | Marco | Entrega | Estado / critério de saída |
 | --- | --- | --- |
 | **v0.0.1** | Boot, framebuffer, terminal, logging, serial, panic e mapa físico | Baseline validado; tag preservado |
 | **v0.1.0** | GDT/TSS/IST, IDT, exceções, PIC/PIT, PS/2 e shell de kernel | Host/ELF/QEMU headless aprovados; aceite manual QEMU/VNC confirmado em 2026-09-14 |
-| **v0.2.0** | Physical and virtual memory management | PMM com reservas explícitas, alocação/liberação sem dupla posse e page tables próprias |
+| **v0.2.0** | Gerenciamento físico e virtual de memória | PMM, HHDM, VMM sobre CR3 herdado, permissões e selftests; host/ELF/QEMU aprovados, 14.213 checks sem falhas; revisão gráfica/teclado físico separada |
 | **v0.3.0** | Kernel heap, `kmalloc`, `kfree` e diagnóstico de memória | Alinhamento, OOM, double-free, overflow e fragmentação exercitados |
 | **v0.4.0** | Threads, context switching e scheduler | Trocas repetidas preservam registradores/pilhas; idle funciona |
 | **v0.5.0** | Ring 3, processos, ELF loader e syscalls | Memória de userspace isolada; ABI e cópias user/kernel documentadas |
@@ -19,17 +19,19 @@ v0.2.0 são planos, sujeitos a revisão conforme dependências e evidências.
 | **v0.9.0** | Gráficos e window system experimental | Input, superfícies e ownership definidos; falhas de clientes isoladas |
 | **v1.0.0** | Baseline experimental estabilizado | Arquitetura/documentação estáveis, plataformas testadas e limitações publicadas |
 
-## Próximo milestone: v0.2.0
+## Próximo milestone: v0.3.0 — kernel heap
 
-1. Registrar os mappings herdados, endereço físico/virtual do kernel e todas
-   as reservas antes de disponibilizar frames.
-2. Implementar PMM com bitmap, começando com todas as páginas ocupadas e
-   liberando apenas regiões utilizáveis elegíveis.
-3. Criar page tables próprias, permissões por mapping e guard pages.
-4. Remover dependências do bootloader antes de recuperar suas páginas.
-5. Exercitar limites, falta de memória, reservas e page faults esperados.
+1. Definir ownership entre frames PMM, mappings VMM e blocos do heap.
+2. Implementar kmalloc/kfree com alinhamento, OOM, overflow, double-free
+   e fragmentação tratados explicitamente.
+3. Respeitar aliases e mappings vivos ao liberar páginas; PMM não conta
+   referências e tabelas intermediárias vazias permanecem fixadas.
+4. Testar crescimento e estabilidade por host, stress no kernel e QEMU.
 
-O [layout de memória](memory-layout.md) detalha as dependências atuais.
+O v0.2 não implementa heap. A base está em
+[gerenciamento de memória](memory-management.md) e [layout](memory-layout.md).
+Reclaim de bootloader/ACPI, guard pages e revisão dos aliases HHDM são itens
+separados; não constituem garantias já existentes de W^X global.
 
 ## Etapas complementares
 

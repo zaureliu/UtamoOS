@@ -1,5 +1,79 @@
 # Development log
 
+## 2026-09-14 — evolução v0.2: gerenciamento de memória
+
+Desenvolvimento em v0.2-dev sobre o baseline v0.1.0. PMM/VMM, HHDM,
+permissões, diagnóstico e testes evoluem o kernel existente; heap, scheduler,
+userspace, APIC e SMP permanecem fora do escopo.
+Os registros históricos abaixo são preservados.
+
+### D012 — reservas e dois bitmaps dinâmicos
+
+O maior fim de USABLE dimensiona elegibilidade/ocupação dos frames de 4 KiB.
+First-fit escolhe storage alinhado em USABLE; página zero/metadados são
+reservados. Next-fit oferece alocação contígua, free/reserve validam ranges
+inteiros e pin converte tabelas em reservas permanentes.
+
+HHDM/executable address usam requests revision 0, mantendo base revision 3.
+Conversões puras aceitam somente os quatro tipos previstos pelo direct map.
+O boot confere a árvore inteira herdada como BOOTLOADER_RECLAIMABLE antes
+de escrever bitmaps. Bootloader e ACPI não são recuperados.
+
+### D013 — CR3 preservado e publicação controlada
+
+Slot PML4 384 começa vazio. Queries leem folhas de 4 KiB/2 MiB/1 GiB;
+mutações públicas só usam 4 KiB na arena própria e frames PMM alocados.
+Ramos são zerados fora da árvore; falha devolve frames temporários, sucesso
+publica via release e fixa tabelas. Unmap não libera dados.
+Tabelas vazias permanecem disponíveis para reúso.
+
+### D014 — proteção e diagnóstico com limites explícitos
+
+MAXPHYADDR via CPUID, quatro níveis com LA57 rejeitado, NX via CPUID/EFER
+e WP habilitado. RX/RO-NX/RW-NX protegem o mapping principal quando
+compatível. Aliases HHDM limitam essa política: não há W^X global.
+Page faults mantêm o dump serial original completo antes do snapshot VMM
+sem alocação; probes unmapped/RO/NX nunca rodam automaticamente no boot.
+
+### D015 — selftests e matriz v0.2
+
+Shell ganhou pmm/vmm/mapinfo/pmmtest/vmmtest/fault vmm.
+Stress PMM usa 64 frames e intervalo contíguo; VMM usa 16 páginas através
+de fronteira de 2 MiB, accounting e reutilização das tabelas.
+Testes host separam lógica pura de hardware.
+
+O usuário autorizou entrada QMP no PS/2 emulado nesta sessão headless.
+Após o build limpo da versão 0.2.0, a matriz final observou:
+
+| Camada | Checks | Falhas |
+| --- | ---: | ---: |
+| Host | 11224 | 0 |
+| ELF/ABI | 1439 | 0 |
+| QEMU headless | 1550 | 0 |
+| Total | 14213 | 0 |
+
+As 13 VMs foram sequenciais, todas aprovadas e recolhidas: boot (9),
+suítes de memória em 64/256/512 MiB (301 cada), CPU sem NX em 64 MiB (301),
+fault vmm/ro/nx/pf (43/48/48/43), UD2/div0 (37/34),
+suíte original do shell (38) e PF do harness original (46).
+Nenhuma VM permaneceu rodando.
+
+O harness original ainda esperava o banner 0.1.0 fixo; foi corrigido para
+--version opcional com default no header central, preservando seus checks.
+A suíte original e o PF original foram executados novamente na imagem 0.2.0.
+
+No boot final de 256 MiB, antes de selftests: 65027 frames gerenciados,
+65023 livres, bitmaps em 0x53000 ocupando 16384 bytes, raiz CR3 em 0xff4c000,
+NX habilitado e 10 visitas às tabelas herdadas. São valores daquela VM,
+não constantes exigidas pelo kernel. Os quatro frames usados nessa contagem
+inicial correspondem ao storage dos bitmaps.
+
+[Relatório final v0.2](v0.2-implementation-report.md) e
+[índice de evidências](validation-v0.2.json) identificam comandos, hashes e
+artefatos. Não se atribui teclado físico ou validação gráfica à saída serial;
+UEFI e hardware real continuam sem validação específica desta imagem.
+Próximo milestone: v0.3, kernel heap.
+
 ## 2026-09-14 — aceite manual e preparação da release v0.1.0
 
 O usuário confirmou que os testes manuais passaram no QEMU/VNC: teclado PS/2,

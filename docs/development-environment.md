@@ -1,11 +1,12 @@
 # Ambiente de desenvolvimento
 
-Este guia descreve as dependências e os comandos de build do UTAMO OS v0.1.0.
+Este guia descreve as dependências e os comandos de build do UTAMO OS v0.2.
 O baseline v0.0.1 e a evolução v0.1.0 foram compilados e executados em Ubuntu
 no WSL2. Os resultados registrados estão no
-[relatório de implementação](v0.1-implementation-report.md) e em
-[testes](../tests/README.md); preparar um novo ambiente requer repetir as
-validações pertinentes.
+[relatório histórico v0.1](v0.1-implementation-report.md).
+A evolução v0.2 reutiliza esse ambiente; seus resultados estão no
+[development log](development-log.md) e em [testes](../tests/README.md).
+Preparar outro ambiente requer repetir as validações pertinentes.
 
 O projeto não instala ferramentas automaticamente. Use as versões já disponíveis
 quando compatíveis; não é necessário atualizar uma toolchain validada.
@@ -43,8 +44,10 @@ QEMU usa TCG por padrão, sem exigir KVM. Os exemplos atuais usam
 `-display none` e serial; GTK/SDL não são requisitos. WSLg apresentou falhas
 RemoteApp/RDP durante o desenvolvimento, portanto mantenha os testes
 automatizados headless, sequenciais e com timeout. O usuário confirmou
-manualmente teclado PS/2, caracteres, Enter, Backspace, comandos do shell,
-clear e halt em QEMU/VNC. Serial é somente saída, não entrada para o shell.
+manualmente teclado PS/2, caracteres, Enter, Backspace, comandos, clear e halt
+em QEMU/VNC na release v0.1.0. A sessão v0.2 autoriza QMP no PS/2 emulado
+para testes headless, separadamente de validação gráfica/teclado físico.
+Serial é somente saída, não entrada para o shell.
 
 ## Por que usar um cross compiler
 
@@ -134,8 +137,10 @@ configuração local.
 O header em `third_party/limine/limine.h` é uma **adaptação reduzida e explicitamente
 identificada** das declarações oficiais da versão **v8.7.0**, com API revision 2
 e licença upstream preservada. Não é uma cópia integral do header oficial.
-O kernel solicita **base revision 3**, com requests de revisão 0 para framebuffer
-e mapa de memória e revisão 1 para selecionar paginação de quatro níveis.
+O kernel solicita **base revision 3**, com requests de revisão 0 para
+framebuffer, memory map, HHDM e executable address. O request de paginação
+usa revisão 1 para fixar quatro níveis. Os dois requests de memória foram
+acrescentados ao subset local; o bootloader não foi atualizado.
 O bootloader deve ser obtido da referência oficial
 **v8.7.0-binary**. Essa referência existe no upstream, incluindo o
 [Makefile do utilitário host](https://raw.githubusercontent.com/limine-bootloader/limine/v8.7.0-binary/Makefile).
@@ -197,7 +202,7 @@ Se `x86_64-elf-*` já estiver disponível no ambiente, `make`, `make kernel`,
 `make iso`, `make run` e `make debug` funcionam sem informar `CROSS_COMPILE`.
 Informar o prefixo absoluto não modifica PATH. `make` sozinho constrói somente
 `build/utamo-kernel.elf`, com símbolos DWARF e mapa `build/utamo-kernel.map`.
-`make iso` produz `build/utamo-os-0.1.0.iso`, com versão derivada de
+`make iso` produz `build/utamo-os-0.2.0.iso`, com versão derivada de
 `kernel/include/utamo/version.h`. `make clean` apaga somente `build/`;
 não apaga fontes, checkout do Limine ou toolchain.
 
@@ -230,6 +235,15 @@ inspeciona GDT/IDT e observa ticks reais, com uma única VM headless e timeout.
 Ele encerra o subprocesso inclusive em caso de erro. Nunca inicie outra VM
 antes de a anterior terminar. Consulte [debugging.md](debugging.md) para
 comandos diretos com timeout e probes controlados de exceção.
+A suíte de memória exige kernel/ISO atualizados e usa a mesma disciplina:
+
+~~~sh
+python3 scripts/test-memory-qemu.py --suite --name memory-local --timeout 180
+~~~
+
+Ela envia comandos por QMP ao PS/2 emulado e verifica PMM/VMM, permissões,
+selftests, input e timer pela serial/registradores. Não abre janela gráfica.
+[Scripts](../scripts/README.md) lista os probes unmapped/RO/NX e opções.
 
 Os targets `run`, `debug` e `run-uefi` existentes também usam configuração
 headless, mas não possuem o timeout do harness. A validação automatizada da
