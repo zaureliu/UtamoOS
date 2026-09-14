@@ -5,18 +5,18 @@ main, release or public tag is authorized during the campaign.
 
 | Field | Current value |
 | --- | --- |
-| Current milestone | v0.4.0 — Kernel threads and preemptive scheduler |
-| Current status | IMPLEMENTED; candidate matrix running, no v0.4 GREEN claim |
-| Highest GREEN milestone | v0.3.0 — Kernel Heap |
-| Last known good commit | `2fb66be740ed8c153b3d733fc1d16bc978f2364f` |
-| Kernel version | 0.3.0; advance only after the next milestone passes |
-| Last known good ELF SHA-256 | `e8b103f7632c6fa04186db0b6034d3a223babd5187abe04a91d8c2806d3bcff6` |
-| Last known good ISO SHA-256 | `67040ab6949cfe343e212a74b9750cd1b03c2f489afb52ea3f5a35e69ed4b111` |
-| Host validation | v0.3 final: 18,994 checks, 0 failures |
-| ELF validation | v0.3 final: 1,482 checks, 0 failures |
-| QEMU validation | v0.3 final: 3,203 checks, 0 failures; 14 sequential VMs reaped |
-| Known blockers | None observed at the v0.3 gate |
-| Next task | Complete RAM/NX and regression matrix, then commit and validate the v0.4 version stamp |
+| Current milestone | v0.5.0 — Isolated Ring 3 processes and syscalls |
+| Current status | PLANNING; no v0.5 gate claimed |
+| Highest GREEN milestone | v0.4.0 — Kernel threads and preemptive scheduler |
+| Last known good commit | `7e07719f2207fca29de4c7bafcaa296d2dd30b8a` |
+| Kernel version | 0.4.0; advance only after the next milestone passes |
+| Last known good ELF SHA-256 | `04ee009d5a9986b9bc7deea54d3cb826b6cfc2d8b26df3db7eb68f95bcc7e3ff` |
+| Last known good ISO SHA-256 | `ccc7f09569f85a4164b31e32cd61ec2a4a1d13916b63a3919c33c56b560f67c2` |
+| Host validation | v0.4 final: 22,794 checks, 0 failures |
+| ELF validation | v0.4 final: 1,563 checks, 0 failures |
+| QEMU validation | 6,081 candidate + 1,243 final-stamp checks; 18 sequential VMs reaped; 0 failures |
+| Known blockers | None observed at the v0.4 gate |
+| Next task | Plan Ring 3 isolation, user/kernel entry and syscall contracts against the preserved v0.4 baseline |
 
 ## Last known good history
 
@@ -24,6 +24,7 @@ main, release or public tag is authorized during the campaign.
 | --- | --- | --- | --- |
 | v0.2.0 | GREEN baseline | `f73951185755da40c85467de99749611f6ab66dc` | `validation-artifacts/astra-baseline-20260914T071530Z/` |
 | v0.3.0 | GREEN, 2026-09-14 | `2fb66be740ed8c153b3d733fc1d16bc978f2364f` | `validation-artifacts/astra-v03-final-20260914T074134Z/summary.json` |
+| v0.4.0 | GREEN, 2026-09-14 | `7e07719f2207fca29de4c7bafcaa296d2dd30b8a` | `validation-artifacts/astra-v04-final-20260914T084853Z/summary.json` |
 
 Baseline was rebuilt from a clean build directory before campaign edits:
 host, cross kernel, ELF/ABI, ISO and the full existing headless matrix passed.
@@ -62,18 +63,28 @@ networking v0.8 begin only after all prerequisites pass. No GUI, SMP, USB or aud
 - Manual/visual, UEFI and physical hardware acceptance remain separate evidence.
 
 
-## v0.4 work in progress
+## v0.4 gate evidence
 
 Kernel threads, guarded stacks, round-robin preemption, sleep/wakeup, deferred
-reaping and diagnostic shell commands are implemented locally. Candidate host
-validation passed 22,794 checks and ELF/ABI inspection passed 1,563 checks.
-The 256 MiB and 64 MiB scheduler suites each passed 1,191 headless checks;
-the remaining RAM/NX and regression matrix is still pending. This does not
-promote v0.4 or replace the v0.3 last-known-good commit.
+reaping and shell diagnostics passed the local gate. The final clean build
+passed 22,794 host and 1,563 ELF/ABI checks and produced the 0.4.0 ELF/ISO.
 
-During review, thread-name validation was moved into its IF-protected copy
-transaction; fatal console output was kept independent of scheduler integrity.
-New stack fixtures aggregate repeated callback/empty-slot checks per scenario:
-1,096 assertions still inspect all original cases, pages and bytes. No existing
-v0.3 test was removed. Full raw runs, including the earlier verbose assertion
-count, remain under validation-artifacts/thread-stack-agent/.
+Evidence has two explicit phases. The full candidate matrix, still stamped
+0.3.0, passed 6,081 QEMU checks across 15 VMs: scheduler suites at 64/256/512 MiB
+and without NX, allocator/shell regressions and exception probes. After the
+version stamp, 0.4.0 passed another 1,243 checks across three VMs: boot,
+scheduler suite and the stack-guard fault. All 18 VMs passed and were reaped.
+
+Binary comparison found identical `.text`, `.data` and `.limine_requests`;
+`.rodata` differs by the one version byte. Counts total **31,681 assertions,
+zero failures**, counting final host/ELF once plus both QEMU phases. They are
+not unique-test or coverage counts. See [the v0.4 record](validation-astra-v0.4.json).
+Frozen artifacts: `validation-artifacts/astra-last-known-good/v0.4.0/`.
+
+During review, thread-name validation moved into its IF-protected copy
+transaction; fatal console output stayed independent of scheduler integrity.
+Only the new stack fixtures aggregated repeated callback/page observations:
+137,325 became 1,096 assertions while preserving cases, pages and bytes.
+No v0.3 suite or check was removed. Raw preliminary logs remain under
+`validation-artifacts/astra-v04-incremental/` and
+`validation-artifacts/thread-stack-agent/`.

@@ -3,15 +3,16 @@
 Versões indicam marcos técnicos, não prazos. v0.0.1/v0.1.0 são baselines
 preservados; v0.1.0 tem aceite manual registrado. O v0.2 implementa PMM/VMM
 sobre essa arquitetura; sua validação host/ELF/QEMU está registrada no development log.
-Marcos a partir de v0.3.0 são planos, sujeitos a revisão pelas evidências.
+Heap v0.3 e threads/scheduler v0.4 passaram gates locais da campanha Astra.
+Marcos a partir de v0.5.0 são planos, sujeitos a revisão pelas evidências.
 
 | Marco | Entrega | Estado / critério de saída |
 | --- | --- | --- |
 | **v0.0.1** | Boot, framebuffer, terminal, logging, serial, panic e mapa físico | Baseline validado; tag preservado |
 | **v0.1.0** | GDT/TSS/IST, IDT, exceções, PIC/PIT, PS/2 e shell de kernel | Host/ELF/QEMU headless aprovados; aceite manual QEMU/VNC confirmado em 2026-09-14 |
 | **v0.2.0** | Gerenciamento físico e virtual de memória | PMM, HHDM, VMM sobre CR3 herdado, permissões e selftests; host/ELF/QEMU aprovados, 14.213 checks sem falhas; revisão gráfica/teclado físico separada |
-| **v0.3.0** | Kernel heap, `kmalloc`, `kfree` e diagnóstico de memória | Alinhamento, OOM, double-free, overflow e fragmentação exercitados |
-| **v0.4.0** | Threads, context switching e scheduler | Trocas repetidas preservam registradores/pilhas; idle funciona |
+| **v0.3.0** | Kernel heap, `kmalloc`, `kfree` e diagnóstico de memória | GREEN local: 23.679 checks sem falhas, 14 VMs recolhidas; calloc/realloc, crescimento e rollback |
+| **v0.4.0** | Threads, context switching e scheduler | GREEN local: 31.681 checks sem falhas; 18 VMs em fases candidata/final; quantum, guards, sleep, reap e registradores exercitados |
 | **v0.5.0** | Ring 3, processos, ELF loader e syscalls | Memória de userspace isolada; ABI e cópias user/kernel documentadas |
 | **v0.6.0** | VFS, userspace, initramfs e filesystem em RAM | Parsers e operações por handles validados; utilitários executam como processos |
 | **v0.7.0** | PCI/PCIe e armazenamento | Enumerar dispositivos e ler imagens de teste com limites/DMA corretos |
@@ -19,19 +20,22 @@ Marcos a partir de v0.3.0 são planos, sujeitos a revisão pelas evidências.
 | **v0.9.0** | Gráficos e window system experimental | Input, superfícies e ownership definidos; falhas de clientes isoladas |
 | **v1.0.0** | Baseline experimental estabilizado | Arquitetura/documentação estáveis, plataformas testadas e limitações publicadas |
 
-## Próximo milestone: v0.3.0 — kernel heap
+## Próximo milestone: v0.5.0 — Ring 3, processos e syscalls
 
-1. Definir ownership entre frames PMM, mappings VMM e blocos do heap.
-2. Implementar kmalloc/kfree com alinhamento, OOM, overflow, double-free
-   e fragmentação tratados explicitamente.
-3. Respeitar aliases e mappings vivos ao liberar páginas; PMM não conta
-   referências e tabelas intermediárias vazias permanecem fixadas.
-4. Testar crescimento e estabilidade por host, stress no kernel e QEMU.
+1. Definir ownership e teardown de address spaces isolados, mantendo o kernel
+   protegido e compartilhado conforme um contrato explícito.
+2. Ampliar GDT/TSS, entrada/saída de privilégio e frames sem quebrar threads
+   de kernel, IRQs, guards ou a ABI de interrupções.
+3. Definir syscalls, validação de ponteiros e cópias user/kernel limitadas;
+   erros de processo não podem corromper nem encerrar o kernel.
+4. Validar isolamento, lifecycle, argumentos inválidos e regressões por host,
+   inspeção ELF e QEMU antes de promover o marco.
 
-O v0.2 não implementa heap. A base está em
-[gerenciamento de memória](memory-management.md) e [layout](memory-layout.md).
-Reclaim de bootloader/ACPI, guard pages e revisão dos aliases HHDM são itens
-separados; não constituem garantias já existentes de W^X global.
+As bases GREEN estão em [memória](memory-management.md), [heap](heap.md) e
+[scheduler](scheduler.md). [A evidência v0.4](validation-astra-v0.4.json)
+distingue os 15 QEMU candidatos com stamp 0.3.0 dos três QEMU finais 0.4.0.
+Reclaim de bootloader/ACPI e revisão dos aliases HHDM continuam separados;
+as guard pages de threads não estabelecem W^X global.
 
 ## Etapas complementares
 

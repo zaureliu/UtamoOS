@@ -1,5 +1,55 @@
 # Changelog
 
+## v0.4.0 (unreleased)
+
+GREEN local milestone on `astra-campaign`, recorded on 2026-09-14 at
+`7e07719f2207fca29de4c7bafcaa296d2dd30b8a`. No public tag, merge or push.
+
+### Added
+
+- Kernel threads sharing CR3, bounded to 64 registry entries including shell/idle.
+- Two-tick round-robin timer preemption, voluntary yield, deadline-checked sleep,
+  input wakeup, nested preemption control and deferred zombie cleanup.
+- Per-thread 64 KiB stacks with an unmapped lower guard page, PMM rollback,
+  descriptor generations and deferred stack/TCB release.
+- Synthetic supervisor bootstrap frames and GPR/CF/DF context-preservation probes.
+- `ps`/`threads`, `schedulerstats`, `schedtest`, `sleep` and fatal `fault stack`.
+- Host scheduler/stack models and a bounded headless scheduler regression harness.
+
+### Changed
+
+- Interrupt dispatch returns the selected 176-byte frame in RAX; Assembly adopts
+  it before restoring all 15 GPRs and executing IRETQ. INT240 remains DPL0.
+- Shell blocks for input while idle waits with STI/HLT; IRQ EOI precedes scheduling.
+- Logging and direct terminal editing respect preemption; fatal output remains
+  independent of scheduler integrity.
+- Kernel version and derived ISO name are 0.4.0 after the candidate gate passed.
+
+### Validation
+
+Final clean build: **22,794 host and 1,563 ELF/ABI checks**, kernel and ISO passed.
+The candidate matrix, still stamped 0.3.0, passed **6,081 QEMU checks in 15 VMs**.
+After stamping 0.4.0, boot, scheduler and stack-fault checks passed **1,243 checks
+in three VMs**. Total recorded: **31,681 assertions, zero failures; 18 VMs reaped**.
+
+`.text`, `.data` and `.limine_requests` match across the stamp; `.rodata` differs
+by one version byte. Host/ELF are counted once, QEMU phases separately. The full
+RAM/NX matrix was run on the candidate, not repeated after stamping. All v0.3
+host suites remain; new stack-fixture aggregation changes counting granularity
+without removing scenarios or byte/page checks. See [the evidence](docs/validation-astra-v0.4.json)
+and [scheduler contracts](docs/scheduler.md).
+
+### Known limits
+
+- BSP/ring 0 only; shared CR3/FS/GS and no FPU/SSE/AVX context switching.
+- No user processes, priorities, SMP or real-time latency guarantee.
+- Heap and some ownership transactions keep IF disabled; core validation is
+  O(N²) within the fixed 64-thread bound.
+- Bootstrap/IST stacks remain unguarded; the explicit guard fault is not a
+  recursive stack-overflow test.
+- Empty page tables and expanded heap pages remain retained; HHDM limits persist.
+- Visual, physical keyboard, UEFI and physical hardware acceptance remain separate.
+
 ## v0.3.0 (unreleased)
 
 GREEN local milestone on `astra-campaign`, recorded on 2026-09-14 at code

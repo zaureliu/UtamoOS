@@ -1,9 +1,9 @@
 # Threads de kernel e scheduler
 
 A v0.4 introduz threads de kernel e preempção sobre a base de memória e heap
-preservada. Este guia descreve os contratos implementados. O gate completo da
-v0.4 permanece pendente nesta revisão; o último marco GREEN é a v0.3.0.
-A presença de código, testes ou harness não equivale a uma execução aprovada.
+preservada. Este guia descreve os contratos da v0.4.0, marco GREEN local da
+campanha Astra em 2026-09-14. A validação ocorreu em duas fases explícitas,
+registradas ao final; não corresponde a publicação ou aceite de hardware físico.
 
 ## Separação de responsabilidades
 
@@ -21,8 +21,8 @@ O core não aloca memória, executa instruções privilegiadas nem troca pilhas.
 A integração fornece serialização e decide quando o frame selecionado será
 restaurado. Os drivers de IRQ continuam pequenos e não alocam TCBs ou pilhas.
 
-`scheduler_init()` é executado uma vez depois de heap/PIT/teclado estarem
-prontos, ainda com IF=0. Registra o bootstrap como thread `shell`, TID 1, e
+`scheduler_init()` é executado uma vez depois de heap/PIT, antes da
+inicialização PS/2 e ainda com IF=0. Registra o bootstrap como thread `shell`, TID 1, e
 cria a pilha da thread `idle`, TID 0. Ambos os TCBs são estáticos; os 16 frames
 da pilha idle são contabilizados pelo PMM, sem uma alocação viva no heap.
 O log é `Kernel scheduler initialized (round-robin, 2 ticks)`.
@@ -208,6 +208,15 @@ Page Fault de escrita supervisor, error code 2, CR2 nesse endereço e consulta
 VMM indicando ausência. Reinicie a VM depois do probe. Consultar uma guard
 page ou escrever nela deliberadamente não testa overflow recursivo de stack.
 
-O gate completo de v0.4 ainda está pendente. Resultados de execuções futuras
-devem identificar ELF/ISO, versão e artefatos; não há validação visual, UEFI
-ou em hardware físico implícita neste guia.
+O gate registrado passou 22.794 checks host e 1.563 ELF/ABI no build limpo
+final. A matriz candidata manteve o banner 0.3.0 e passou 6.081 checks QEMU
+em 15 VMs. Após atualizar a versão para 0.4.0, boot, suíte do scheduler e
+fault stack passaram mais 1.243 checks em três VMs. Todas as 18 VMs foram
+encerradas e coletadas: 31.681 checks registrados, zero falhas.
+
+A comparação binária entre as fases mostrou `.text`, `.data` e
+`.limine_requests` idênticos e apenas um byte de versão diferente em `.rodata`.
+O total soma host/ELF finais uma vez e as duas fases QEMU; não afirma que
+toda a matriz RAM/NX foi repetida após o stamp. O
+[registro v0.4](validation-astra-v0.4.json) identifica commits, hashes e artefatos.
+Validação visual, teclado físico, UEFI e hardware físico permanecem separados.

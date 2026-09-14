@@ -1,5 +1,51 @@
 # Development log
 
+## 2026-09-14 — campanha Astra: v0.3 e v0.4 GREEN
+
+### D016 — heap sobre PMM/VMM preservados
+
+O gate v0.3 passou 18.994 host, 1.482 ELF e 3.203 QEMU: 23.679 checks,
+zero falhas, 14 VMs recolhidas. Heap próprio oferece alinhamento 16,
+split/coalesce, calloc/realloc, crescimento e rollback, sem decommit.
+O marco e seus artefatos permanecem congelados; ver [registro v0.3](validation-astra-v0.3.json).
+
+### D017 — threads, preempção e retorno de frame
+
+A v0.4 preserva o frame de 176 bytes e usa o retorno em RAX do dispatcher
+para selecionar a stack restaurada por IRETQ. INT240 é DPL0, IRQ0 agenda
+depois do EOI, quantum é 2 ticks e shell bloqueia aguardando IRQ1.
+Threads têm stack de 64 KiB com guard inferior; zombies são liberados em
+outra thread. Bootstrap/idle TCBs são estáticos. [Contratos](scheduler.md).
+
+O selftest passou com 77 criações/exits/reaps, 3.105 operações determinísticas,
+mais de 4.000 trocas e preempção real por execução. A etapa de CPU sem yield
+registra iterações separadas. O worker adicional de nesting não executa antes
+de ambos os enables. Nome/cópia são protegidos por IF; saída fatal independe
+do scheduler. Fault stack exercita o diagnóstico da guard page.
+
+### D018 — gate em duas fases e granularidade de checks
+
+Build limpo final: 22.794 checks host, 1.563 ELF/ABI, kernel e ISO aprovados.
+A matriz candidata manteve stamp 0.3.0: 6.081 checks QEMU/15 VMs, incluindo
+64/256/512 MiB, CPU sem NX, regressões de memória/heap/shell e exceções.
+O stamp 0.4.0 passou depois boot, suíte do scheduler e fault stack:
+1.243 checks/3 VMs. Todas as 18 VMs foram recolhidas; soma registrada
+31.681 checks sem falhas, contando host/ELF finais apenas uma vez.
+
+A comparação mostrou `.text`, `.data` e `.limine_requests` idênticos;
+`.rodata` mudou somente um byte de versão. A matriz RAM/NX não foi repetida
+integralmente após o stamp. Commit GREEN:
+`7e07719f2207fca29de4c7bafcaa296d2dd30b8a`.
+[Registro v0.4](validation-astra-v0.4.json) e
+`validation-artifacts/astra-v04-final-20260914T084853Z/summary.json`.
+
+Somente fixtures novas de stack agregaram observações de callbacks/páginas
+por cenário: 137.325 passaram a 1.096 checks, preservando casos e bytes.
+As 14 suítes host da v0.3 continuam presentes. Contagens não medem casos
+únicos ou cobertura. O histórico anterior abaixo não foi reescrito.
+Próximo marco: planejamento v0.5, Ring 3/processos/syscalls. Não houve tag,
+push ou merge da campanha; aceite visual/UEFI/hardware permanece separado.
+
 ## 2026-09-14 — evolução v0.2: gerenciamento de memória
 
 Desenvolvimento em v0.2-dev sobre o baseline v0.1.0. PMM/VMM, HHDM,
