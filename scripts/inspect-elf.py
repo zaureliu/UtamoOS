@@ -302,6 +302,72 @@ for label, words in (
           "exactly one aligned " + label + " request")
 memory_checks = checks - memory_checks_start
 
+# CPL3 v0.5 keeps the same normalized frame/IRETQ ABI checked above.
+# The controlled payload lives in read-only kernel data, then the loader copies
+# it into a private RW/NX page and seals that user leaf RX before publication.
+user_checks_start = checks
+probe_start = symbol_address("user_probe_start")
+probe_end = symbol_address("user_probe_end")
+rodata = named_sections[".rodata"]
+for name in ("user_probe_start", "user_probe_end"):
+    check(symbol_bindings.get(name) == 1, "exported user payload bound: " + name)
+check(probe_start % 16 == 0 and 0 < probe_end - probe_start <= 4096,
+      "embedded user payload fits one page with an aligned entry")
+check(rodata[3] <= probe_start < probe_end <= rodata[3] + rodata[5],
+      "entire embedded user payload belongs to rodata")
+check(any(start <= probe_start < probe_end <= end and flags == 4
+          for start, end, flags in loads),
+      "embedded user source is read-only and non-executable in the kernel")
+
+
+def probe_bytes(name, size):
+    address = symbol_address("user_probe_start" + name)
+    check(probe_start <= address and address + size <= probe_end,
+          "controlled probe instruction lies within the copied blob: " + name)
+    begin = rodata[4] + address - rodata[3]
+    return data[begin:begin + size]
+
+
+# Check meaningful emitted hostile instructions at their own symbols, not
+# substring matches that could accidentally match immediates or string data.
+# Their resulting CPL3 exceptions and kernel survival are separate QEMU tests.
+# NASM encodes the canonical kernel RSP via MOV r64, sign-extended imm32:
+# 0x80000000 becomes exactly 0xffffffff80000000 (not a truncated address).
+for name, encoded in (
+        ("", "49 89 ff"),                     # mov r15,rdi: probe parameter
+        (".ud2", "0f 0b"), (".cli", "fa"),
+        (".out", "66 ba 80 00 31 c0 ee"),
+        (".int240", "cd f0"), (".syscall", "0f 05"),
+        (".sysenter", "0f 34"), (".fpu", "d9 ee"),
+        (".div0", "b8 01 00 00 00 31 d2 31 c9 48 f7 f1"),
+        (".bad_rsp", "49 89 e6 48 bc 00 00 00 00 00 80 00 00"),
+        (".kernel_rsp", "49 89 e6 48 c7 c4 00 00 00 80")):
+    expected = bytes.fromhex(encoded)
+    check(probe_bytes(name, len(expected)) == expected,
+          "emitted controlled user entry/probe: " + (name or "entry"))
+for name in (".success", ".failure", ".unexpected"):
+    address = symbol_address("user_probe_start" + name)
+    following = (symbol_address("user_probe_start.failure") if name == ".success"
+                 else symbol_address("user_probe_start.unexpected") if name == ".failure"
+                 else symbol_address("user_probe_start.message"))
+    block = probe_bytes(name, following - address)
+    check(block.endswith(bytes.fromhex("cd 80 0f 0b")),
+          "user completion uses INT128 with unreachable UD2: " + name)
+for name, encoded in (("cpu_write_cr4", "0f 22 e7 c3"),
+                      ("cpu_user_clear_segments", "31 c0 8e e0 8e e8 c3")):
+    expected = bytes.fromhex(encoded)
+    check(executable_bytes(symbol_address(name), len(expected)) == expected,
+          "emitted user architecture primitive: " + name)
+for name in ("gdt_set_rsp0", "arch_user_init", "arch_user_prepare_return",
+             "idt_enable_user_syscall", "user_vm_create", "user_vm_destroy",
+             "user_vm_alloc_page", "user_vm_protect_page", "user_vm_copy_from",
+             "user_vm_copy_to", "process_spawn_probe", "process_on_syscall",
+             "process_on_fault", "process_user_return_valid"):
+    check(any(start <= symbol_address(name) < end and flags & 1
+              for start, end, flags in loads),
+          "user implementation linked in kernel executable section: " + name)
+user_checks = checks - user_checks_start
+
 print(f"UTAMO ELF inspection: {checks} checks, 0 failures "
       f"({stub_checks} interrupt stub checks, {abi_checks} ABI checks, "
-      f"{memory_checks} memory checks)")
+      f"{memory_checks} memory checks, {user_checks} user-mode checks)")
