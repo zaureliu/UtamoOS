@@ -2,6 +2,7 @@
 #include <utamo/memory.h>
 #include <utamo/hhdm.h>
 #include <utamo/vmm.h>
+#include <utamo/mmio.h>
 #include <utamo/vmm_core.h>
 #include <utamo/boot.h>
 #include <utamo/cpu.h>
@@ -90,7 +91,8 @@ static void invalidate(void *context, uint64_t virt)
  * This cannot alter kernel, framebuffer, HHDM or Limine response mappings. */
 static bool dynamic_address(uint64_t virt)
 {
-    return virt >= VMM_DYNAMIC_BASE && virt - VMM_DYNAMIC_BASE < VMM_DYNAMIC_SIZE;
+    return virt >= VMM_DYNAMIC_BASE && virt - VMM_DYNAMIC_BASE < VMM_DYNAMIC_SIZE &&
+        !(virt >= UTAMO_MMIO_BASE && virt - UTAMO_MMIO_BASE < UTAMO_MMIO_SIZE);
 }
 
 bool vmm_map_page(uint64_t virt, uint64_t phys, uint64_t flags)
@@ -428,4 +430,50 @@ bool memory_init(const struct memory_map *map, const struct framebuffer *fb)
     LOG_INFO("Kernel section protections: %s",
              (const char *)(information.sections_protected ? "applied" : "deferred"));
     return true;
+}
+
+/* Boot-time permanent device mappings; physical frames are not PMM memory.
+ * UC PAT index 3 (PCD|PWT, PAT=0) is verified rather than assumed. */
+bool vmm_map_mmio(uint64_t physical, size_t bytes, void **out)
+{
+    static uint64_t used;
+    static struct { uint64_t start, end; } apertures[16];
+    static size_t count;
+    const uint64_t saved = cpu_irq_save();
+    struct cpu_cpuid_result cpuid;
+    cpu_cpuid(1u, 0u, &cpuid);
+    bool good = ready && out != NULL && count < 16u &&
+        mmio_range_allowed(direct_map.map, physical, bytes) &&
+        bytes <= UTAMO_MMIO_SIZE - used &&
+        ((physical + bytes - 1u) & ~(kernel_space.physical_mask | UINT64_C(4095))) == 0u &&
+        (cpuid.edx & (1u << 16u)) != 0u;
+    if (good) { good = ((cpu_read_msr(0x277u) >> 24u) & 255u) == 0u; }
+    for (size_t i = 0u; good && i < count; ++i) {
+        if (physical < apertures[i].end && apertures[i].start < physical + bytes) {
+            good = false;
+        }
+    }
+    size_t done = 0u;
+    const uint64_t flags = VMM_PRESENT | VMM_WRITABLE | VMM_CACHE_DISABLE |
+        VMM_WRITE_THROUGH | (information.nx_enabled ? VMM_NX : 0u);
+    while (good && done < bytes) {
+        good = vmm_space_map(&kernel_space, UTAMO_MMIO_BASE + used + done,
+                             physical + done, flags);
+        if (good) { done += 4096u; }
+    }
+    if (!good) {
+        while (done != 0u) {
+            done -= 4096u;
+            if (!vmm_space_unmap(&kernel_space, UTAMO_MMIO_BASE + used + done)) {
+                PANIC("MMIO rollback mapping mismatch");
+            }
+        }
+    } else {
+        apertures[count].start = physical;
+        apertures[count++].end = physical + bytes;
+        *out = (void *)(uintptr_t)(UTAMO_MMIO_BASE + used);
+        used += bytes;
+    }
+    cpu_irq_restore(saved);
+    return good;
 }
