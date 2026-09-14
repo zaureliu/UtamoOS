@@ -4,6 +4,8 @@
 #include <utamo/cpu.h>
 #include <utamo/kernel.h>
 #include <utamo/gdt.h>
+#include <utamo/idt.h>
+#include <utamo/interrupts.h>
 #include <utamo/log.h>
 #include <utamo/panic.h>
 #include <utamo/serial.h>
@@ -62,6 +64,12 @@ _Noreturn void kernel_main(void)
             (unsigned long long)(boot_memory.usable_bytes / (1024u * 1024u)));
     gdt_init();
     LOG_OK("GDT initialized");
+    exception_set_terminal(&boot_terminal);
+    if (!idt_init()) {
+        PANIC("Cannot initialize IDT");
+    }
+    LOG_OK("IDT initialized");
+    LOG_OK("CPU exception handlers initialized");
     kprintf("\nWelcome to UTAMO OS.\n\n");
     kprintf("System halted safely.\n");
     kprintf("==============================================\n");

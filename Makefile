@@ -61,7 +61,7 @@ VIDEO_TEST_SOURCES := tests/test_video.c kernel/drivers/video/framebuffer.c \
 VIDEO_TEST := $(BUILD_DIR)/tests/utamo-video-tests
 
 QEMU_FLAGS := -machine q35,accel=tcg -cpu qemu64 -m 256M -smp 1 \
-    -serial stdio -monitor none -nic none -no-reboot -no-shutdown -boot d
+    -display none -serial stdio -monitor none -nic none -no-reboot -no-shutdown -boot d
 
 .PHONY: all kernel iso run debug run-uefi test-host inspect clean guard-build
 
@@ -119,10 +119,17 @@ $(GDT_TEST): tests/test_gdt.c kernel/arch/x86_64/gdt_layout.c $(HOST_HEADERS) Ma
 	@mkdir -p -- "$(@D)"
 	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include tests/test_gdt.c kernel/arch/x86_64/gdt_layout.c -o "$@"
 
-test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST)
+INTERRUPT_TEST := $(BUILD_DIR)/tests/utamo-interrupt-tests
+INTERRUPT_TEST_SOURCES := tests/test_interrupts.c kernel/arch/x86_64/idt_layout.c kernel/interrupts/exception_info.c kernel/interrupts/exception_format.c kernel/lib/format.c
+$(INTERRUPT_TEST): $(INTERRUPT_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(INTERRUPT_TEST_SOURCES) -o "$@"
+
+test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST)
 	"./$(HOST_TEST)"
 	"./$(VIDEO_TEST)"
 	"./$(GDT_TEST)"
+	"./$(INTERRUPT_TEST)"
 
 inspect: $(KERNEL)
 	$(READELF) -h -l -S "$(KERNEL)"
