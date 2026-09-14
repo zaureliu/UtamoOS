@@ -5,18 +5,18 @@ main, release or public tag is authorized during the campaign.
 
 | Field | Current value |
 | --- | --- |
-| Current milestone | v0.7.0 — PCI, block layer, AHCI and FAT32 |
-| Current status | GREEN; final clean build and both QEMU phases passed; networking is next |
-| Highest GREEN milestone | v0.7.0 — PCI, readonly AHCI/block and FAT32 |
-| Last known good commit | `0cfca41fadfb298297bd740a347bc3dfcb022ebe` |
-| Kernel version | 0.7.0; advance only after the next milestone passes |
-| Last known good ELF SHA-256 | `8c3e2be8b8552379045e074744c900b1cbaab28d82673220d11c12dd545256d4` |
-| Last known good ISO SHA-256 | `c76e6a542bff80124bee3c36de8ba1a1230f7605d27f3a711cf0e8c9d3b1f5a6` |
-| Host validation | v0.7 final: 30,022 checks, 0 failures |
-| ELF validation | v0.7 final: 1,916 checks, 0 failures (kernel and seven native ELFs) |
-| QEMU validation | 12,202 candidate + 403 final checks; 37 passing gate VMs reaped; historical attempts retained separately |
-| Known blockers | None observed at the completed v0.7 gate |
-| Next task | Begin v0.8 E1000, Ethernet, ARP, IPv4, ICMP, UDP, DHCP and DNS with local network fixtures |
+| Current milestone | v0.8.0 — E1000 and bounded IPv4 networking |
+| Current status | GREEN; campaign complete, final audit and clean validation passed |
+| Highest GREEN milestone | v0.8.0 core — E1000/Ethernet/ARP/IPv4/ICMP/UDP/DHCP/DNS |
+| Last known good commit | `81a01cef24bd9461b0a6f221e966507a2c0344cb` |
+| Kernel version | 0.8.0 |
+| Last known good ELF SHA-256 | `cdf220446fe7fb0ad6e69922942d565508341bec7670ee6731c37fc00ed64267` |
+| Last known good ISO SHA-256 | `fbbaa1cc479bf1a48b3ca09682e9962bd574b4db86e88506bbf8442abde725d1` |
+| Host validation | v0.8 final: 36,527 checks, 0 failures |
+| ELF validation | v0.8 final: 1,987 checks, 0 failures (kernel and seven native ELFs) |
+| QEMU validation | 13,551 candidate + 587 final checks; all 43 gate VMs passed and were reaped |
+| Known blockers | None within the accepted single-BSP/Q35 scope |
+| Next task | Campaign complete; optional TCP/HTTP, userspace shell and GUI were not started |
 
 ## Last known good history
 
@@ -28,6 +28,7 @@ main, release or public tag is authorized during the campaign.
 | v0.5.0 | GREEN, 2026-09-14 | `4f303c8aeca26051f4affe92b0ba5af4e2296026` | `validation-artifacts/astra-v05-final-20260914T101644Z/summary.json` |
 | v0.6.0 | GREEN, 2026-09-14 | `c5b2a915422df7c6d71e353335e6fc812225ea62` | `validation-artifacts/astra-v06-final-20260914T130610Z/summary.json` |
 | v0.7.0 | GREEN, 2026-09-14 | `0cfca41fadfb298297bd740a347bc3dfcb022ebe` | `validation-artifacts/astra-v07-final-20260914T140308Z/summary.json` |
+| v0.8.0 | GREEN, 2026-09-14 | `81a01cef24bd9461b0a6f221e966507a2c0344cb` | `validation-artifacts/astra-v08-final-20260914T150758Z/summary.json` |
 
 Baseline was rebuilt from a clean build directory before campaign edits:
 host, cross kernel, ELF/ABI, ISO and the full existing headless matrix passed.
@@ -175,3 +176,45 @@ Eighteen storage stress commands performed 162 imports (144 checked plus
 created/reaped 360 and contained 117 user faults. Startup/explicit exec checks
 are separate. See validation-astra-v0.7.json and audit-astra-v0.7.md.
 Frozen artifacts: validation-artifacts/astra-last-known-good/v0.7.0/.
+
+## v0.8 gate and campaign completion
+
+The interrupted networking work was preserved and completed. E1000 ownership,
+packet contracts, DHCP/DNS transactions and headless fixtures were committed
+in bf1b110, 9a9ac6c and bc39439. Commit 81a01ce promotes the accepted core
+to 0.8.0 and is the final implementation last known good.
+
+Final clean host/ELF passed 36,527 / 1,987 assertions. The full candidate
+matrix passed 13,551 QEMU assertions in 40 VMs. Final 0.8.0 networking with
+AHCI/FAT32, alternate subnet/MAC without NX, and kernel RO protection passed
+another 587 assertions in three VMs. Total: 52,652 assertions, zero gate
+failures. All 43 gate VMs were reaped. All seven disk bases kept their hashes.
+
+The first preliminary link-restoration VM failed because negotiation was
+asynchronous. DHCP now has a bounded readiness wait; the repeated preliminary
+VM passed. Both attempts are retained separately, for 45 total VM attempts
+including the gate. Review also corrected unusable DHCP gateway/local service
+addresses. Supplemental ASan/UBSan passed 6,480 repeated assertions, excluded
+from the main total.
+
+The candidate still displayed 0.7.0. Across final stamping, kernel text/data/
+requests/BSS, all seven complete user ELFs and initramfs are identical; only
+one kernel rodata version byte changed. The full RAM matrix was not repeated
+after stamping. Final host/ELF count once plus both QEMU phases.
+
+Sixty-eight named stress commands include 65,536 heap operations; 21,735
+scheduler operations and 539 reaped worker threads; 360 created/reaped embedded
+probe processes, 117 contained faults and 2,951,100 syscalls; 315 ELF processes;
+126 FAT32 imports; and 336 network rounds with 1,008 successful transactions.
+Startup demonstrations and explicit exec commands are additional, separate work.
+
+The full kernel and network audit is complete. Deliberate limits include
+retained kernel tables/HHDM permission debt, readonly bounded storage, permanent
+published DMA and single-thread polling networking. TCP/HTTP and a userspace
+shell remain optional and absent. Physical hardware/UEFI/visual acceptance
+remain separate. No GUI, publishing, main merge or tag mutation occurred.
+
+See [the final report](astra-campaign-final-report.md),
+[the v0.8 evidence](validation-astra-v0.8.json),
+[the audit](audit-astra-v0.8.md) and [network contracts](networking.md).
+Frozen final artifacts: validation-artifacts/astra-last-known-good/v0.8.0/.

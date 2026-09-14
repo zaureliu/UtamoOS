@@ -1,8 +1,13 @@
 # Filesystem subsystem
 
-The v0.6 candidate uses a bounded immutable newc index and a read-only VFS.
-The boot module stays reserved. File handles have independent offsets; native
-processes own descriptor tables and user copies remain checked.
+The immutable newc index provides the root VFS. The boot module stays
+reserved. File handles have independent offsets; native processes own
+private descriptor tables and checked user copies.
 
-See [VFS ownership, format and limits](../../docs/vfs.md).
-Disk-backed storage is a later gated milestone.
+The v0.7 storage gate added a bounded readonly FAT32 snapshot mounted at
+/disk after real AHCI reads. Mounted data outlives every descriptor. Failed
+imports release unpublished state. There is no write or unmount API.
+
+See [VFS ownership and limits](../../docs/vfs.md),
+[storage contracts](../../docs/storage.md) and
+[campaign evidence](../../docs/astra-campaign-state.md).

@@ -1,4 +1,10 @@
-# Testes do UTAMO OS v0.2
+# Testes do UTAMO OS
+
+As tabelas de resultados v0.1/v0.2 abaixo são evidência histórica preservada.
+Os gates da campanha até v0.8 core estão GREEN; veja o
+[registro final de validação](../docs/validation-astra-v0.8.json) e o
+[estado da campanha](../docs/astra-campaign-state.md). Não some resultados de
+imagens diferentes como se validassem o mesmo binário.
 
 Os testes dos baselines v0.0.1/v0.1.0 são preservados.
 O v0.2 acrescenta PMM/VMM, HHDM, comandos e suíte QEMU de memória.
@@ -6,7 +12,7 @@ Cobertura implementada não é automaticamente evidência de hardware:
 contagens e hashes pertencem às execuções registradas no
 [development log](../docs/development-log.md).
 
-## Matriz final observada: 0.2.0
+## Histórico preservado: matriz final 0.2.0
 
 | Camada | Checks | Falhas |
 | --- | ---: | ---: |
@@ -62,10 +68,21 @@ O GCC nativo é usado apenas aqui; o kernel usa o cross compiler x86_64-elf.
 | `test_pit.c` | Portas/divisor/modo, contador e conversão temporal com modelo host de portas/IF |
 | `test_input_shell.c` | Decoder set 1, modificadores, fila circular e edição/tokenização da linha |
 | `test_keyboard.c` | Inicialização/controlador PS/2 e tratamento de entrada com portas simuladas |
-| `test_shell_commands.c` | Comandos reais com efeitos simulados, inclusive PMM/VMM/mapinfo/selftests e fault vmm |
+| `test_shell_commands.c` | Dispatch de comandos reais com efeitos simulados, inclusive memória, processos, VFS, armazenamento e rede |
 | `test_memory_helpers.c` | Alinhamento, canonicalidade, máscara física, índices e conversões HHDM |
 | `test_pmm.c` | Bitmaps, reservas, ownership, contiguidade, falta de recursos e transações sem efeitos parciais |
 | `test_vmm.c` | Walk de quatro níveis, folhas grandes, permissões, rollback, publicação e map/protect/unmap |
+| `test_heap.c` / `test_heap_pages.c` | Alinhamento, split/coalesce, realloc, OOM, ownership e rollback de backing |
+| `test_sched_core.c` / `test_thread_stack.c` | Filas, quantum, sleep, preempção, guards e lifecycle de stacks |
+| `test_arch_user.c` / `test_user_vm.c` | Política de CPU/TSS/gates, páginas privadas, cópias verificadas e teardown |
+| `test_process_syscall.c` / `test_dispatch.c` | ABI, validação de retorno, IRQs e contenção de falhas CPL3 |
+| `test_vfs_elf.c` / `test_elf_load.c` | newc/VFS/ELF, entradas malformadas e rollback em operações do loader |
+| `test_process_files.c` / `test_process_exec.c` | Descritores, offsets, SPAWN/WAIT, publicação e reap |
+| `test_storage_core.c` / `test_ahci_driver.c` | PCI/BAR/MMIO, block bounds e driver AHCI real com modelo DMA |
+| `test_fat32.c` | Geometria, cadeias, corrupção, importação e rollback de FAT32 |
+| `test_network.c` | Contratos de pacotes, checksums, DHCP/DNS e descritores E1000 |
+| `test_e1000_driver.c` | Driver real com modelo MMIO/DMA, wrap, falhas e quarentena |
+| `test_net_stack.c` | Transações, peers, DHCP, DNS, timeouts, lease e recuperação |
 
 As funções privilegiadas são substituídas por modelos explícitos nos testes
 que precisam delas. Nenhuma instrução de IO, CLI/STI, LGDT/LIDT ou HLT é
@@ -141,9 +158,19 @@ defensivas dos contadores permanecem no código para evitar wraparound.
 make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" kernel
 make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" inspect
 make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" iso
-python3 scripts/test-qemu.py --marker "utamo> " --name boot-v02 --check-gdt --check-idt --check-timer
-python3 scripts/test-memory-qemu.py --suite --name memory-v02 --timeout 180
+python3 scripts/test-qemu.py --marker "utamo> " --name boot-local --check-gdt --check-idt --check-timer
+python3 scripts/test-memory-qemu.py --suite --name memory-local --timeout 180
+python3 scripts/test-heap-qemu.py --suite --name heap-local --timeout 240
+python3 scripts/test-scheduler-qemu.py --suite --name scheduler-local --timeout 300
+python3 scripts/test-process-qemu.py --suite --name process-local --timeout 300
+python3 scripts/test-filesystem-qemu.py --suite --name filesystem-local --timeout 300
+python3 scripts/test-network-qemu.py --suite --network --name network-local
 ~~~
+
+Use um nome novo por execução e consulte [storage](../docs/storage.md) para
+anexar imagens FAT32 descartáveis. A suíte de [rede](../docs/networking.md)
+cria sua fixture UDP local e não depende da internet. Ela não valida DNS
+recursivo público ou hardware físico.
 
 Execute VMs sequencialmente. Os harnesses usam display none, pastas novas
 de evidência, timeout e cleanup do próprio subprocesso.
@@ -167,7 +194,9 @@ RO/NX protege o endereço selecionado; aliases HHDM impedem inferir W^X global.
 Cada build/validation/<name>/report.json identifica hashes ELF/ISO,
 Git, configuração, checks e cleanup. A serial e os registros suportam a revisão.
 Make clean remove esses arquivos; preserve a evidência necessária no projeto.
-A matriz final acima pertence aos hashes registrados; outras imagens exigem nova execução.
+A matriz histórica acima pertence aos hashes registrados; outras imagens
+exigem nova execução. Os manifests da campanha separam candidato, stamp final,
+VMs aprovadas, tentativas históricas e sanitizer runs suplementares.
 
 Host não executa hardware. HHDM puro valida aritmética/tipos/ranges,
 mas a VM verifica as page tables reais. QMP/PS2 emulado confirma o caminho
@@ -176,10 +205,13 @@ Clear serial não confirma aparência gráfica.
 O aceite manual v0.1 permanece histórico; UEFI, hardware físico e legibilidade
 da nova imagem exigem evidência específica.
 
-## Próximos testes
+## Extensões e limites atuais
 
-v0.3 deverá testar kernel heap: alinhamento, overflow, OOM, double-free,
-fragmentação, ownership entre blocos/páginas e estabilidade sob stress.
-Guard pages, reclaim, aliases e SMP exigem casos separados.
-Fuzzing/sanitizers podem ampliar a cobertura pura; funções com nomes de libc
-precisam de atenção aos interceptadores do host.
+Heap, guard pages, scheduler, CPL3, ELF/VFS e armazenamento têm suítes
+próprias e gates registrados. Rede acrescenta parsers host, modelo de driver,
+modelo de transações e comunicação QEMU com captura de pacotes. A existência
+da suíte não declara seu gate aprovado; consulte os manifests por versão.
+
+Reclaim, política global de aliases, SMP e hardware físico exigem casos
+separados. Sanitizers ampliam a evidência pura e são contados separadamente;
+funções com nomes de libc exigem atenção aos interceptadores do host.

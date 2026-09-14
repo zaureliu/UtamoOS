@@ -1,0 +1,876 @@
+{
+  "baseline_commit": "f73951185755da40c85467de99749611f6ab66dc",
+  "final_implementation_commit": "81a01cef24bd9461b0a6f221e966507a2c0344cb",
+  "final_report_commit": "The commit containing this file; exact HEAD in validation-artifacts/astra-final-git.json",
+  "commits_through_final_implementation": [
+    {
+      "commit": "daa8071246dc337b3c94444430d4cd7204693036",
+      "subject": "docs: start Astra campaign from revalidated v0.2 baseline"
+    },
+    {
+      "commit": "b1f5080c87549145bb134eb74ceb3f4fb2edff6d",
+      "subject": "feat: add validated boundary-tag kernel heap allocator"
+    },
+    {
+      "commit": "260683b3ee76bf0c9e8a49eeb09041fdadf0e952",
+      "subject": "feat: add transactional PMM VMM backing for heap growth"
+    },
+    {
+      "commit": "f19196bdbfe1d292856d7df5da9fae9eb9203239",
+      "subject": "feat: integrate kernel heap diagnostics and deterministic stress"
+    },
+    {
+      "commit": "ccc129d678f2e54b4587e3bf28a48f319f2f4c63",
+      "subject": "test: add headless heap growth and accounting gate"
+    },
+    {
+      "commit": "2fb66be740ed8c153b3d733fc1d16bc978f2364f",
+      "subject": "chore: promote validated kernel heap milestone to 0.3.0"
+    },
+    {
+      "commit": "58871542259b1fe161dff00fbd985205d620f771",
+      "subject": "docs: record green v0.3 heap campaign milestone"
+    },
+    {
+      "commit": "20a3f3f661f65dae017d468c7446f09bd294e74d",
+      "subject": "feat: add kernel scheduler policy and guarded thread stacks"
+    },
+    {
+      "commit": "eac5c8619027754442a940f04d4ed47b2bd30049",
+      "subject": "feat: add preemptive kernel threads and lifecycle stress"
+    },
+    {
+      "commit": "ee66d0687cd33bdcd35c46b4d3c759d95c8fbc67",
+      "subject": "test: add bounded headless scheduler gate and contracts"
+    },
+    {
+      "commit": "7e07719f2207fca29de4c7bafcaa296d2dd30b8a",
+      "subject": "chore: promote validated scheduler milestone to 0.4.0"
+    },
+    {
+      "commit": "de5f1f04b72737ca0de8d53e3c41edfbdcaee24b",
+      "subject": "docs: record green v0.4 scheduler milestone"
+    },
+    {
+      "commit": "2e5db50955c17d7ee12ddf49f35f3d72f8244e2a",
+      "subject": "feat: add isolated x86_64 user address spaces"
+    },
+    {
+      "commit": "e011c7e9a2ae05ba47a6543b13e1390661eae094",
+      "subject": "feat: add native ring 3 processes and syscalls"
+    },
+    {
+      "commit": "85c75fd00265f2410c4a3c10d00f1a687a8572ac",
+      "subject": "test: validate process isolation and fault containment"
+    },
+    {
+      "commit": "4f303c8aeca26051f4affe92b0ba5af4e2296026",
+      "subject": "feat: promote validated processes to v0.5.0"
+    },
+    {
+      "commit": "4c0ad97d5ea53c968f35aeaab5eb6ae2ad6519f0",
+      "subject": "docs: record green v0.5 process milestone"
+    },
+    {
+      "commit": "e8029404e122242aec54dcc3724c288ba22ee0f4",
+      "subject": "feat: add bounded initramfs VFS and ELF loader"
+    },
+    {
+      "commit": "3190609c91eba9c473aab9837a90182544383dc0",
+      "subject": "feat: execute native ELF init and add per-process file syscalls"
+    },
+    {
+      "commit": "c5b2a915422df7c6d71e353335e6fc812225ea62",
+      "subject": "chore: promote gated ELF userspace milestone to v0.6.0"
+    },
+    {
+      "commit": "28b4079e72a7b80355d5a456f5da034549ea8b7c",
+      "subject": "docs: record green v0.6 ELF userspace checkpoint"
+    },
+    {
+      "commit": "7a3cb9499f7a2d56dc50b549aaf41679d193ce9e",
+      "subject": "feat: add PCI discovery and bounded readonly AHCI DMA"
+    },
+    {
+      "commit": "bb054e138c0921ccd522b2b1c1b2a6be22169b72",
+      "subject": "feat: mount validated FAT32 snapshots and verify native disk reads"
+    },
+    {
+      "commit": "0cfca41fadfb298297bd740a347bc3dfcb022ebe",
+      "subject": "chore: promote gated storage milestone to v0.7.0"
+    },
+    {
+      "commit": "d847ecacb98b15fadbcbd1703b33cdb1b7481538",
+      "subject": "docs: record green v0.7 storage checkpoint"
+    },
+    {
+      "commit": "bf1b11069dbc8eafdd70beec5b690fa2281b44f4",
+      "subject": "feat: add bounded E1000 DMA driver"
+    },
+    {
+      "commit": "9a9ac6c001ef689ed20ef5679352d7dbcb491c27",
+      "subject": "feat: add bounded IPv4 DHCP and DNS transactions"
+    },
+    {
+      "commit": "bc3943980875f845e9ce6d87e500b684c9a76a33",
+      "subject": "test: gate networking with local headless fixtures"
+    },
+    {
+      "commit": "81a01cef24bd9461b0a6f221e966507a2c0344cb",
+      "subject": "chore: promote gated networking core to v0.8.0"
+    }
+  ],
+  "commit_count_through_final_implementation": 29,
+  "final_documentation_commit_count": 1,
+  "file_scope": "Baseline through final campaign working tree, including this report and manifest",
+  "files_created": 128,
+  "files_modified": 58,
+  "files_deleted": 0,
+  "files_renamed": 0,
+  "files": [
+    {
+      "status": "M",
+      "path": "CHANGELOG.md"
+    },
+    {
+      "status": "M",
+      "path": "Makefile"
+    },
+    {
+      "status": "M",
+      "path": "README.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/architecture.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/astra-campaign-changes.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/astra-campaign-final-report.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/astra-campaign-state.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/audit-astra-v0.6.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/audit-astra-v0.7.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/audit-astra-v0.8.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/boot-process.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/development-log.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/elf-loader.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/heap.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/interrupts.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/memory-layout.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/memory-management.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/networking.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/processes.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/roadmap.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/scheduler.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/storage.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/syscalls.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/userspace.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/validation-astra-v0.3.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/validation-astra-v0.4.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/validation-astra-v0.5.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/validation-astra-v0.6.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/validation-astra-v0.7.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/validation-astra-v0.8.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/vfs.md"
+    },
+    {
+      "status": "A",
+      "path": "kernel/arch/x86_64/arch_user.asm"
+    },
+    {
+      "status": "A",
+      "path": "kernel/arch/x86_64/arch_user.c"
+    },
+    {
+      "status": "M",
+      "path": "kernel/arch/x86_64/boot.c"
+    },
+    {
+      "status": "M",
+      "path": "kernel/arch/x86_64/cpu.asm"
+    },
+    {
+      "status": "M",
+      "path": "kernel/arch/x86_64/entry.asm"
+    },
+    {
+      "status": "M",
+      "path": "kernel/arch/x86_64/gdt.c"
+    },
+    {
+      "status": "M",
+      "path": "kernel/arch/x86_64/gdt_layout.c"
+    },
+    {
+      "status": "M",
+      "path": "kernel/arch/x86_64/idt.c"
+    },
+    {
+      "status": "M",
+      "path": "kernel/arch/x86_64/idt_layout.c"
+    },
+    {
+      "status": "M",
+      "path": "kernel/arch/x86_64/interrupt_stubs.asm"
+    },
+    {
+      "status": "M",
+      "path": "kernel/arch/x86_64/io.asm"
+    },
+    {
+      "status": "A",
+      "path": "kernel/arch/x86_64/thread_test.asm"
+    },
+    {
+      "status": "A",
+      "path": "kernel/arch/x86_64/user_probe.asm"
+    },
+    {
+      "status": "A",
+      "path": "kernel/core/elf.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/core/elf_load.c"
+    },
+    {
+      "status": "M",
+      "path": "kernel/core/log.c"
+    },
+    {
+      "status": "M",
+      "path": "kernel/core/main.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/core/process.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/core/process_files.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/core/process_policy.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/core/process_selftest.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/core/process_syscall.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/core/sched_core.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/core/scheduler.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/core/scheduler_selftest.c"
+    },
+    {
+      "status": "M",
+      "path": "kernel/core/shell.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/core/thread_stack.c"
+    },
+    {
+      "status": "M",
+      "path": "kernel/drivers/README.md"
+    },
+    {
+      "status": "A",
+      "path": "kernel/drivers/ahci.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/drivers/ahci_core.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/drivers/block.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/drivers/e1000.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/drivers/e1000_ring.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/drivers/pci.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/drivers/pci_core.c"
+    },
+    {
+      "status": "M",
+      "path": "kernel/fs/README.md"
+    },
+    {
+      "status": "A",
+      "path": "kernel/fs/fat32.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/fs/filesystem.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/fs/initramfs.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/fs/storage.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/fs/vfs.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/ahci.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/arch_user.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/block.h"
+    },
+    {
+      "status": "M",
+      "path": "kernel/include/utamo/boot.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/e1000_ring.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/elf.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/fat32.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/filesystem.h"
+    },
+    {
+      "status": "M",
+      "path": "kernel/include/utamo/gdt.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/heap.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/heap_core.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/heap_pages.h"
+    },
+    {
+      "status": "M",
+      "path": "kernel/include/utamo/idt.h"
+    },
+    {
+      "status": "M",
+      "path": "kernel/include/utamo/interrupts.h"
+    },
+    {
+      "status": "M",
+      "path": "kernel/include/utamo/io.h"
+    },
+    {
+      "status": "M",
+      "path": "kernel/include/utamo/log.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/mmio.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/net.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/net_packet.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/net_services.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/networking.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/nic.h"
+    },
+    {
+      "status": "M",
+      "path": "kernel/include/utamo/paging.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/pci.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/process.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/sched_core.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/scheduler.h"
+    },
+    {
+      "status": "M",
+      "path": "kernel/include/utamo/shell_line.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/storage.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/syscall_abi.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/thread_stack.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/user_probe.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/user_vm.h"
+    },
+    {
+      "status": "M",
+      "path": "kernel/include/utamo/version.h"
+    },
+    {
+      "status": "A",
+      "path": "kernel/include/utamo/vfs.h"
+    },
+    {
+      "status": "M",
+      "path": "kernel/include/utamo/vmm.h"
+    },
+    {
+      "status": "M",
+      "path": "kernel/include/utamo/vmm_core.h"
+    },
+    {
+      "status": "M",
+      "path": "kernel/interrupts/exception_format.c"
+    },
+    {
+      "status": "M",
+      "path": "kernel/interrupts/exceptions.c"
+    },
+    {
+      "status": "M",
+      "path": "kernel/lib/shell_line.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/memory/heap.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/memory/heap_core.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/memory/heap_pages.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/memory/heap_selftest.c"
+    },
+    {
+      "status": "M",
+      "path": "kernel/memory/memory_selftest.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/memory/mmio_policy.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/memory/user_vm.c"
+    },
+    {
+      "status": "M",
+      "path": "kernel/memory/vmm.c"
+    },
+    {
+      "status": "M",
+      "path": "kernel/net/README.md"
+    },
+    {
+      "status": "A",
+      "path": "kernel/net/arp.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/net/dhcp.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/net/dns.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/net/ethernet.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/net/icmp.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/net/ipv4.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/net/networking.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/net/stack.c"
+    },
+    {
+      "status": "A",
+      "path": "kernel/net/udp.c"
+    },
+    {
+      "status": "M",
+      "path": "kernel/scheduler/README.md"
+    },
+    {
+      "status": "M",
+      "path": "kernel/syscall/README.md"
+    },
+    {
+      "status": "M",
+      "path": "libc/README.md"
+    },
+    {
+      "status": "M",
+      "path": "limine.conf"
+    },
+    {
+      "status": "M",
+      "path": "scripts/README.md"
+    },
+    {
+      "status": "A",
+      "path": "scripts/gen-nasm-constants.py"
+    },
+    {
+      "status": "M",
+      "path": "scripts/inspect-elf.py"
+    },
+    {
+      "status": "A",
+      "path": "scripts/inspect-userspace.py"
+    },
+    {
+      "status": "A",
+      "path": "scripts/make-initramfs.py"
+    },
+    {
+      "status": "M",
+      "path": "scripts/make-iso.sh"
+    },
+    {
+      "status": "A",
+      "path": "scripts/make-test-disk.py"
+    },
+    {
+      "status": "A",
+      "path": "scripts/test-filesystem-qemu.py"
+    },
+    {
+      "status": "A",
+      "path": "scripts/test-heap-qemu.py"
+    },
+    {
+      "status": "M",
+      "path": "scripts/test-memory-qemu.py"
+    },
+    {
+      "status": "A",
+      "path": "scripts/test-network-qemu.py"
+    },
+    {
+      "status": "A",
+      "path": "scripts/test-process-qemu.py"
+    },
+    {
+      "status": "M",
+      "path": "scripts/test-qemu.py"
+    },
+    {
+      "status": "A",
+      "path": "scripts/test-scheduler-qemu.py"
+    },
+    {
+      "status": "A",
+      "path": "scripts/test-storage-qemu.py"
+    },
+    {
+      "status": "M",
+      "path": "tests/README.md"
+    },
+    {
+      "status": "A",
+      "path": "tests/test_ahci_driver.c"
+    },
+    {
+      "status": "A",
+      "path": "tests/test_arch_user.c"
+    },
+    {
+      "status": "A",
+      "path": "tests/test_dispatch.c"
+    },
+    {
+      "status": "A",
+      "path": "tests/test_e1000_driver.c"
+    },
+    {
+      "status": "A",
+      "path": "tests/test_elf_load.c"
+    },
+    {
+      "status": "A",
+      "path": "tests/test_fat32.c"
+    },
+    {
+      "status": "M",
+      "path": "tests/test_gdt.c"
+    },
+    {
+      "status": "A",
+      "path": "tests/test_heap.c"
+    },
+    {
+      "status": "A",
+      "path": "tests/test_heap_pages.c"
+    },
+    {
+      "status": "M",
+      "path": "tests/test_input_shell.c"
+    },
+    {
+      "status": "M",
+      "path": "tests/test_interrupts.c"
+    },
+    {
+      "status": "A",
+      "path": "tests/test_net_stack.c"
+    },
+    {
+      "status": "A",
+      "path": "tests/test_network.c"
+    },
+    {
+      "status": "A",
+      "path": "tests/test_process_exec.c"
+    },
+    {
+      "status": "A",
+      "path": "tests/test_process_files.c"
+    },
+    {
+      "status": "A",
+      "path": "tests/test_process_syscall.c"
+    },
+    {
+      "status": "A",
+      "path": "tests/test_sched_core.c"
+    },
+    {
+      "status": "M",
+      "path": "tests/test_shell_commands.c"
+    },
+    {
+      "status": "A",
+      "path": "tests/test_storage_core.c"
+    },
+    {
+      "status": "A",
+      "path": "tests/test_thread_stack.c"
+    },
+    {
+      "status": "A",
+      "path": "tests/test_user_vm.c"
+    },
+    {
+      "status": "A",
+      "path": "tests/test_vfs_elf.c"
+    },
+    {
+      "status": "M",
+      "path": "third_party/limine/README.md"
+    },
+    {
+      "status": "M",
+      "path": "third_party/limine/limine.h"
+    },
+    {
+      "status": "M",
+      "path": "userspace/README.md"
+    },
+    {
+      "status": "A",
+      "path": "userspace/bin/badptr.c"
+    },
+    {
+      "status": "A",
+      "path": "userspace/bin/diskread.c"
+    },
+    {
+      "status": "A",
+      "path": "userspace/bin/echo.c"
+    },
+    {
+      "status": "A",
+      "path": "userspace/bin/filetest.c"
+    },
+    {
+      "status": "A",
+      "path": "userspace/bin/hello.c"
+    },
+    {
+      "status": "A",
+      "path": "userspace/bin/init.c"
+    },
+    {
+      "status": "A",
+      "path": "userspace/bin/sysinfo.c"
+    },
+    {
+      "status": "A",
+      "path": "userspace/crt/start.asm"
+    },
+    {
+      "status": "A",
+      "path": "userspace/include/utamo.h"
+    },
+    {
+      "status": "A",
+      "path": "userspace/libc/runtime.c"
+    },
+    {
+      "status": "A",
+      "path": "userspace/linker/user.ld"
+    }
+  ]
+}

@@ -3,13 +3,13 @@
 UTAMO OS is an experimental x86_64 operating system built from scratch in C17
 and NASM Assembly for learning and exploring low-level operating-system development.
 
-![Development v0.7.0](https://img.shields.io/badge/development-v0.7.0-blue)
+![Development v0.8.0](https://img.shields.io/badge/development-v0.8.0-blue)
 [![License MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 ![Architecture x86_64](https://img.shields.io/badge/architecture-x86__64-lightgrey)
 
 | | |
 | --- | --- |
-| Development version | **v0.7.0** on `astra-campaign` |
+| Development version | **v0.8.0** on `astra-campaign` |
 | Latest public release | **v0.1.0** |
 | Architecture | x86_64 |
 | Kernel | Freestanding C17 + NASM Assembly |
@@ -25,9 +25,10 @@ Linux kernel. Linux or WSL2 provides the development environment.
 
 Development proceeds through preserved milestones. The public baseline is
 [v0.1.0](docs/releases/v0.1.0.md). The preserved memory and heap milestones now
-support **v0.7.0 PCI, readonly AHCI and FAT32**, whose local Astra
-campaign gate is GREEN. The campaign has not been tagged, merged into main or
-published; both public baseline tags remain unchanged. v0.8 networking follows this preserved checkpoint.
+support **v0.8.0 native IPv4 networking**, whose local Astra campaign gate
+is GREEN. The campaign is complete through its networking core, with a
+[final engineering report](docs/astra-campaign-final-report.md). It has not
+been tagged, merged into main or published; both public baseline tags remain unchanged.
 
 ## Current Features
 
@@ -56,6 +57,8 @@ published; both public baseline tags remain unchanged. v0.8 networking follows t
 - Separate hello, echo and sysinfo programs, plus VFS/hostile-buffer tests.
 - PCI enumeration, verified UC MMIO, readonly AHCI/block reads and FAT32 at /disk.
 - Corrupt-media rejection, snapshot stress and native fragmented-file reads.
+- E1000 DMA rings, Ethernet/ARP, IPv4/ICMP, UDP transactions, DHCP and DNS A/CNAME.
+- Local packet captures, malformed replies, link recovery and allocation-free network stress.
 
 New mappings use 4 KiB pages. Existing 2 MiB/1 GiB leaves are queried and
 preserved; they are never silently split. The public mapping API modifies only its
@@ -79,9 +82,12 @@ exec runs files from the immutable VFS.
 | `fstest` | Stress VFS, ELF, bad pointers, descriptors and cleanup |
 | `lspci` / `storage` | Enumerated PCI resources and readonly disk state |
 | `disktest` | Reimport FAT32 and compare data and allocator accounting |
+| `netinfo` / `dhcp` | NIC counters and learned IPv4 configuration |
+| `ping gateway` / `resolve name` | ICMP echo and DNS A resolution |
+| `nettest port` | Bounded local ping/DNS/UDP fixture stress |
 | `help` | List implemented commands |
 | `clear` | Clear the framebuffer terminal and send clear/home to serial |
-| `version` | Print UTAMO OS 0.7.0 |
+| `version` | Print UTAMO OS 0.8.0 |
 | `sysinfo` | Show known boot, memory, framebuffer and timer information |
 | `mem` | Show boot-map totals, PMM accounting and VMM configuration |
 | `pmm` | Show managed/used/free frames and bitmap storage |
@@ -191,6 +197,9 @@ UTAMO Kernel
   +-- Heap: allocation, growth and integrity
   +-- Kernel threads / round-robin scheduler / guarded stacks
   +-- Private user VM / CPL3 / native INT128 syscalls
+  +-- VFS / initramfs / ELF loader
+  +-- PCI / readonly AHCI / FAT32
+  +-- E1000 / Ethernet / ARP / IPv4 / ICMP / UDP / DHCP / DNS
   +-- Kernel shell / idle thread / native ELF init and user programs
 ```
 
@@ -209,7 +218,9 @@ See [threads and scheduling](docs/scheduler.md), [memory management](docs/memory
 kernel/
   arch/x86_64/   Boot adapter, CPU/port I/O, GDT, IDT, PIC, serial, stubs
   core/         Initialization, shell, scheduler, processes and syscalls
-  drivers/      Video, PIT timer and PS/2 keyboard
+  drivers/      PCI, AHCI, E1000, video, PIT timer and PS/2 keyboard
+  fs/           Immutable VFS, initramfs and readonly FAT32
+  net/          Bounded Ethernet/IPv4 protocols and kernel transactions
   input/        Input ring buffer and scancode decoder
   interrupts/   Exception diagnostics and IRQ dispatch
   lib/          Freestanding helpers and shell parser
@@ -222,8 +233,8 @@ third_party/    Limine protocol header and provenance
 .github/        Issue and pull-request templates
 ```
 
-Some directories reserve space for future subsystems; their presence does not
-imply an implemented filesystem or general executable loader.
+The VFS and static ELF loader are implemented. Remaining placeholder directories
+identify future organization; current subsystem guides link to their actual code.
 
 ## Building
 
@@ -251,7 +262,7 @@ make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" iso
 
 The native compiler is used only for host tests. The kernel must use the
 cross compiler. Outputs are `build/utamo-kernel.elf` and
-`build/utamo-os-0.7.0.iso`. `make clean` removes `build/`, including validation
+`build/utamo-os-0.8.0.iso`. `make clean` removes `build/`, including validation
 logs; archive any evidence you want to keep before cleaning.
 
 ## Running
@@ -261,7 +272,7 @@ For a bounded headless boot with serial output, after building the ISO:
 ```sh
 timeout --signal=TERM --kill-after=2s 30s \
   qemu-system-x86_64 -machine q35,accel=tcg -cpu qemu64 -m 256M -smp 1 \
-  -cdrom build/utamo-os-0.7.0.iso -boot d -display none \
+  -cdrom build/utamo-os-0.8.0.iso -boot d -display none \
   -serial stdio -monitor none -nic none -no-reboot -no-shutdown
 ```
 
@@ -297,37 +308,40 @@ No window opens and no framebuffer capture is required.
 
 ## Testing
 
-The v0.7 gate is recorded in [evidence](docs/validation-astra-v0.7.json) and
-[campaign state](docs/astra-campaign-state.md). Frozen artifacts:
-`validation-artifacts/astra-last-known-good/v0.7.0/`.
+The completed v0.8 gate is recorded in [evidence](docs/validation-astra-v0.8.json),
+[campaign state](docs/astra-campaign-state.md) and the
+[final report](docs/astra-campaign-final-report.md). Frozen artifacts:
+`validation-artifacts/astra-last-known-good/v0.8.0/`.
 
 | Phase | Checks | Failures |
 | --- | ---: | ---: |
-| Final clean host | 30,022 | 0 |
-| Final kernel and native ELF / ABI | 1,916 | 0 |
-| Candidate headless matrix, 34 VMs | 12,202 | 0 |
-| Final 0.7.0 storage / NX-off / RO, 3 VMs | 403 | 0 |
-| **Passing gate total** | **44,543** | **0** |
+| Final clean host | 36,527 | 0 |
+| Final kernel and native ELF / ABI | 1,987 | 0 |
+| Candidate headless matrix, 40 VMs | 13,551 | 0 |
+| Final 0.8.0 network/storage, NX-off and RO, 3 VMs | 587 | 0 |
+| **Passing gate total** | **52,652** | **0** |
 
-The candidate covers 64/256/512 MiB, NX-off, six corrupt disk images, absent
-disk, native file reads, VFS/ELF/process stress, allocators, scheduler, shell
-and fatal probes. All 37 gate VMs passed and were reaped. One preliminary pass
-and two historical failures remain separate, for 40 actual attempts.
+The candidate covers 64/256/512 MiB, NX-off, alternate subnet/MAC, absent NIC,
+real DHCP/ICMP/UDP/DNS, readonly storage, corrupt disks, VFS/ELF/process stress,
+allocators, scheduler and fatal probes. All 43 gate VMs passed and were reaped.
+One preliminary pass and one link-negotiation failure remain separate, for
+45 actual attempts. The bounded link-readiness correction passed retesting.
 
-Kernel text/data/requests, all seven complete user ELFs and initramfs match
-across stamping; one kernel rodata version byte changed. The full RAM matrix
+Kernel text/data/requests/BSS, seven complete user ELFs and initramfs match
+across stamping; only one rodata version byte changed. The full RAM matrix
 was not repeated after stamping. Final host/ELF count once plus both QEMU
-phases; these are assertions, not unique tests or coverage. Sanitizers are separate.
+phases; assertions are not unique tests or coverage. Sanitizers are separate.
 
-Eighteen storage stress commands performed 162 fresh imports and verified
-snapshot/allocator stability. Nine VFS/ELF stress commands created/reaped
-315 processes; nine embedded-probe runs created/reaped 360 processes and
-contained 117 user faults. Startup and explicit exec checks are separate.
-See [the audit](docs/audit-astra-v0.7.md) and [storage contracts](docs/storage.md).
+The 68 named stress runs include 65,536 heap operations, 21,735 scheduler
+operations, 360 embedded probe processes, 315 ELF processes, 126 FAT32 imports
+and 336 network rounds with 1,008 successful transactions. Startup/explicit
+exec checks are separate. See [the audit](docs/audit-astra-v0.8.md),
+[networking](docs/networking.md) and [storage](docs/storage.md).
 
-All disk bases match their pre-VM hashes. QEMU uses an unlinked snapshot
-overlay within build/tests because its ATA model requires a writable node.
-No physical disk is used. Visual, UEFI and physical hardware checks are separate.
+Networking tests use a loopback-only UDP/DNS fixture through the learned
+QEMU gateway; public DNS and internet services are not dependencies.
+All disk bases retained their hashes; QEMU uses project-local snapshot overlays.
+Visual, UEFI and physical hardware acceptance remain separate.
 
 ## Roadmap
 
@@ -337,19 +351,21 @@ Future milestones describe planned work, not implemented features.
 | --- | --- |
 | v0.0.1 | Initial boot — validated baseline |
 | v0.1.0 | Interrupts, keyboard and kernel shell - public baseline |
-| v0.2.0 | Physical and virtual memory management - implemented locally, awaiting acceptance |
+| v0.2.0 | Physical and virtual memory management - preserved GREEN baseline |
 | v0.3.0 | Kernel heap - GREEN local campaign gate |
 | v0.4.0 | Threads and scheduler - GREEN local campaign gate |
 | v0.5.0 | Isolated Ring 3 processes and syscalls - GREEN local campaign gate |
 | v0.6.0 | VFS, initramfs, ELF and native userspace - GREEN local gate |
 | v0.7.0 | PCI, readonly AHCI and FAT32 - GREEN local gate |
-| v0.8.0 | Networking |
+| v0.8.0 | Native IPv4 networking core - GREEN local gate; campaign complete |
 | v0.9.0 | Graphics / window system |
 | v1.0.0 | Stabilized experimental baseline |
 
 The [detailed roadmap](docs/roadmap.md) records dependencies and intermediate steps.
 
 ## Documentation
+
+- [Final campaign report](docs/astra-campaign-final-report.md), [networking](docs/networking.md) and [v0.8 evidence](docs/validation-astra-v0.8.json)
 
 - [Storage](docs/storage.md), [v0.7 audit](docs/audit-astra-v0.7.md) and [v0.7 evidence](docs/validation-astra-v0.7.json)
 
@@ -384,10 +400,11 @@ Third-party notices and Limine provenance are documented in
 **UTAMO OS is experimental software and is not intended for production use.**
 
 PMM, VMM, heap, preemptive threads, isolated processes, immutable VFS and
-static native ELF userspace and readonly AHCI/FAT32 storage are implemented.
+static native ELF userspace, readonly AHCI/FAT32 and bounded IPv4 networking are implemented.
 User processes require NX. The root and /disk are read-only.
-Networking, input syscalls, a userspace
-shell, GUI, POSIX, SMP, TLS and FPU/vector context switching remain absent.
+Input syscalls, a userspace shell, TCP/HTTP, GUI, POSIX, SMP, TLS and
+FPU/vector context switching remain absent. Networking uses one owning thread
+and explicit polling; it is not a continuously available network service.
 
 Heap pages and empty kernel page tables remain retained; process destruction
 returns private user pages/tables. Modules stay reserved. SPAWN is bounded but

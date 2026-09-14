@@ -2,9 +2,14 @@
 
 ## v0.8.0 (unreleased)
 
-The clean candidate gate passed: 36,527 host, 1,987 kernel/native ELF and
-13,551 QEMU assertions in 40 headless VMs. Final version confirmation follows
-the local promotion commit. No push, main merge, release or tag.
+GREEN local at 81a01cef24bd9461b0a6f221e966507a2c0344cb; campaign complete.
+Final clean host/ELF: 36,527 / 1,987. Candidate QEMU: 13,551 in 40 VMs;
+final confirmation: 587 in three VMs. Total 52,652, zero gate failures,
+43 gate VMs reaped. One preliminary pass and one failed link-negotiation
+attempt remain separate (45 attempts). Only one kernel version byte changed
+across stamping; runtime sections/BSS, all user ELFs and initramfs match.
+The full RAM matrix was not repeated after stamping. No push, main merge,
+release or tag. [Final report](docs/astra-campaign-final-report.md).
 
 ### Added
 

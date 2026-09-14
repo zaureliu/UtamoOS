@@ -5,8 +5,10 @@ ELF64 higher half, linker, stack bootstrap de 64 KiB, C17 freestanding,
 biblioteca, formatter, framebuffer e mapa físico mantêm seus contratos.
 O kernel executa no BSP, ring 0, com PMM/VMM, heap e threads preemptivas
 próprios. Processos CPL3 têm VMs privadas e compartilham mappings supervisor
-do kernel. VFS/initramfs e executáveis ELF nativos usam essa base; o
-[estado dos gates](astra-campaign-state.md) identifica a última versão aprovada.
+do kernel. VFS/initramfs, executáveis ELF nativos e o armazenamento readonly
+PCI/AHCI/FAT32 usam essa base. O core de rede v0.8 está implementado;
+o [estado dos gates](astra-campaign-state.md) identifica a última versão
+aprovada e as verificações ainda pendentes.
 
 ```mermaid
 flowchart TD
@@ -21,10 +23,12 @@ flowchart TD
     irq --> scheduler[Scheduler + idle]
     scheduler --> process[Processos CPL3 / VMs privadas]
     process --> fs[VFS / initramfs / ELF]
-    fs --> init[init PID 1 / programas nativos]
-    scheduler --> keyboard[PS/2]
+    fs --> keyboard[PS/2]
     keyboard --> loop[STI e threads]
-    loop --> shell[Shell de kernel]
+    loop --> storage[PCI / AHCI / FAT32 opcional]
+    storage --> network[E1000 / DHCP opcional]
+    network --> init[init PID 1 / programas nativos]
+    init --> shell[Shell de kernel]
     shell --> out[Formatter / serial / terminal]
     keyboard --> input[Buffer de scancodes]
     input --> shell
@@ -40,7 +44,9 @@ flowchart TD
 | Diretório | Responsabilidade |
 | --- | --- |
 | kernel/core | Boot, logger, shell, scheduler, processos, ELF e syscalls |
-| kernel/fs | Índice newc, VFS imutável e integração de boot |
+| kernel/fs | Índice newc, VFS imutável, FAT32 e integração de boot |
+| kernel/drivers | PCI/BARs, block layer, AHCI e E1000 |
+| kernel/net | Ethernet, ARP, IPv4, ICMP, UDP, DHCP, DNS e integração com a shell |
 | userspace | Runtime freestanding, CRT e programas ELF nativos |
 | kernel/arch/x86_64 | Adaptador Limine, CPU/portas, COM1, GDT/TSS, IDT, stubs, PIC |
 | kernel/interrupts | Dispatch, nomes e diagnóstico de exceções, dispatch de IRQ |
@@ -57,7 +63,9 @@ Headers internos seguem o padrão existente `kernel/include/utamo/`.
 Tipos Limine continuam restritos ao adaptador de boot. O estado de boot e
 os descritores e as pilhas de bootstrap/IST têm armazenamento estático.
 TCBs dinâmicos usam heap e suas pilhas usam frames PMM; novas page tables
-são frames fixados. Nenhuma memória do bootloader é liberada.
+de kernel são frames fixados. Cada processo possui um ledger separado de
+páginas/tabelas privadas, liberadas somente após sair de seu CR3 e stack.
+Nenhuma memória do bootloader é liberada.
 Objetos terminal e memory_map são passados explicitamente à shell.
 
 ## Memória física e virtual
@@ -65,9 +73,10 @@ Objetos terminal e memory_map são passados explicitamente à shell.
 O PMM usa dois bitmaps dinâmicos para frames de 4 KiB. Somente USABLE
 é elegível; página zero, metadados e reservas não são liberáveis.
 Alocação contígua usa next-fit, e free/reserve validam ranges completos
-antes de modificar qualquer bit. Frames publicados como tabelas são fixados.
+antes de modificar qualquer bit. Frames de tabelas de kernel são fixados;
+tabelas privadas de processos permanecem liberáveis pelo seu owner.
 
-O VMM conserva CR3 e valida todas as tabelas herdadas antes de escrever
+No bootstrap, o VMM conserva CR3 e valida todas as tabelas herdadas antes de escrever
 os bitmaps, exigindo seus frames em BOOTLOADER_RECLAIMABLE.
 HHDM é convertido pela camada pura hhdm.c e conferido contra as traduções
 reais. Bootloader/ACPI não são recuperados.
@@ -76,7 +85,13 @@ Queries aceitam endereços canônicos e folhas de 4 KiB/2 MiB/1 GiB.
 Mutações públicas só alcançam páginas de 4 KiB na arena do slot PML4 384,
 sobre frames USABLE alocados. Ramos novos são zerados fora da árvore,
 publicados integralmente e fixados; falhas devolvem os frames temporários.
-Unmap não libera dados. Tabelas intermediárias vazias permanecem retidas.
+Unmap da API de kernel não libera dados; tabelas intermediárias vazias
+permanecem retidas. A API user_vm mantém ownership separado, exige NX e
+W^X nas páginas de usuário e destrói a raiz privada somente quando inativa.
+O scheduler troca CR3 conforme o processo, compartilhando a metade superior
+com permissão supervisor. MMIO usa uma janela UC própria, fora das mutações
+da API de RAM; [storage.md](storage.md) e [networking.md](networking.md)
+descrevem DMA, limites e retenção após falhas.
 
 MAXPHYADDR vem de CPUID; LA57 é rejeitado, NX depende de CPUID/EFER e
 CR0.WP é habilitado. Proteções RX/RO-NX/RW-NX se aplicam ao mapping
@@ -108,29 +123,39 @@ O frame selecionado retorna em RAX ao stub, que muda RSP e restaura via IRETQ.
 | 0x00 | Null |
 | 0x08 | Kernel code, present, DPL0, L=1, D=0 |
 | 0x10 | Kernel data, present, DPL0, L=0 |
-| 0x18 / 0x20 | Reservados, não presentes, para futuro user mode |
+| 0x18 / 0x1b | User code DPL3; seletor carregado com RPL3 = 0x1b |
+| 0x20 / 0x23 | User data DPL3; seletor carregado com RPL3 = 0x23 |
 | 0x28 / 0x30 | Descritor TSS de 16 bytes |
 
 A GDT possui 56 bytes; GDTR.limit=55. A CPU atualiza bits accessed/busy,
 portanto ela é gravável. A TSS64 tem 104 bytes, limite 103 e iomap_base 104
-(sem bitmap de permissões de I/O). RSP0 permanece sem uso, pois não há ring 3.
+(bitmap ausente, negando I/O de CPL3). Antes de retornar a um processo,
+o scheduler configura RSP0 com o topo da stack protegida da thread.
 Três stacks estáticas de 16 KiB, alinhadas a 16 bytes, alimentam IST1 Double Fault,
 IST2 NMI e IST3 Machine Check. Essas pilhas e a bootstrap permanecem sem
 guard pages; a proteção inferior existe para idle e threads dinâmicas.
 
 `lgdt`, retorno far para recarregar CS, atualização de DS/ES/SS/FS/GS e
-`ltr` ficam em NASM. Não há `swapgs`, TLS ou troca de privilégio.
+`ltr` ficam em NASM. Entrada CPL3 e retorno por IRETQ usam esses descritores;
+INT128 retorna ao kernel pela TSS. Não há swapgs ou TLS; FS/GS são zerados
+antes do retorno ao usuário, FSGSBASE é desabilitado e FPU/SIMD não pertencem
+à ABI admitida.
 
 ## Interrupções e concorrência
 
-A IDT tem 256 gates de 16 bytes, tipo 0x8e (interrupt gate DPL0), CS 0x08.
-Vetores 0–31 são exceções, 32–47 são IRQs PIC, 240 é yield interno DPL0;
-os demais têm tratamento fatal seguro.
+A IDT tem 256 gates de 16 bytes, CS 0x08. Os gates são interrupt gates DPL0
+(0x8e), exceto INT128 habilitado como DPL3 (0xee) quando userspace está pronto.
+Vetores 0–31 são exceções, 32–47 são IRQs PIC e 240 é yield interno DPL0.
+Entradas inesperadas de CPL3 encerram o processo; exceções de kernel e
+NMI/Double Fault/Machine Check seguem a política fatal.
 Detalhes do frame de 176 bytes, códigos de erro e tabela relativa dos stubs em
 [interrupts.md](interrupts.md).
 
 A ordem obrigatória é GDT → IDT → PMM/VMM → heap → PIC mascarado → PIT →
-scheduler → PS/2 → desmascarar somente drivers prontos → STI.
+scheduler → infraestrutura CPL3 → initramfs → PS/2 → desmascarar IRQ0/IRQ1
+→ STI → PCI/armazenamento → NIC/rede → init nativo → shell.
+Ausência de disco ou NIC permite continuar; o initramfs é obrigatório.
+Uma CPU sem NX continua com a shell de kernel e recusa processos CPL3.
 IRQs entram com IF=0, salvam 15 GPRs, limpam DF e alinham RSP antes de CALL.
 O dispatcher retorna o frame selecionado em RAX; `mov rsp, rax` precede POPs
 e IRETQ. Flags e stack do contexto escolhido são restauradas.
@@ -152,8 +177,10 @@ IRQs não chamam logger, terminal ou shell e não alocam frames nem alteram
 page tables. O logger tem sinks fixos após bootstrap e protege suas operações
 contra preempção; IRQs continuam ocorrendo durante output.
 Clear/backspace protegem acessos diretos ao terminal/serial.
-Exceções não retornam: usam saída emergencial própria, primeiro serial,
+Exceções fatais de kernel usam saída emergencial própria, primeiro serial,
 depois terminal, com guarda de recursão e sem depender do scheduler íntegro.
+Falhas não críticas de CPL3 usam buffers protegidos, encerram o processo e
+selecionam outra tarefa; a liberação de VM/stack é adiada ao reaper.
 Nenhum lock bloqueante é usado.
 
 Acesso principal ao buffer de input e snapshots de ticks usam save/CLI/restore
@@ -170,8 +197,10 @@ por thread; não autorizam yield/sleep/exit até sair da última região.
 ## Input e shell
 
 [Teclado e shell](keyboard.md) descreve protocolo, buffer, line editor, limites
-e comandos. Trata-se de shell integrada ao kernel, sem processos, pipes,
-filesystem ou execução de programas externos. `mem` reúne mapa de boot e
+e comandos. A shell é integrada ao kernel e não oferece pipes ou quoting.
+Ela lista/lê a VFS, executa arquivos ELF em processos CPL3 e expõe comandos
+de diagnóstico de armazenamento e rede. A shell de userspace e um syscall
+de input não estão implementados. `mem` reúne mapa de boot e
 estatísticas PMM/VMM; os comandos de memória estão em
 [memory-management.md](memory-management.md). Comandos heap/heaptest e
 ps/threads/schedulerstats/schedtest/sleep expõem os subsistemas reais.
@@ -190,8 +219,11 @@ comparadas são idênticas entre as fases; o byte da versão mudou em rodata.
 [O registro v0.4](validation-astra-v0.4.json) identifica esses limites.
 Teclado físico, aparência gráfica, UEFI e hardware real são evidências separadas.
 
-O próximo milestone é v0.7: PCI, AHCI e FAT32 somente leitura. Reclaim, aliases
-HHDM, estado de CPU adicional e SMP exigem contratos próprios.
+O gate [v0.7](validation-astra-v0.7.json) aprovou PCI, AHCI e FAT32 somente
+leitura. O core v0.8 acrescenta rede; seu status de aceitação permanece no
+[estado da campanha](astra-campaign-state.md), sem reaproveitar contagens de
+imagens anteriores. Reclaim, aliases HHDM, estado de CPU adicional e SMP
+exigem contratos próprios.
 ACPI/APIC continua uma frente separada.
 
 Os contratos de userspace estão em [processes](processes.md), [syscalls](syscalls.md),

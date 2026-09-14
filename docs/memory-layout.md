@@ -1,4 +1,9 @@
-# Layout de memória — UTAMO OS v0.2
+# Layout de memória — base v0.2 e extensões da campanha
+
+As seções até «Extensões da campanha» preservam o contrato do baseline v0.2;
+suas ausências de heap, guards e processos descrevem aquele marco. O kernel
+atual acrescenta esses subsistemas, com ownership e endereços abaixo.
+Consulte [arquitetura atual](architecture.md) e [estado dos gates](astra-campaign-state.md).
 
 O kernel ELF64 permanece ligado em `0xffffffff80000000`. Limine informa a
 base física real e o offset HHDM por requests explícitos; nenhuma base física
@@ -76,7 +81,28 @@ Logo, permissões dos segmentos e probes RO/NX não demonstram W^X global.
 A etapa v0.3 introduzirá kernel heap; revisão dos aliases, guard pages,
 recuperação de tabelas, processos e TLB shootdown exigem trabalho separado.
 
-## v0.7 MMIO window
+## Extensões da campanha
+
+| Região atual | Contrato |
+| --- | --- |
+| Heap a partir de 0xffffc00001000000 | 64 KiB iniciais, crescimento de 64 KiB até 64 MiB; supervisor RW/NX quando disponível |
+| Stacks a partir de 0xffffc00040000000 | 64 slots; stride 69.632 bytes, guard inferior de 4 KiB e 64 KiB de stack |
+| User VM [0x10000, 0x0000800000000000) | Até 128 páginas privadas; até 64 tabelas incluindo PML4; NX obrigatório e W^X |
+| Stack ELF terminando em 0x70000000 | 16 páginas privadas, guard inferior e argumento copiado; raiz privada |
+| MMIO a partir de 0xffffc00080000000 | Janela de 4 MiB, supervisor UC; até 1 MiB por aperture |
+
+As tabelas de kernel permanecem fixadas. As tabelas privadas de processos são
+recolhidas com suas páginas quando a raiz está inativa; não pertencem ao ledger
+de tabelas permanentes. O scheduler troca CR3 e configura TSS/RSP0 antes do
+retorno a CPL3. Heap e pilhas dinâmicas compartilham o subtree superior de kernel.
+
+O boot module initramfs e o snapshot FAT32 montado permanecem vivos durante
+a execução. AHCI reserva quatro páginas DMA e E1000 reserva seis após
+publicação; falha ambígua de dispositivo não devolve esses frames ao PMM.
+Veja [heap](heap.md), [scheduler](scheduler.md), [processos](processes.md),
+[ELF](elf-loader.md) e [rede](networking.md).
+
+## Janela MMIO introduzida em v0.7
 
 PCI devices use supervisor UC mappings in the 4 MiB window beginning at
 0xffffc00080000000, beyond the existing heap/thread arenas. Ordinary RAM

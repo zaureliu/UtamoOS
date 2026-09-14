@@ -1,4 +1,19 @@
-# Gerenciamento de memória — UTAMO OS v0.2
+# Gerenciamento de memória — contrato base v0.2
+
+Este documento conserva a explicação e as métricas do milestone v0.2.
+As afirmações de ausência de heap, scheduler, Ring 3 ou teardown abaixo são
+históricas. A campanha implementou essas extensões: [heap](heap.md),
+[scheduler](scheduler.md), [processos](processes.md) e [layout atual](memory-layout.md).
+O [estado dos gates](astra-campaign-state.md) identifica a versão aprovada.
+
+A API de RAM de kernel continua limitada à arena e retém tabelas fixadas.
+user_vm usa um ledger privado, exige NX/W^X, valida todo user copy e libera
+tabelas/páginas somente após desativar sua raiz. MMIO tem uma janela UC
+separada; [armazenamento](storage.md) e [rede](networking.md) documentam as
+reservas DMA permanentes após publicação. Não há reclaim de bootloader/ACPI,
+SMP, TLB shootdown ou W^X global dos aliases HHDM.
+
+## Escopo histórico v0.2
 
 O v0.2 acrescenta PMM e VMM ao kernel existente. Mantém Limine v8.7.0, a
 árvore de paginação do handoff, o kernel higher half e as interfaces de
