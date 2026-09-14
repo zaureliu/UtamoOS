@@ -216,5 +216,56 @@ check(executable_bytes(symbol_address("idt_load"), 4) ==
       bytes.fromhex("0f 01 1f c3"), "IDT loader executes LIDT [RDI], RET")
 abi_checks = checks - abi_checks_start
 
+# Memory v0.2 retains four LOADs and the existing interrupt ABI.
+memory_checks_start = checks
+for name in ("__kernel_start", "__kernel_end", "__text_start", "__text_end",
+             "__rodata_start", "__rodata_end", "__data_start", "__data_end",
+             "__bss_start", "__bss_end"):
+    address = symbol_address(name)
+    check(address >= 0xffffffff80000000, "higher-half linker symbol " + name)
+    if name != "__bss_end":
+        check(address % 4096 == 0, "page-aligned linker boundary " + name)
+ordered = ["__kernel_start", "__text_start", "__text_end", "__rodata_start",
+           "__rodata_end", "__data_start", "__data_end", "__bss_start",
+           "__bss_end", "__kernel_end"]
+check(all(symbol_address(a) <= symbol_address(b)
+          for a, b in zip(ordered, ordered[1:])), "ordered memory section boundaries")
+for section_name, symbol_name in ((".text", "__text_start"),
+                                 (".rodata", "__rodata_start"),
+                                 (".data", "__data_start"), (".bss", "__bss_start")):
+    check(named_sections[section_name][3] == symbol_address(symbol_name),
+          "section starts at explicit symbol: " + section_name)
+check(named_sections[".bss"][1] == 8, "BSS remains zero-fill NOBITS")
+check(not any(name.startswith(("__atomic_", "__sync_"))
+              for name in named_symbols), "64-bit atomics need no runtime helpers")
+for name, encoded in (
+        ("cpu_read_cr3", "0f 20 d8 c3"), ("cpu_write_cr3", "0f 22 df c3"),
+        ("cpu_read_cr4", "0f 20 e0 c3"), ("cpu_invlpg", "0f 01 3f c3")):
+    expected = bytes.fromhex(encoded)
+    check(executable_bytes(symbol_address(name), len(expected)) == expected,
+          "emitted paging instruction: " + name)
+cpuid = executable_bytes(symbol_address("cpu_cpuid"),
+                         symbol_address("cpu_read_cr0") - symbol_address("cpu_cpuid"))
+check(cpuid.startswith(b"\x53") and cpuid.endswith(b"\x5b\xc3") and b"\x0f\xa2" in cpuid,
+      "CPUID wrapper preserves SysV callee-saved RBX")
+for name in ("pmm_alloc_page", "pmm_free_page", "pmm_pin_page",
+             "vmm_space_map", "vmm_space_query", "vmm_space_unmap",
+             "vmm_space_protect", "memory_fault_readonly", "memory_fault_nx"):
+    check(any(start <= symbol_address(name) < end and flags & 1
+              for start, end, flags in loads), "memory implementation linked: " + name)
+request_section = named_sections[".limine_requests"]
+request_bytes = data[request_section[4]:request_section[4] + request_section[5]]
+for label, words in (
+        ("HHDM", (0xc7b1dd30df4c8b88, 0x0a82e883a194f07b,
+                  0x48dcf1cb8ad2b852, 0x63984e959a98244b)),
+        ("Executable Address", (0xc7b1dd30df4c8b88, 0x0a82e883a194f07b,
+                                0x71ba76863cc55f63, 0xb2644a48c516a487))):
+    pattern = struct.pack("<4Q", *words)
+    offset = request_bytes.find(pattern)
+    check(offset >= 0 and offset % 8 == 0 and request_bytes.count(pattern) == 1,
+          "exactly one aligned " + label + " request")
+memory_checks = checks - memory_checks_start
+
 print(f"UTAMO ELF inspection: {checks} checks, 0 failures "
-      f"({stub_checks} interrupt stub checks, {abi_checks} ABI checks)")
+      f"({stub_checks} interrupt stub checks, {abi_checks} ABI checks, "
+      f"{memory_checks} memory checks)")

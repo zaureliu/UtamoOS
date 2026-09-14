@@ -125,8 +125,10 @@ class VM:
             except (FileNotFoundError, ProcessLookupError, PermissionError):
                 continue
         command = [
-            self.args.qemu, "-machine", "q35,accel=tcg", "-cpu", "qemu64",
-            "-m", "256M", "-smp", "1", "-cdrom", str(self.args.iso),
+            self.args.qemu, "-machine", "q35,accel=tcg",
+            "-cpu", getattr(self.args, "cpu", "qemu64"),
+            "-m", getattr(self.args, "ram", "256M"),
+            "-smp", "1", "-cdrom", str(self.args.iso),
             "-boot", "d", "-display", "none", "-serial", "file:" + str(self.serial_path),
             "-qmp", "unix:" + str(self.socket_path) + ",server=on,wait=off",
             "-monitor", "none", "-nic", "none", "-no-reboot", "-no-shutdown",
