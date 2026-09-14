@@ -340,6 +340,35 @@ static void test_terminal_rendering_and_controls(void)
     }
 }
 
+static void test_terminal_clear(void)
+{
+    uint8_t storage[VIDEO_BYTES + 2u];
+    fill_bytes(storage, sizeof(storage), 0xa5u);
+    struct framebuffer fb;
+    const struct framebuffer_config config = config_for(storage + 1,
+        VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_PITCH, 32);
+    CHECK(framebuffer_init(&fb, &config));
+    struct terminal term;
+    CHECK(terminal_init(&term, &fb));
+    terminal_write(&term, "AB\nCD");
+    CHECK(term.cursor_x == 2u && term.cursor_y == 1u);
+    terminal_clear(&term);
+    CHECK(term.cursor_x == 0u && term.cursor_y == 0u);
+    CHECK(term.columns == 6u && term.rows == 2u && term.initialized);
+    CHECK(rectangle_is(storage + 1, 0, 0, VIDEO_WIDTH, VIDEO_HEIGHT,
+                       term.background));
+    CHECK(storage[0] == 0xa5u && storage[sizeof(storage) - 1u] == 0xa5u);
+    for (size_t y = 0u; y < VIDEO_HEIGHT; ++y) {
+        for (size_t pad = VIDEO_WIDTH * 4u; pad < VIDEO_PITCH; ++pad) {
+            CHECK(storage[1u + y * VIDEO_PITCH + pad] == 0xa5u);
+        }
+    }
+    struct terminal inert = {0};
+    terminal_clear(NULL);
+    terminal_clear(&inert);
+    CHECK(!inert.initialized && inert.framebuffer == NULL);
+}
+
 static void test_terminal_rejections(void)
 {
     uint8_t storage[1024] = {0};
@@ -372,6 +401,7 @@ int main(void)
     test_framebuffer_policy_limits();
     test_font_bounds();
     test_terminal_rendering_and_controls();
+    test_terminal_clear();
     test_terminal_rejections();
     (void)printf("UTAMO video host tests: %u checks, %u failures\n", checks,
                  failures);

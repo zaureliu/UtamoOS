@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Source-only delivery: this script has not been executed during generation.
+# Uses existing project-local tools/assets; never downloads dependencies.
 # Prepare a hybrid BIOS/x86_64 UEFI ISO using locally supplied Limine v8.7.0.
 set -euo pipefail
 
@@ -24,8 +24,10 @@ build_links=$(find build -type l -print -quit) || fail 'Cannot inspect the build
 build_dir="$project_dir/build"
 stage="$build_dir/iso_root"
 kernel="$build_dir/utamo-kernel.elf"
-iso="$build_dir/utamo-os-0.0.1.iso"
-iso_tmp="$build_dir/utamo-os-0.0.1.iso.tmp"
+version=$(awk '$2 == "UTAMO_VERSION" { gsub(/"/, "", $3); print $3 }' kernel/include/utamo/version.h)
+[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail 'Invalid version header.'
+iso="$build_dir/utamo-os-$version.iso"
+iso_tmp="$iso.tmp"
 vendor="$project_dir/third_party/limine/vendor"
 expected_limine_commit=aad3edd370955449717a334f0289dee10e2c5f01
 
@@ -73,4 +75,4 @@ xorriso -as mkisofs -R -r -J \
 # Operates on this ISO file only. Never pass a disk/device to this command.
 "$vendor/limine" bios-install "$iso_tmp"
 mv -f -- "$iso_tmp" "$iso"
-printf 'ISO criada: %s\nValidacao de boot ainda depende de execucao no ambiente pessoal.\n' "$iso"
+printf 'ISO criada: %s\nValidacao de boot: use o harness QEMU headless; entrada PS2 e visual pendentes.\n' "$iso"

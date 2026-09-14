@@ -1,4 +1,4 @@
-# UTAMO OS 0.0.1. Run only in the personal Linux/WSL development environment.
+# UTAMO OS. Run only in the personal Linux/WSL development environment.
 # The default target builds the kernel; it does not fetch tools or run a VM.
 SHELL := /bin/sh
 .DEFAULT_GOAL := all
@@ -25,7 +25,8 @@ OVMF_VARS ?= /usr/share/OVMF/OVMF_VARS_4M.fd
 # Generated files have a fixed project-local destination.
 override BUILD_DIR := build
 override KERNEL := $(BUILD_DIR)/utamo-kernel.elf
-override ISO := $(BUILD_DIR)/utamo-os-0.0.1.iso
+UTAMO_VERSION := $(shell awk '$$2 == "UTAMO_VERSION" { gsub(/"/, "", $$3); print $$3 }' kernel/include/utamo/version.h)
+override ISO := $(BUILD_DIR)/utamo-os-$(UTAMO_VERSION).iso
 LINKER_SCRIPT := kernel/arch/x86_64/linker.ld
 
 KERNEL_CPPFLAGS := -Ikernel/include -Ithird_party/limine
@@ -149,7 +150,13 @@ $(KEYBOARD_TEST): $(KEYBOARD_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-buil
 	@mkdir -p -- "$(@D)"
 	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(KEYBOARD_TEST_SOURCES) -o "$@"
 
-test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) $(PIT_TEST) $(INPUT_TEST) $(KEYBOARD_TEST)
+SHELL_TEST := $(BUILD_DIR)/tests/utamo-shell-tests
+SHELL_TEST_SOURCES := tests/test_shell_commands.c kernel/core/shell.c kernel/lib/shell_line.c kernel/lib/string.c kernel/lib/format.c
+$(SHELL_TEST): $(SHELL_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(SHELL_TEST_SOURCES) -o "$@"
+
+test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) $(PIT_TEST) $(INPUT_TEST) $(KEYBOARD_TEST) $(SHELL_TEST)
 	"./$(HOST_TEST)"
 	"./$(VIDEO_TEST)"
 	"./$(GDT_TEST)"
@@ -158,10 +165,12 @@ test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) 
 	"./$(PIT_TEST)"
 	"./$(INPUT_TEST)"
 	"./$(KEYBOARD_TEST)"
+	"./$(SHELL_TEST)"
 
 inspect: $(KERNEL)
 	$(READELF) -h -l -S "$(KERNEL)"
 	$(NM) -u "$(KERNEL)"
+	python3 scripts/inspect-elf.py "$(KERNEL)"
 
 # Only the literal build directory is removed; sources and vendor remain intact.
 clean:

@@ -2,6 +2,16 @@
 #include <utamo/font.h>
 #include <utamo/terminal.h>
 
+void terminal_clear(struct terminal *term)
+{
+    if (term == NULL || !term->initialized) {
+        return;
+    }
+    framebuffer_clear(term->framebuffer, term->background);
+    term->cursor_x = 0u;
+    term->cursor_y = 0u;
+}
+
 bool terminal_init(struct terminal *term, struct framebuffer *fb)
 {
     if (term == NULL) {

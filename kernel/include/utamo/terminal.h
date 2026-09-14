@@ -26,6 +26,8 @@ struct terminal {
  * cursor_x == columns means a pending wrap; cursor_y always remains < rows.
  */
 bool terminal_init(struct terminal *term, struct framebuffer *fb);
+/* Clear pixels and reset the cursor; preserves colors and geometry. */
+void terminal_clear(struct terminal *term);
 void terminal_putc(struct terminal *term, char character);
 void terminal_write(struct terminal *term, const char *text);
 void terminal_sink(char character, void *context);

@@ -8,6 +8,7 @@
 #include <utamo/pic.h>
 #include <utamo/pit.h>
 #include <utamo/keyboard.h>
+#include <utamo/shell.h>
 #include <utamo/interrupts.h>
 #include <utamo/log.h>
 #include <utamo/panic.h>
@@ -15,7 +16,7 @@
 #include <utamo/terminal.h>
 #include <utamo/version.h>
 
-/* Bootstrap-owned state; no heap, IRQs, APs or lifetime ambiguity. */
+/* Boot-owned state lives for the entire single-BSP kernel lifetime. */
 static struct framebuffer boot_framebuffer;
 static struct terminal boot_terminal;
 static struct memory_map boot_memory;
@@ -85,13 +86,15 @@ _Noreturn void kernel_main(void)
     pic_unmask(1);
     cpu_enable_interrupts();
     LOG_OK("Interrupts enabled");
-    while (pit_get_ticks() < 5u) {
-        cpu_disable_interrupts();
-        cpu_wait_interrupt();
-    }
-    LOG_OK("PIT ticks observed: %llu", (unsigned long long)pit_get_ticks());
+    kprintf("\nUTAMO OS ready.\n\n");
+    shell_init(&boot_memory, &boot_terminal);
     for (;;) {
+        shell_process_input();
         cpu_disable_interrupts();
-        cpu_wait_interrupt();
+        if (keyboard_has_pending()) {
+            cpu_enable_interrupts();
+        } else {
+            cpu_wait_interrupt();
+        }
     }
 }
