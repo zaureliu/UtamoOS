@@ -3,13 +3,13 @@
 UTAMO OS is an experimental x86_64 operating system built from scratch in C17
 and NASM Assembly for learning and exploring low-level operating-system development.
 
-![Development v0.4.0](https://img.shields.io/badge/development-v0.4.0-blue)
+![Development v0.5.0](https://img.shields.io/badge/development-v0.5.0-blue)
 [![License MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 ![Architecture x86_64](https://img.shields.io/badge/architecture-x86__64-lightgrey)
 
 | | |
 | --- | --- |
-| Development version | **v0.4.0** on `astra-campaign` |
+| Development version | **v0.5.0** on `astra-campaign` |
 | Latest public release | **v0.1.0** |
 | Architecture | x86_64 |
 | Kernel | Freestanding C17 + NASM Assembly |
@@ -25,9 +25,9 @@ Linux kernel. Linux or WSL2 provides the development environment.
 
 Development proceeds through preserved milestones. The public baseline is
 [v0.1.0](docs/releases/v0.1.0.md). The preserved memory and heap milestones now
-support **v0.4.0 kernel threads and preemptive scheduling**, whose local Astra
+support **v0.5.0 isolated Ring 3 processes and native syscalls**, whose local Astra
 campaign gate is GREEN. The campaign has not been tagged, merged into main or
-published; both public baseline tags remain unchanged. v0.5 Ring 3 work is planning.
+published; both public baseline tags remain unchanged. v0.6 VFS/ELF userspace is planning.
 
 ## Current Features
 
@@ -48,6 +48,9 @@ published; both public baseline tags remain unchanged. v0.5 Ring 3 work is plann
   PMM/VMM-backed growth, rollback, accounting and deterministic stress tests.
 - Kernel threads, two-tick round-robin preemption, sleep/wakeup and deferred reaping.
 - Guarded 64 KiB thread stacks, register/flag preservation probes and scheduler diagnostics.
+- Private user address spaces, TSS CPL3 entry, user-page W^X and contained faults.
+- Native INT128 WRITE/EXIT/GETPID/YIELD/SLEEP with bounded checked user copies.
+- Embedded user probes, 16-process capacity rejection and process diagnostics.
 
 New mappings use 4 KiB pages. Existing 2 MiB/1 GiB leaves are queried and
 preserved; they are never silently split. The public mapping API modifies only its
@@ -60,14 +63,14 @@ delivery paths have not been deliberately triggered.
 
 ## Shell
 
-The prompt is `utamo>`. Commands execute inside the kernel; there are no
-userspace programs.
+The prompt is `utamo>`. Commands execute inside the kernel; `usertest` launches
+controlled embedded CPL3 programs. Executables are not loaded from files yet.
 
 | Command | Action |
 | --- | --- |
 | `help` | List implemented commands |
 | `clear` | Clear the framebuffer terminal and send clear/home to serial |
-| `version` | Print UTAMO OS 0.4.0 |
+| `version` | Print UTAMO OS 0.5.0 |
 | `sysinfo` | Show known boot, memory, framebuffer and timer information |
 | `mem` | Show boot-map totals, PMM accounting and VMM configuration |
 | `pmm` | Show managed/used/free frames and bitmap storage |
@@ -77,9 +80,11 @@ userspace programs.
 | `vmmtest` | Exercise mapping, permissions, partial unmap and table reuse |
 | `heap` | Show heap capacity, allocation accounting and integrity |
 | `heaptest` | Run bounded deterministic allocation/reallocation stress |
-| `ps` / `threads` | List real kernel-thread snapshots |
+| `ps` / `threads` | List real scheduled-thread snapshots |
 | `schedulerstats` | Show scheduler counters, queues and integrity |
 | `schedtest` | Exercise preemption, registers, sleep and thread lifecycle |
+| `processes` | Show process availability, lifetimes, faults, syscalls and CR3 switches |
+| `usertest` | Exercise CPL3 isolation, syscalls, hostile probes, capacity and cleanup |
 | `sleep <decimal-ms>` | Sleep this thread; zero yields voluntarily |
 | `uptime` | Show elapsed time estimated from PIT ticks |
 | `echo text` | Print the supplied text |
@@ -101,15 +106,15 @@ tables; repeated runs reuse them. Data frames are released.
 
 ## Current Boot
 
-Recorded serial output from the final v0.4.0 headless scheduler suite
+Recorded serial output from the final v0.5.0 headless process suite
 (256 MiB VM, 1024x768 framebuffer reported by Limine), preserved in
-`build/validation/astra-v04-final-scheduler/serial.log`:
+`build/validation/astra-v05-final-process/serial.log`:
 
 ```text
 UTAMO OS
 Experimental x86_64 Operating System
 
-Version: 0.4.0
+Version: 0.5.0
 Architecture: x86_64
 
 [ OK    ] Limine boot protocol (base revision 3)
@@ -123,8 +128,8 @@ Total usable memory: 253 MiB
 [ OK    ] IDT initialized
 [ OK    ] CPU exception handlers initialized
 [ OK    ] PMM initialized
-[ INFO  ] Physical frames: 64975
-[ INFO  ] Free frames: 64971
+[ INFO  ] Physical frames: 64942
+[ INFO  ] Free frames: 64938
 [ INFO  ] PMM metadata: phys=0x53000, 16384 bytes
 [ OK    ] VMM initialized
 [ INFO  ] HHDM offset: 0xffff800000000000
@@ -135,6 +140,7 @@ Total usable memory: 253 MiB
 [ OK    ] PIC initialized
 [ OK    ] PIT timer initialized (100 Hz)
 [ OK    ] Kernel scheduler initialized (round-robin, 2 ticks)
+[ OK    ] Ring 3 process infrastructure initialized
 [ OK    ] PS/2 keyboard initialized
 [ OK    ] Interrupts enabled
 
@@ -165,10 +171,13 @@ UTAMO Kernel
   +-- VMM: page tables, permissions and TLB
   +-- Heap: allocation, growth and integrity
   +-- Kernel threads / round-robin scheduler / guarded stacks
-  +-- Kernel shell / idle thread
+  +-- Private user VM / CPL3 / native INT128 syscalls
+  +-- Kernel shell / idle thread / embedded user probes
 ```
 
-The current kernel runs on one CPU in ring 0. Interrupt handlers perform short
+The kernel runs on one CPU in ring 0; isolated processes execute at CPL3.
+[Processes](docs/processes.md) and [syscalls](docs/syscalls.md) describe this boundary.
+Interrupt handlers perform short
 hardware operations; input decoding and shell processing run in the bootstrap
 thread, which blocks for keyboard input. Idle runs when no other thread is ready.
 See [threads and scheduling](docs/scheduler.md), [memory management](docs/memory-management.md), the
@@ -180,7 +189,7 @@ See [threads and scheduling](docs/scheduler.md), [memory management](docs/memory
 ```text
 kernel/
   arch/x86_64/   Boot adapter, CPU/port I/O, GDT, IDT, PIC, serial, stubs
-  core/         Initialization, logging, panic, shell, threads and scheduler
+  core/         Initialization, shell, scheduler, processes and syscalls
   drivers/      Video, PIT timer and PS/2 keyboard
   input/        Input ring buffer and scancode decoder
   interrupts/   Exception diagnostics and IRQ dispatch
@@ -195,7 +204,7 @@ third_party/    Limine protocol header and provenance
 ```
 
 Some directories reserve space for future subsystems; their presence does not
-imply an implemented filesystem or userspace.
+imply an implemented filesystem or general executable loader.
 
 ## Building
 
@@ -223,7 +232,7 @@ make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" iso
 
 The native compiler is used only for host tests. The kernel must use the
 cross compiler. Outputs are `build/utamo-kernel.elf` and
-`build/utamo-os-0.4.0.iso`. `make clean` removes `build/`, including validation
+`build/utamo-os-0.5.0.iso`. `make clean` removes `build/`, including validation
 logs; archive any evidence you want to keep before cleaning.
 
 ## Running
@@ -233,7 +242,7 @@ For a bounded headless boot with serial output, after building the ISO:
 ```sh
 timeout --signal=TERM --kill-after=2s 30s \
   qemu-system-x86_64 -machine q35,accel=tcg -cpu qemu64 -m 256M -smp 1 \
-  -cdrom build/utamo-os-0.4.0.iso -boot d -display none \
+  -cdrom build/utamo-os-0.5.0.iso -boot d -display none \
   -serial stdio -monitor none -nic none -no-reboot -no-shutdown
 ```
 
@@ -260,6 +269,7 @@ feeds emulated PS/2 input using QMP, with serial as the primary evidence:
 python3 scripts/test-memory-qemu.py --suite --name memory-local --ram 256M
 python3 scripts/test-heap-qemu.py --suite --name heap-local --ram 256M --timeout 240
 python3 scripts/test-scheduler-qemu.py --suite --name scheduler-local --ram 256M --timeout 300
+python3 scripts/test-process-qemu.py --suite --name process-local --ram 256M --timeout 300
 ```
 
 This also exercises shell commands, selftests, editing and halt. See
@@ -268,37 +278,36 @@ No window opens and no framebuffer capture is required.
 
 ## Testing
 
-The v0.4.0 gate is recorded in [machine-readable evidence](docs/validation-astra-v0.4.json)
-and [campaign state](docs/astra-campaign-state.md). Its local summary is
-`validation-artifacts/astra-v04-final-20260914T084853Z/summary.json`; frozen
-ELF, ISO and evidence are in `validation-artifacts/astra-last-known-good/v0.4.0/`.
+The v0.5.0 gate is recorded in [machine-readable evidence](docs/validation-astra-v0.5.json)
+and [campaign state](docs/astra-campaign-state.md). Local summary:
+`validation-artifacts/astra-v05-final-20260914T101644Z/summary.json`.
 
 | Validation phase | Checks | Failures |
 | --- | ---: | ---: |
-| Final host tests | 22,794 | 0 |
-| Final ELF / ABI inspection | 1,563 | 0 |
-| Candidate QEMU matrix, banner 0.3.0, 15 VMs | 6,081 | 0 |
-| Final 0.4.0 boot/scheduler/stack-fault checks, 3 VMs | 1,243 | 0 |
-| **Total recorded** | **31,681** | **0** |
+| Final host tests | 25,541 | 0 |
+| Final ELF / ABI inspection | 1,707 | 0 |
+| Candidate QEMU matrix, banner 0.4.0, 19 VMs | 10,257 | 0 |
+| Final 0.5.0 process/NX-off/kernel-PF checks, 3 VMs | 3,115 | 0 |
+| **Total recorded** | **40,620** | **0** |
 
-The candidate matrix covered scheduler suites at 64/256/512 MiB and without NX,
-allocator/shell regressions and exceptions. After changing the version stamp,
-the final three VMs checked boot, the scheduler suite and the guard-page fault.
-All 18 sequential BIOS QEMU/TCG VMs passed and were reaped. Binary comparison
-found identical `.text`, `.data` and `.limine_requests`, with one version byte
-different in `.rodata`; the complete RAM/NX matrix was not repeated after stamping.
+The candidate matrix covered processes at 64/256/512 MiB, NX-off refusal,
+kernel scheduler/allocator/shell regressions and fatal kernel probes. The final
+stamp passed process, NX-off and original kernel page-fault suites. All 22
+sequential headless VMs passed and were reaped. `.text`, `.data` and
+`.limine_requests` match between phases; `.rodata` differs by one version
+byte. The complete matrix was not repeated after stamping.
 
-Counts sum final host/ELF once and both QEMU phases. They describe assertions,
-not unique tests or coverage. The 14 existing v0.3 host suites remain present;
-only the new stack fixtures aggregate repeated observations per scenario.
-Historical [v0.3](docs/validation-astra-v0.3.json), [v0.2](docs/validation-v0.2.json)
-and [v0.1](docs/validation-v0.1.json) records remain separate.
+Twelve usertests created/reaped 480 processes, contained 156 user faults and
+completed 3,934,800 syscalls. Final host/ELF count once plus both QEMU phases;
+these are recorded assertions, not unique tests or coverage. Supplemental
+UBSan results are separate and excluded from the total.
+Historical [v0.4](docs/validation-astra-v0.4.json), [v0.3](docs/validation-astra-v0.3.json),
+[v0.2](docs/validation-v0.2.json) and [v0.1](docs/validation-v0.1.json) remain separate.
 
-Serial, QMP PS/2 input and GDB provide the automated evidence. Physical keyboard
-interaction, visual framebuffer review, UEFI and physical hardware acceptance
-for v0.4 remain manual. Earlier QEMU/VNC acceptance applies to v0.1.0.
-
-See the [test guide](tests/README.md) for coverage and reproduction commands.
+Serial, QMP PS/2 input and GDB provide automated evidence. Physical keyboard,
+visual framebuffer review, UEFI and physical hardware acceptance remain manual.
+Earlier QEMU/VNC acceptance applies to v0.1.0.
+See the [test guide](tests/README.md) for reproduction commands.
 
 ## Roadmap
 
@@ -311,8 +320,8 @@ Future milestones describe planned work, not implemented features.
 | v0.2.0 | Physical and virtual memory management - implemented locally, awaiting acceptance |
 | v0.3.0 | Kernel heap - GREEN local campaign gate |
 | v0.4.0 | Threads and scheduler - GREEN local campaign gate |
-| v0.5.0 | Ring 3, processes and syscalls - planning |
-| v0.6.0 | VFS and userspace |
+| v0.5.0 | Isolated Ring 3 processes and syscalls - GREEN local campaign gate |
+| v0.6.0 | VFS, initramfs, ELF loader and userspace - planning |
 | v0.7.0 | PCI and storage |
 | v0.8.0 | Networking |
 | v0.9.0 | Graphics / window system |
@@ -321,6 +330,8 @@ Future milestones describe planned work, not implemented features.
 The [detailed roadmap](docs/roadmap.md) records dependencies and intermediate steps.
 
 ## Documentation
+
+- [Processes and isolation](docs/processes.md), [syscall ABI](docs/syscalls.md) and [v0.5 validation](docs/validation-astra-v0.5.json)
 
 - [Threads and scheduler](docs/scheduler.md), [v0.4 validation](docs/validation-astra-v0.4.json) and [Astra campaign state](docs/astra-campaign-state.md)
 - [Kernel heap](docs/heap.md) and [v0.3 validation](docs/validation-astra-v0.3.json)
@@ -348,11 +359,12 @@ Third-party notices and Limine provenance are documented in
 
 **UTAMO OS is experimental software and is not intended for production use.**
 
-PMM, the initial VMM, heap and preemptive kernel threads are implemented.
-Threads share one address space and use general registers only. There are no
-isolated processes, userspace, filesystem, networking or GUI/window manager.
-The heap retains mapped pages, grows from 64 KiB up to 64 MiB and uses local
-interrupt exclusion; it must not be called from IRQ/NMI context. The framebuffer
-terminal is a text console, and the current shell runs in the kernel. There is
-no SMP memory synchronization, page-table reclamation, bootloader-memory reclaim
-or global HHDM alias hardening yet.
+PMM, VMM, heap, preemptive threads and isolated single-threaded processes are
+implemented. User processes require NX, have bounded private resources and run
+embedded probes only. There is no file-backed ELF loader, filesystem, networking,
+GUI, POSIX compatibility, SMP, TLS or FPU/vector context switching.
+
+Heap pages and empty kernel page tables remain retained; process destruction
+returns its exclusive user pages and private tables. The heap must not be called
+from IRQ/NMI context. The shell remains in the kernel. Bootloader-memory reclaim
+and global HHDM alias hardening remain future work.

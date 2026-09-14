@@ -1,5 +1,46 @@
 # Changelog
 
+## v0.5.0 (unreleased)
+
+GREEN local milestone on `astra-campaign`, recorded on 2026-09-14 at
+`4f303c8aeca26051f4affe92b0ba5af4e2296026`. No public tag, merge or push.
+
+### Added
+
+- Up to 16 single-threaded CPL3 processes with private PML4s, exclusive user
+  frames, checked copies and complete private address-space teardown.
+- User GDT selectors, TSS.RSP0 switching, guarded user/kernel stacks and
+  NX-required user W^X; shared higher-half mappings remain supervisor.
+- Native INT128 WRITE/EXIT/GETPID/YIELD/SLEEP, bounded buffers and explicit errors.
+- Serial-first contained user exceptions; kernel/critical IST faults remain fatal.
+- `processes`/`usertest`, embedded probes, capacity rejection and a headless
+  process harness with actual CPL3 observation, plus host models.
+
+### Changed and fixed
+
+- Scheduler selects kernel/private CR3 and reaps user resources from another thread.
+- Invalid user return state preserves IRQ accounting/wakeup before termination.
+- User fault queries report effective higher-half permissions; self-test waits
+  reject deadline overflow. Kernel version/derived ISO are 0.5.0 after the gate.
+
+### Validation
+
+Final host/ELF: **25,541 / 1,707 checks**. The 0.4.0-stamped candidate passed
+**10,257 QEMU checks in 19 VMs**; final 0.5.0 process, NX-off and kernel-PF
+suites passed **3,115 in three VMs**. Total: **40,620, zero failures; 22 VMs reaped**.
+Twelve usertests created/reaped 480 processes, contained 156 faults and completed
+3,934,800 syscalls. `.text`/`.data`/`.limine_requests` match between phases;
+`.rodata` differs by one version byte. Final host/ELF count once; the full
+matrix was not repeated after stamping. [Evidence](docs/validation-astra-v0.5.json).
+
+### Known limits
+
+- BSP, one thread per process, no FPU/vector context or TLS; NX is required.
+- Embedded probes only: no file-backed ELF loader, VFS, fork/exec/waitpid or POSIX.
+- Syscalls keep IF=0, including bounded WRITE; no real-time latency guarantee.
+- Kernel table/heap retention and HHDM alias limits persist; private process
+  pages/tables are reclaimed. Manual/visual/UEFI/hardware acceptance is separate.
+
 ## v0.4.0 (unreleased)
 
 GREEN local milestone on `astra-campaign`, recorded on 2026-09-14 at
