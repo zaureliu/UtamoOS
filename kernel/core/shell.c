@@ -14,6 +14,7 @@
 #include <utamo/process.h>
 #include <utamo/filesystem.h>
 #include <utamo/storage.h>
+#include <utamo/networking.h>
 #include <utamo/pci.h>
 #include <utamo/serial.h>
 #include <utamo/shell_line.h>
@@ -320,6 +321,35 @@ static void execute_line(void)
         run_sleep(command.arguments);
         return;
     }
+    if (strcmp(name, "ping") == 0 || strcmp(name, "resolve") == 0 ||
+        strcmp(name, "nettest") == 0) {
+        char *cursor = command.arguments;
+        const char *first = shell_next_token(&cursor);
+        const char *second = shell_next_token(&cursor);
+        const char *third = shell_next_token(&cursor);
+        if (first == NULL || shell_next_token(&cursor) != NULL) {
+            kprintf("Usage: ping <IP|gateway> | resolve <name> [IP|gateway|dns] [port] | nettest <fixture-port>\n");
+        } else if (strcmp(name, "ping") == 0 && second == NULL) {
+            networking_ping(first);
+        } else if (strcmp(name, "resolve") == 0) {
+            uint64_t port = 53u;
+            if (third != NULL && (!shell_parse_u64_dec(third, &port) || port == 0u || port > 65535u)) {
+                kprintf("Invalid UDP port.\n");
+            } else {
+                networking_resolve(first, second, (uint16_t)port);
+            }
+        } else if (strcmp(name, "nettest") == 0 && second == NULL) {
+            uint64_t port;
+            if (!shell_parse_u64_dec(first, &port) || port == 0u || port > 65535u) {
+                kprintf("Invalid fixture port.\n");
+            } else {
+                kprintf("Network self-test: %s\n", (const char *)(networking_selftest((uint16_t)port) ? "PASS" : "FAIL"));
+            }
+        } else {
+            kprintf("Unexpected arguments.\n");
+        }
+        return;
+    }
     if (strcmp(name, "ls") == 0 || strcmp(name, "cat") == 0 ||
         strcmp(name, "exec") == 0) {
         char *cursor = command.arguments;
@@ -346,6 +376,7 @@ static void execute_line(void)
         kprintf("help     List implemented commands\n");
         kprintf("ls/cat   Read the native VFS\n");
         kprintf("lspci/storage/disktest PCI and readonly disk diagnostics\n");
+        kprintf("netinfo/dhcp/ping/resolve/nettest Native IPv4 networking\n");
         kprintf("exec     Run an ELF file with one argument string\n");
         kprintf("fstest   Bounded VFS/ELF lifecycle stress\n");
         kprintf("clear    Clear framebuffer and serial terminal\n");
@@ -370,6 +401,10 @@ static void execute_line(void)
         kprintf("echo     Repeat following text\n");
         kprintf("halt     Disable interrupts and stop CPU\n");
         kprintf("fault    ud2, div0 or pf; vmm or stack: guard/unmapped page (fatal)\n");
+    } else if (strcmp(name, "netinfo") == 0) {
+        networking_status();
+    } else if (strcmp(name, "dhcp") == 0) {
+        kprintf("DHCP: %s\n", (const char *)(networking_dhcp() ? "PASS" : "FAIL"));
     } else if (strcmp(name, "lspci") == 0) {
         pci_list();
     } else if (strcmp(name, "storage") == 0) {

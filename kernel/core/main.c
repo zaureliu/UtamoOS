@@ -14,6 +14,7 @@
 #include <utamo/process.h>
 #include <utamo/filesystem.h>
 #include <utamo/storage.h>
+#include <utamo/networking.h>
 #include <utamo/interrupts.h>
 #include <utamo/log.h>
 #include <utamo/panic.h>
@@ -115,6 +116,7 @@ _Noreturn void kernel_main(void)
     cpu_enable_interrupts();
     LOG_OK("Interrupts enabled");
     storage_init();
+    networking_init();
     if (process_available() && !filesystem_start_init()) {
         PANIC("Native ELF init failed");
     }

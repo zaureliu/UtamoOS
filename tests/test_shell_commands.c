@@ -3,6 +3,7 @@
 #include <utamo/shell.h>
 #include <utamo/filesystem.h>
 #include <utamo/storage.h>
+#include <utamo/networking.h>
 #include <utamo/pci.h>
 
 #include <setjmp.h>
@@ -781,6 +782,30 @@ static void test_filesystem_commands(void)
     CHECK(contains("Unexpected arguments.") && !contains("Filesystem self-test:"));
 }
 
+static void test_network_commands(void)
+{
+    issue("netinfo\n");CHECK(contains("Network mock"));
+    issue("netinfo extra\n");CHECK(contains("Unexpected arguments.") && !contains("Network mock"));
+    issue("dhcp\n");CHECK(contains("DHCP: PASS"));
+    issue("ping gateway\n");CHECK(contains("Mock ping gateway"));
+    issue("ping gateway extra\n");CHECK(contains("Unexpected arguments.") && !contains("Mock ping"));
+    issue("resolve fixture.test\n");CHECK(contains("Mock resolve fixture.test default 53"));
+    issue("resolve fixture.test gateway 5300\n");CHECK(contains("Mock resolve fixture.test gateway 5300"));
+    const char *bad[]={"0","65536","-1","+1","0x35","18446744073709551616"};
+    for(size_t i=0u;i<sizeof(bad)/sizeof(bad[0]);++i){
+        char command[100];
+        (void)snprintf(command,sizeof(command),"resolve fixture.test gateway %s\n",bad[i]);
+        issue(command);CHECK(contains("Invalid UDP port.") && !contains("Mock resolve"));
+        (void)snprintf(command,sizeof(command),"nettest %s\n",bad[i]);
+        issue(command);CHECK(contains("Invalid fixture port.") && !contains("Mock nettest"));
+    }
+    issue("nettest 65535\n");CHECK(contains("Mock nettest 65535") && contains("Network self-test: PASS"));
+    issue("resolve fixture.test gateway 53 extra\n");CHECK(contains("Usage:") && !contains("Mock resolve"));
+    issue("ping\n");CHECK(contains("Usage:") && !contains("Mock ping"));
+    issue("resolve\n");CHECK(contains("Usage:") && !contains("Mock resolve"));
+    issue("nettest\n");CHECK(contains("Usage:") && !contains("Mock nettest"));
+}
+
 static void test_direct_output_preemption(void)
 {
     CHECK(unprotected_direct_io == 0u);
@@ -826,6 +851,7 @@ int main(void)
     test_scheduler_commands();
     test_process_commands();
     test_filesystem_commands();
+    test_network_commands();
     test_direct_output_preemption();
     test_stop("halt\n", 1);
     test_stop("fault ud2\n", 2);
@@ -851,3 +877,10 @@ void filesystem_cat(const char *path) { kprintf("mock cat %s\n", path); }
 void pci_list(void) { kprintf("PCI mock\n"); }
 void storage_status(void) { kprintf("Storage mock\n"); }
 bool storage_selftest(void) { return true; }
+
+void networking_status(void) { kprintf("Network mock\n"); }
+bool networking_dhcp(void) { return true; }
+void networking_ping(const char *target) { kprintf("Mock ping %s\n",target); }
+void networking_resolve(const char *name, const char *server, uint16_t port)
+{ kprintf("Mock resolve %s %s %u\n",name,(const char *)(server==NULL?"default":server),(unsigned int)port); }
+bool networking_selftest(uint16_t port) { kprintf("Mock nettest %u\n",(unsigned int)port); return true; }

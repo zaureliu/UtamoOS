@@ -272,7 +272,28 @@ $(AHCI_DRIVER_TEST): $(AHCI_DRIVER_SOURCES) $(HOST_HEADERS) Makefile | guard-bui
 	@mkdir -p -- "$(@D)"
 	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(AHCI_DRIVER_SOURCES) -o "$@"
 
-test-host: $(AHCI_DRIVER_TEST) $(STORAGE_CORE_TEST) $(FAT32_TEST) $(PROCESS_EXEC_TEST) $(PROCESS_FILES_TEST) $(ELF_LOAD_TEST) $(VFS_ELF_TEST) $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) $(PIT_TEST) $(INPUT_TEST) $(KEYBOARD_TEST) $(SHELL_TEST) $(PMM_TEST) $(VMM_TEST) $(MEMORY_HELPER_TEST) $(HEAP_TEST) $(HEAP_PAGES_TEST) $(SCHED_TEST) $(THREAD_STACK_TEST) $(ARCH_USER_TEST) $(USER_VM_TEST) $(PROCESS_SYSCALL_TEST) $(DISPATCH_TEST)
+NETWORK_TEST := $(BUILD_DIR)/tests/utamo-network-tests
+NETWORK_SOURCES := tests/test_network.c kernel/net/ethernet.c kernel/net/arp.c kernel/net/ipv4.c kernel/net/icmp.c kernel/net/udp.c kernel/net/dhcp.c kernel/net/dns.c kernel/drivers/e1000_ring.c kernel/lib/string.c
+$(NETWORK_TEST): $(NETWORK_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(NETWORK_SOURCES) -o "$@"
+
+E1000_TEST := $(BUILD_DIR)/tests/utamo-e1000-tests
+E1000_SOURCES := tests/test_e1000_driver.c kernel/drivers/e1000.c kernel/drivers/e1000_ring.c kernel/lib/string.c
+$(E1000_TEST): $(E1000_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(E1000_SOURCES) -o "$@"
+
+NET_STACK_TEST := $(BUILD_DIR)/tests/utamo-net-stack-tests
+NET_STACK_SOURCES := tests/test_net_stack.c kernel/net/stack.c kernel/net/ethernet.c kernel/net/arp.c kernel/net/ipv4.c kernel/net/icmp.c kernel/net/udp.c kernel/net/dhcp.c kernel/net/dns.c kernel/lib/string.c
+$(NET_STACK_TEST): $(NET_STACK_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(NET_STACK_SOURCES) -o "$@"
+
+test-host: $(NET_STACK_TEST) $(E1000_TEST) $(NETWORK_TEST) $(AHCI_DRIVER_TEST) $(STORAGE_CORE_TEST) $(FAT32_TEST) $(PROCESS_EXEC_TEST) $(PROCESS_FILES_TEST) $(ELF_LOAD_TEST) $(VFS_ELF_TEST) $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) $(PIT_TEST) $(INPUT_TEST) $(KEYBOARD_TEST) $(SHELL_TEST) $(PMM_TEST) $(VMM_TEST) $(MEMORY_HELPER_TEST) $(HEAP_TEST) $(HEAP_PAGES_TEST) $(SCHED_TEST) $(THREAD_STACK_TEST) $(ARCH_USER_TEST) $(USER_VM_TEST) $(PROCESS_SYSCALL_TEST) $(DISPATCH_TEST)
+	"./$(NETWORK_TEST)"
+	"./$(NET_STACK_TEST)"
+	@for scenario in good reset-timeout mac-invalid map-fail enable-fail tx-timeout tx-error link-down; do "./$(E1000_TEST)" "$$scenario" || exit $$?; done
 	@for scenario in good absent alloc-fail map-fail enable-fail identify-fail stop-timeout timeout task-error bus-error short-dma; do "./$(AHCI_DRIVER_TEST)" "$$scenario" || exit $$?; done
 	"./$(STORAGE_CORE_TEST)"
 	"./$(FAT32_TEST)"
