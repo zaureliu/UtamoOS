@@ -1,83 +1,136 @@
-# Debugging
+# Debugging UTAMO OS 0.1.0
 
-Esta entrega prepara os mecanismos de observação. Não houve compilação,
-execução do QEMU, execução dos testes ou sessão GDB durante sua geração.
-Todos os comandos abaixo destinam-se ao computador pessoal após preparar
-[o ambiente de desenvolvimento](development-environment.md).
+O desenvolvimento usa o repositório existente em `~/UtamoOS`, no Ubuntu WSL.
+GDT, IDT, uma exceção UD2 real, PIC e avanço do contador PIT já tiveram
+validação incremental em QEMU **headless**, por serial e GDB. Os comandos deste
+documento permitem repetir essas observações; só uma execução concluída gera
+evidência. O [relatório da implementação](v0.1-implementation-report.md) e o
+[development log](development-log.md) registram resultados e limitações.
 
-## Evidência antes do boot
+Toda execução automatizada mantém `-display none`, uma única VM por vez e
+tempo limitado. Digitação PS/2, edição de linha, comandos pelo teclado e
+aparência do framebuffer permanecem **PENDENTES DE VALIDAÇÃO MANUAL**, conforme
+o escopo de validação solicitado. Nenhuma janela gráfica foi necessária para
+os testes incrementais descritos aqui.
 
-Construa o ELF e inspecione o resultado antes de abrir a VM:
+## Build e inspeção antes da VM
 
-```sh
+Execute na raiz do projeto, com a toolchain existente:
+
+~~~sh
+make test-host
 make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" kernel
 make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" inspect
-./toolchain/prefix/bin/x86_64-elf-objdump -d build/utamo-kernel.elf
-```
+python3 scripts/inspect-elf.py
+make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" iso
+~~~
 
-Em `readelf`, confira ELF64 little-endian, arquitetura AMD x86-64, tipo `EXEC`,
-entry point correspondente a `_start`, segmentos `LOAD` separados por
-permissões e ausência de `INTERP`/`DYNAMIC`. A seção de requests do Limine deve
-estar incluída em um segmento carregável gravável. Nenhum segmento precisa
-ser simultaneamente gravável e executável. As seções DWARF não devem ocupar
-memória carregada do kernel. `nm -u` deve produzir uma lista vazia.
+O GCC nativo compila apenas os executáveis de teste host. O kernel continua
+C17 freestanding, com o cross compiler x86_64-elf. `make inspect` exibe
+`readelf` e `nm -u`; `inspect-elf.py` acrescenta verificações estruturais
+com resultado explícito. Consulte a descrição de cada script em
+[scripts/README.md](../scripts/README.md).
 
-Examine `build/utamo-kernel.map` para encontrar endereço e tamanho de cada
-seção. O build falha diante de símbolos indefinidos e seções órfãs: uma falha é
-informação útil, não um teste aprovado. Procure instruções SSE/AVX/x87 não
-planejadas no disassembly, sobretudo em código de biblioteca. O código C usa
-`-mgeneral-regs-only`; o contexto FPU ainda não é administrado pelo kernel.
+Confira ELF64 x86-64 `EXEC`, entry point `_start`, segmentos `LOAD` com
+permissões separadas, ausência de `INTERP`/`DYNAMIC`, símbolos indefinidos
+e segmentos simultaneamente graváveis e executáveis. O mapa de link fica em
+`build/utamo-kernel.map`. `-mgeneral-regs-only` mantém o código C fora do
+contexto FPU/SIMD, ainda não administrado pelo kernel.
 
-## Serial e framebuffer
+O NASM 3.01 usa `-Werror -Wno-error=reloc-rel-dword`: a exceção é específica
+ao diagnóstico de relocation já conhecido. Não remova `-Werror` para contornar
+uma falha. Os offsets dos interrupt stubs ficam na mesma seção do código;
+a inspeção do ELF verifica o resultado efetivamente ligado.
 
-`make run` inicia QEMU em TCG, com 256 MiB, uma CPU, monitor desativado e COM1
-ligada ao terminal (`-serial stdio`), sem interface de rede virtual (`-nic none`).
-A serial do kernel usa polling, sem IRQs,
-em 115200 baud, 8 bits, sem paridade, um stop bit. A janela gráfica representa
-o framebuffer. As duas saídas permitem distinguir falha de console gráfico de
-falha geral de execução. `-no-reboot -no-shutdown` conserva a VM aberta para
-inspeção, inclusive após certas falhas; uma janela parada sozinha não prova que
-o halt esperado foi atingido.
+## Boot e timer sem interface gráfica
 
-O kernel encerra com interrupções mascaráveis desabilitadas em um laço `hlt`.
-Isso não desliga o computador virtual nem retorna ao Limine. Feche a janela do
-QEMU, ou use Ctrl+C no terminal que o iniciou. Não há teclado, shell interativo
-ou comando de desligamento neste marco.
+Depois de gerar a ISO, execute uma VM por vez:
 
-Para capturar a serial em arquivo local, após gerar a ISO, execute em casa:
+~~~sh
+python3 scripts/test-qemu.py --marker "utamo> " --name boot-v01 \
+    --check-gdt --check-idt --check-timer
+~~~
 
-```sh
-qemu-system-x86_64 -machine q35,accel=tcg -cpu qemu64 -m 256M -smp 1 \
-    -cdrom build/utamo-os-0.0.1.iso -boot d \
-    -serial file:build/serial.log -monitor none -nic none -no-reboot -no-shutdown
-```
+O script usa q35/TCG, CPU `qemu64`, 256 MiB, um core, sem rede, e serial
+em arquivo. Escolhe a ISO UTAMO quando há exatamente uma em `build/`;
+use `--iso build/utamo-os-0.1.0.iso` se houver mais de uma.
+O timeout padrão é 90 segundos. O arquivo de lock serializa as instâncias do
+harness; uma busca em `/proc` recusa iniciar se outro QEMU já estiver rodando.
+Isso não autoriza encerrar VMs criadas por outra pessoa ou outro processo.
 
-O arquivo só será evidência após uma execução real. Registre junto dele data,
-versões de ferramentas, firmware BIOS ou OVMF, argumentos do QEMU, revisão dos
-fontes e resultado observado. Capturar apenas a mensagem esperada escrita
-manualmente na documentação não é um teste.
+`--check-gdt` observa CS e GDTR; `--check-idt` também verifica IDTR com
+limite `0xfff`, correspondente a 256 gates de 16 bytes.
+`--check-timer` lê o contador real `ticks` via GDB, deixa a VM executar
+por 0,6 segundo e faz outra leitura. A diferença positiva demonstra IRQs do
+PIT atravessando a IDT/PIC e retornando à execução; não altera o contador.
+`--timer-symbol` permite indicar outro nome se esse símbolo for refatorado.
+As interrupções ficam prontas antes de IF ser habilitado.
 
-## GDB: parar antes de kernel_main
+A COM1 de saída usa polling, 115200 baud, 8N1. Ela não é uma entrada de shell.
+Texto escrito no terminal host conectado à serial não testa IRQ1 nem o
+teclado PS/2. O loop ocioso usa `sti; hlt`; esse repouso permite interrupções,
+enquanto `cpu_halt` usa `cli; hlt` e não retoma a operação normal.
 
-No primeiro terminal, a partir da raiz de `UtamoOS`:
+## Exceções controladas por GDB
 
-```sh
-make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" debug
-```
+Os probes não são executados no boot normal. Para testar a imagem final sem
+entrada de teclado, redirecione a execução no primeiro repouso, depois de o
+shell e a infraestrutura de interrupções estarem prontos:
 
-Esse alvo usa `-S` para parar a CPU antes de executar firmware e publica o stub
-GDB somente em `127.0.0.1:1234`. Ele permanece aguardando comandos. O endereço
-do kernel é fixo neste marco e `kaslr: no` está no `limine.conf`.
+~~~sh
+python3 scripts/test-qemu.py --marker "utamo> " --name fault-ud2-v01 \
+    --check-gdt --check-idt --probe exception_fault_ud2 \
+    --probe-at cpu_wait_interrupt --debug
+python3 scripts/test-qemu.py --marker "utamo> " --name fault-div0-v01 \
+    --check-gdt --check-idt --probe exception_fault_div0 \
+    --probe-at cpu_wait_interrupt --debug
+python3 scripts/test-qemu.py --marker "utamo> " --name fault-page-v01 \
+    --check-gdt --check-idt --probe exception_fault_page \
+    --probe-at cpu_wait_interrupt --debug
+~~~
 
-No segundo terminal, também na raiz:
+São três execuções sequenciais e independentes. Cada probe inicia QEMU com
+`-S`, conecta GDB por socket Unix local ao projeto e estabelece um breakpoint
+de hardware em `cpu_wait_interrupt`. Quando o kernel chega a esse ponto,
+o harness remove o breakpoint, direciona RIP ao probe, limpa IF e retoma a
+CPU. O kernel executa a instrução real que causa a exceção. GDT, IDT, stubs e
+diagnósticos continuam sendo os mesmos da imagem normal.
 
-```sh
+O teste compara nome/vector, error code normalizado, registradores, selectors
+CS/SS e endereços canônicos RIP/RSP. Para page fault, compara também CR2 com
+`0x00007ffffffff000` e verifica acesso de escrita supervisor a página ausente.
+No fim, observa RIP estável, IF=0 e `HLT=1`; uma linha de texto isolada não
+basta para comprovar a parada da CPU.
+
+O primeiro teste incremental de GDB tentou alterar RIP após a CPU já estar
+em `HLT` e ficou aguardando `stepi`. No QEMU observado, essa alteração não
+retirou a CPU do estado interno halted. A correção foi parar **antes** de HLT
+com `-S` e breakpoint de hardware. O novo teste UD2 passou 37 checks, com
+o processo QEMU encerrado corretamente. No marco anterior ao shell, esse
+breakpoint era `cpu_halt`; na imagem final use `cpu_wait_interrupt`.
+O timeout original não foi tratado como aprovação.
+
+## Inspeção interativa pelo debugger
+
+Para investigar o início do boot, primeiro conclua os builds e encerre qualquer
+VM anterior. Uma sessão manual de debugger também pode permanecer headless e
+limitada a 120 segundos:
+
+~~~sh
+timeout --signal=TERM --kill-after=2s 120s \
+    qemu-system-x86_64 -machine q35,accel=tcg -cpu qemu64 -m 256M -smp 1 \
+    -cdrom build/utamo-os-0.1.0.iso -boot d -display none \
+    -serial file:build/debug-serial.log -monitor none -nic none \
+    -no-reboot -no-shutdown -S -gdb tcp:127.0.0.1:1234
+~~~
+
+Em outro terminal do mesmo projeto:
+
+~~~sh
 gdb build/utamo-kernel.elf
-```
+~~~
 
-Na sessão GDB:
-
-```gdb
+~~~gdb
 set pagination off
 set architecture i386:x86-64
 target remote 127.0.0.1:1234
@@ -86,70 +139,64 @@ continue
 info registers
 x/12i $rip
 bt
-```
+monitor info registers
+monitor info pic
+~~~
 
-Use `hbreak`, porque ao parar no reset o firmware ainda não estabeleceu o
-mapeamento virtual do kernel. Um breakpoint de software nesse endereço pode
-falhar antes de o Limine carregá-lo. Ao alcançar `kernel_main`, use `step`,
-`next`, `info locals` e breakpoints normais. Pode haver variáveis otimizadas pelo
-`-O2`; os frame pointers e DWARF ajudam, mas não eliminam os efeitos da
-otimização. A diferença entre `-S` e a opção de conexão está descrita na
-[documentação GDB do QEMU](https://www.qemu.org/docs/master/system/gdb.html).
+Um breakpoint de hardware funciona antes de Limine mapear o endereço virtual
+do kernel. Os frame pointers e DWARF ajudam no diagnóstico, mas `-O2` pode
+eliminar variáveis. Use também breakpoints em `interrupt_dispatch`,
+`kernel_panic`, `cpu_wait_interrupt` e `cpu_halt`.
+Não use `load` para substituir a imagem carregada pelo bootloader.
 
-Breakpoints úteis para o fluxo de falha ou término:
+O endpoint fica restrito a loopback; o harness usa um socket Unix no projeto.
+A [documentação GDB do QEMU](https://www.qemu.org/docs/master/system/gdb.html)
+descreve ambos os meios de conexão.
+Ao sair, encerre a VM que abriu; `detach` por si só apenas desconecta o GDB.
 
-```gdb
-break kernel_panic
-break cpu_halt
-continue
-```
+## Evidências e diagnóstico
 
-Inspecione argumentos e pilha antes de continuar. `PANIC` inclui arquivo e
-linha; um panic explícito é diferente de uma exceção de CPU sem handler.
-Não use `load` para substituir o kernel carregado pelo bootloader: reconstrua
-a ISO e reinicie a VM quando alterar o binário. Se o kernel parar em `hlt`,
-interrompa pelo GDB para inspecionar o RIP e RFLAGS. O bit IF deve estar zero
-no halt final. `detach` desconecta o debugger; `quit` sai do GDB. Feche o QEMU
-separadamente.
+Cada `--name` cria um diretório novo em `build/validation/`, sem sobrescrever
+uma execução anterior. `report.json` contém horário, revisão/status do Git,
+hashes do ELF/ISO, versão e argumentos do QEMU, checks e confirmação de
+encerramento do processo. A serial e as inspeções GDB/HMP ficam ao lado.
+`--debug` acrescenta `qemu-debug.log` com interrupções, resets e guest errors.
+O script sempre recolhe o processo que criou, incluindo falhas e timeouts.
 
-## Diagnóstico de falhas
+`make clean` remove todo `build/`, inclusive essas evidências. Registre os
+resultados no development log antes de limpar; mantenha as evidências da
+validação final disponíveis para revisão. Uma nova compilação não torna
+automaticamente válidos os resultados obtidos com outro hash de ELF/ISO.
 
-| Sintoma observado | Próxima inspeção |
+| Sintoma | Inspeção útil |
 | --- | --- |
-| Limine não encontra o kernel | Conteúdo da ISO, `limine.conf` e caminho `boot():/boot/utamo-kernel.elf` |
-| Base revision não aceita | Header v8.7.0, tag do bootloader e seção carregável de requests |
-| Serial aparece e tela permanece vazia | Resposta de framebuffer, bpp/máscaras RGB, pitch e limites |
-| Tela e serial vazias | Breakpoint de hardware em `_start`; entry point, stack e ausência de COM1 |
-| Reinício/freeze antes do halt | Disassembly e logs de exceções do QEMU; possível triple fault |
-| `%` ou argumentos exibidos incorretamente | Contrato do formatador, tipo dos varargs e testes de host |
-| Símbolo `memcpy`/`memset`/helper indefinido | Lista de objetos, flags freestanding e operação que gerou a chamada |
-| Erro de seção órfã no link | Nome da seção, objeto de origem e classificação explícita no linker script |
+| Limine não encontra o kernel | ISO, `boot/limine.conf`, caminho do ELF e assets Limine fixados |
+| Serial vazia | `hbreak _start`, entry point, stack e inicialização de COM1 |
+| Triple fault ou reset | `--debug`, base/limite IDT, selectors GDT, stack e gate do vector |
+| GP na entrada/saída de IRQ | Gate, selector, frame, alinhamento antes de CALL e `iretq` |
+| Page fault | CR2, error code, RIP e bits P/W/R/U/S/RSVD/I/D do relatório |
+| Ticks não avançam | IF, divisor do PIT, máscaras/offsets PIC, IRQ0 e EOI |
+| Teclado não produz comandos | Inicialização PS/2, máscara IRQ1, fila de scancodes e parser; interação ainda manual |
+| Serial completa e framebuffer incompleto | Endereço, pitch, RGB e saída de emergência; revisão visual ainda manual |
+| Relocation ou seção órfã | Objeto de origem, `objdump -dr`, linker script e mapa |
+| GDB não retoma um probe depois de HLT | Reiniciar com `-S` e breakpoint antes de HLT; não injetar outra exceção para acordar a CPU |
 
-Para registrar exceções/reset em uma execução pessoal:
+`cli` não bloqueia NMI, exceções nem machine checks. O relatório fatal escreve
+serial antes de framebuffer e tem contenção de recursão, mas não substitui
+um debugger nem um gerenciador de memória virtual. Não há scheduler,
+recuperação de page fault ou backtrace automático no kernel.
 
-```sh
-qemu-system-x86_64 -machine q35,accel=tcg -cpu qemu64 -m 256M -smp 1 \
-    -cdrom build/utamo-os-0.0.1.iso -boot d -serial stdio -monitor none -nic none \
-    -no-reboot -no-shutdown -d int,cpu_reset,guest_errors -D build/qemu.log
-```
+## Validação manual pendente
 
-Ainda não existem IDT própria, handlers de page fault, proteção da stack,
-backtrace automático em panic ou debugger interno. `cli` não bloqueia NMI,
-exceções ou machine checks. Um acesso inválido pode impedir a própria mensagem
-de panic e terminar em triple fault. A próxima etapa arquitetural é estabelecer
-GDT/IDT e handlers de exceção antes de ativar interrupções.
+O harness mantém `--suite` e `--fault` preparados para uma sessão futura
+explicitamente escolhida pelo usuário. Essas opções enviam teclas por QMP
+ao controlador PS/2 emulado; não devem ser contabilizadas como executadas
+nesta validação headless. `--capture-framebuffer` é opt-in e também não
+foi usado para afirmar correção visual.
 
-## Primeira sessão de validação
-
-1. Execute os testes de host e registre saída e exit code reais.
-2. Compile sem ignorar warnings; examine o ELF e o mapa de link.
-3. Gere a ISO com o checkout fixado do Limine.
-4. Execute BIOS em TCG e confirme banner, framebuffer, memory map e halt por
-   observação e pelo debugger.
-5. Repita com `make run-uefi` e um par OVMF CODE/VARS compatível.
-6. Compare a memória utilizável com o mapa do bootloader; ela será menor que os
-   256 MiB configurados porque firmware, kernel e regiões reservadas consomem RAM.
-7. Registre problemas e evidências em `docs/development-log.md`, sem converter
-   resultados esperados em resultados observados.
-
-O aceite do milestone em execução continua pendente até essa sessão ocorrer.
+Permanecem para revisão manual: entrada de letras/números/sinais/Shift,
+backspace/Enter, continuidade de IRQ1, comandos help/version/sysinfo/mem/
+uptime/echo/clear/halt/fault pelo teclado, prompt/cursor e legibilidade do
+framebuffer. UEFI e hardware físico precisam de evidência própria se não
+constarem como executados no relatório da entrega. Aprovação de host tests,
+build ou boot serial não preenche esses itens.

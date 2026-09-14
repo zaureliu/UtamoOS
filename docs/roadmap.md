@@ -6,9 +6,9 @@ mudar se uma dependência real exigir; registre a decisão no development log.
 
 | Marco | Entrega | Critério de saída proposto |
 | --- | --- | --- |
-| **v0.0.1** | Boot, framebuffer, terminal, logs, serial, panic, mapa físico | Fontes implementados; aceite em execução ainda pendente |
-| v0.0.2 | Baseline validada em host, BIOS e UEFI; correções observadas | Logs reais, ELF inspecionado e halt confirmado pelo usuário em GDB |
-| **v0.1** | GDT, TSS/IST, IDT, CPU exceptions, interrupt handling; timer PIT/APIC; teclado | Exceções controladas reportam vetor/contexto; IRQs não corrompem pilha |
+| **v0.0.1** | Boot, framebuffer, terminal, logs, serial, panic, mapa | Baseline validado; tag preservado em 273e476 |
+| v0.0.2 (absorvido) | Plano antigo de validar o baseline | Boot real confirmado; evolucao autorizada diretamente para v0.1 |
+| **v0.1 / 0.1.0** | GDT/TSS/IST, IDT, excecoes, PIC/PIT, PS2, shell de kernel | Host/ELF/QEMU headless aprovados; input real e visual pendentes de validacao manual |
 | v0.1.1 | ACPI/RSDP, descoberta MADT/APIC e topologia | Tabelas e comprimentos validados; fallback documentado |
 | **v0.2** | Physical memory manager, bitmap allocator, paging, virtual memory | Alocação/liberação de frames sem dupla posse; reservas preservadas |
 | v0.2.1 | Page tables próprias, permissões, guard pages, descarte seguro do bootloader | Page faults esperados e ausência de aliases com permissões indevidas |
@@ -18,7 +18,7 @@ mudar se uma dependência real exigir; registre a decisão no development log.
 | **v0.5** | Ring 3, processos, ELF loader, syscalls, primeiro `init` | Processo isolado não lê/escreve memória de outro nem do kernel |
 | v0.5.1 | ABI inicial documentada, cópia user/kernel, erros e handles | Ponteiros inválidos de userspace geram erro/fault isolado |
 | **v0.6** | VFS, RAM filesystem, importação initramfs, FAT32 | Parsers e operações por handles validados; RAMFS antes de persistência |
-| v0.6.1 | Shell inicial `utamo>`, utilitários mínimos, libc de userspace parcial | Comandos são processos reais; limites da libc explícitos |
+| v0.6.1 | Shell de userspace, utilitarios e libc parcial | Evoluir a shell integrada ao kernel v0.1 para comandos em processos reais |
 | **v0.7** | PCI/PCIe, subsistema de storage, AHCI, exploração NVMe | Enumerar dispositivos e ler imagens de teste com limites/DMA corretos |
 | v0.7.1 | Escrita em imagens descartáveis e recuperação de erros | Integridade e limites verificados antes de dados persistentes importantes |
 | **v0.8** | Rede em camadas | Comunicação reproduzível e pacotes malformados rejeitados |
