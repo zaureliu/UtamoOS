@@ -9,6 +9,8 @@
 #include <utamo/user_probe.h>
 #include <utamo/memory.h>
 #include <utamo/serial.h>
+#include <utamo/elf.h>
+#include <utamo/syscall_abi.h>
 extern const unsigned char user_probe_start[], user_probe_end[];
 static struct process *registry[UTAMO_PROCESS_LIMIT];
 static struct process_result history[UTAMO_PROCESS_HISTORY];
@@ -192,7 +194,8 @@ void process_reap(struct process *process)
         PANIC("Process reaper lost exclusive address-space ownership");
     }
     history[history_cursor] = (struct process_result){
-        .pid = process->pid, .exit_code = process->exit_code,
+        .pid = process->pid, .parent_pid = process->parent_pid,
+        .exit_code = process->exit_code,
         .faulted = process->faulted, .fault_vector = process->fault_vector,
         .fault_error = process->fault_error,
         .fault_address = process->fault_address, .syscalls = process->syscalls
@@ -237,4 +240,93 @@ struct interrupt_frame *process_on_fault(struct interrupt_frame *frame,
     process_mark_exit(process, -(int64_t)(128u + vector), true,
                       vector, error, address);
     return scheduler_exit_user(frame);
+}
+
+/* ELF contents are immutable mounted files. Every unpublished allocation is
+ * exclusively owned here; publication is the same IF=0 scheduler transaction
+ * used by the embedded probes. SPAWN creates a child; it does not replace self. */
+bool process_spawn_elf(const char *path, const char *argument, uint64_t parent_pid,
+                       uint64_t *out_pid)
+{
+    if (!process_available() || out_pid == NULL || path == NULL || argument == NULL) {
+        return false;
+    }
+    preempt_disable();
+    const uint64_t flags = cpu_irq_save();
+    size_t slot = 0u;
+    while (slot < UTAMO_PROCESS_LIMIT && registry[slot] != NULL) {
+        ++slot;
+    }
+    const struct vfs_node *node = vfs_lookup(path);
+    if (slot == UTAMO_PROCESS_LIMIT || next_pid > INT64_MAX || node == NULL ||
+        node->type != UTAMO_VFS_FILE || (node->mode & 0111u) == 0u) {
+        cpu_irq_restore(flags);
+        preempt_enable();
+        return false;
+    }
+    struct process *process = kcalloc(1u, sizeof(*process));
+    if (process == NULL) {
+        cpu_irq_restore(flags);
+        preempt_enable();
+        return false;
+    }
+    uint64_t entry = 0u, rsp = 0u, user_argument = 0u;
+    bool good = elf_load(&process->vm, node->data, node->size, argument,
+                         &entry, &rsp, &user_argument);
+    process->pid = next_pid;
+    process->parent_pid = parent_pid;
+    process->state = UTAMO_PROCESS_READY;
+    size_t length = strlen(path);
+    if (length >= sizeof(process->name)) {
+        length = sizeof(process->name) - 1u;
+    }
+    memcpy(process->name, path, length);
+    if (good) {
+        good = scheduler_create_user(process->name, process, entry, rsp,
+                                     user_argument, &process->tid);
+    }
+    if (good) {
+        registry[slot] = process;
+        ++next_pid;
+        ++statistics.active;
+        increment(&statistics.created);
+        *out_pid = process->pid;
+    } else if ((process->vm.initialized && !user_vm_destroy(&process->vm)) ||
+               !kfree(process)) {
+        PANIC("Cannot roll back ELF process publication");
+    }
+    cpu_irq_restore(flags);
+    preempt_enable();
+    return good;
+}
+
+int64_t process_collect_child(struct process *parent, uint64_t child_pid,
+                              uint64_t status_address)
+{
+    const uint64_t parent_pid = parent != NULL ? parent->pid : 0u;
+    const uint64_t flags = cpu_irq_save();
+    int64_t result = UTAMO_SYS_ENOENT;
+    if (parent_pid != 0u && child_pid != 0u) {
+        for (size_t i = 0u; i < UTAMO_PROCESS_LIMIT; ++i) {
+            if (registry[i] != NULL && registry[i]->pid == child_pid &&
+                registry[i]->parent_pid == parent_pid) {
+                result = UTAMO_SYS_EAGAIN;
+            }
+        }
+        for (size_t i = 0u; i < UTAMO_PROCESS_HISTORY; ++i) {
+            if (history[i].pid == child_pid && history[i].parent_pid == parent_pid &&
+                !history[i].collected) {
+                if (user_vm_copy_to(&parent->vm, status_address,
+                                     &history[i].exit_code, sizeof(history[i].exit_code))) {
+                    result = 0;
+                    history[i].collected = true;
+                } else {
+                    result = UTAMO_SYS_EFAULT;
+                }
+                break;
+            }
+        }
+    }
+    cpu_irq_restore(flags);
+    return result;
 }

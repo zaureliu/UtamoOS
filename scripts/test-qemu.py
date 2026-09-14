@@ -163,8 +163,15 @@ class VM:
         self.report["qmp_greeting"] = greeting
         self.qmp("qmp_capabilities")
         if self.args.probe:
-            # Stop before the first HLT: changing RIP on an already halted
-            # virtual CPU does not itself clear QEMU\'s internal halted state.
+            # Boot may now use HLT while native init waits for its children.
+            # Observe the requested readiness marker before arming a later
+            # pre-HLT breakpoint. Changing RIP on an already halted CPU alone
+            # does not clear QEMU's internal halted state.
+            self.qmp("cont")
+            marker = getattr(self.args, "marker", None) or PROMPT
+            self.wait_for(marker)
+            self.check(True, "Readiness marker observed before fatal probe: " + marker)
+            self.report["probe_after_marker"] = marker
             self.gdb("probe-arm", [
                 "hbreak " + self.args.probe_at, "continue",
                 "delete breakpoints", "monitor info registers",

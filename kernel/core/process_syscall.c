@@ -46,7 +46,8 @@ struct interrupt_frame *process_on_syscall(struct interrupt_frame *frame)
         frame->rax = 0u;
         return scheduler_yield_user(frame, frame->rdi);
     default:
-        frame->rax = (uint64_t)(int64_t)UTAMO_SYS_ENOSYS;
+        frame->rax = (uint64_t)process_file_syscall(process, frame->rax,
+            frame->rdi, frame->rsi, frame->rdx);
         break;
     }
     return scheduler_resume_user(frame);

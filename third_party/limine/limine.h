@@ -171,4 +171,35 @@ struct limine_executable_address_request {
     struct limine_executable_address_response *response;
 };
 
+/* Additional v8.7.0 API revision 2 declarations for boot modules. */
+struct limine_uuid {
+    uint32_t a;
+    uint16_t b, c;
+    uint8_t d[8];
+};
+struct limine_file {
+    uint64_t revision;
+    void *address;
+    uint64_t size;
+    char *path, *cmdline;
+    uint32_t media_type, unused, tftp_ip, tftp_port, partition_index, mbr_disk_id;
+    struct limine_uuid gpt_disk_uuid, gpt_part_uuid, part_uuid;
+};
+#define LIMINE_MODULE_REQUEST \
+    { LIMINE_COMMON_MAGIC, 0x3e7e279702be32af, 0xca1c4f3bd1280cee }
+struct limine_module_response {
+    uint64_t revision, module_count;
+    struct limine_file **modules;
+};
+struct limine_internal_module {
+    const char *path, *cmdline;
+    uint64_t flags;
+};
+struct limine_module_request {
+    uint64_t id[4], revision;
+    struct limine_module_response *response;
+    uint64_t internal_module_count;
+    struct limine_internal_module **internal_modules;
+};
+
 #endif

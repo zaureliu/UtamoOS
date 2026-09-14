@@ -12,6 +12,7 @@
 #include <utamo/pit.h>
 #include <utamo/scheduler.h>
 #include <utamo/process.h>
+#include <utamo/filesystem.h>
 #include <utamo/serial.h>
 #include <utamo/shell_line.h>
 #include <utamo/string.h>
@@ -317,12 +318,33 @@ static void execute_line(void)
         run_sleep(command.arguments);
         return;
     }
+    if (strcmp(name, "ls") == 0 || strcmp(name, "cat") == 0 ||
+        strcmp(name, "exec") == 0) {
+        char *cursor = command.arguments;
+        const char *path = shell_next_token(&cursor);
+        if (path == NULL) {
+            if (strcmp(name, "ls") == 0) { filesystem_list("/"); }
+            else { kprintf("Usage: cat <path> | exec <path> [argument]\n"); }
+        } else if (strcmp(name, "exec") == 0) {
+            kprintf("Exec: %s\n", (const char *)(filesystem_run(path, cursor) ? "PASS" : "FAIL"));
+        } else if (shell_next_token(&cursor) != NULL) {
+            kprintf("Unexpected arguments.\n");
+        } else if (strcmp(name, "ls") == 0) {
+            filesystem_list(path);
+        } else {
+            filesystem_cat(path);
+        }
+        return;
+    }
     if (*command.arguments != '\0') {
         kprintf("Unexpected arguments. Type help.\n");
         return;
     }
     if (strcmp(name, "help") == 0) {
         kprintf("help     List implemented commands\n");
+        kprintf("ls/cat   Read the native VFS\n");
+        kprintf("exec     Run an ELF file with one argument string\n");
+        kprintf("fstest   Bounded VFS/ELF lifecycle stress\n");
         kprintf("clear    Clear framebuffer and serial terminal\n");
         kprintf("version  Kernel version\n");
         kprintf("sysinfo  Known boot and hardware information\n");
@@ -383,6 +405,9 @@ static void execute_line(void)
         show_processes();
     } else if (strcmp(name, "usertest") == 0) {
         run_user_test();
+    } else if (strcmp(name, "fstest") == 0) {
+        kprintf("Filesystem self-test: %s\n",
+                (const char *)(filesystem_selftest() ? "PASS" : "FAIL"));
     } else if (strcmp(name, "uptime") == 0) {
         const uint64_t ticks = pit_get_ticks();
         const uint64_t seconds = pit_ticks_to_seconds(ticks);

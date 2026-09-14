@@ -97,7 +97,7 @@ $(KERNEL): $(OBJECTS) $(LINKER_SCRIPT) Makefile | guard-build
 	$(KERNEL_CC) $(KERNEL_LDFLAGS) $(OBJECTS) -o "$@"
 
 # Always rebuild the ISO: locally supplied Limine assets can change independently.
-iso: $(KERNEL) | guard-build
+iso: $(KERNEL) initramfs | guard-build
 	bash scripts/make-iso.sh
 
 run: iso
@@ -228,7 +228,35 @@ $(DISPATCH_TEST): $(DISPATCH_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-buil
 	@mkdir -p -- "$(@D)"
 	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(DISPATCH_TEST_SOURCES) -o "$@"
 
-test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) $(PIT_TEST) $(INPUT_TEST) $(KEYBOARD_TEST) $(SHELL_TEST) $(PMM_TEST) $(VMM_TEST) $(MEMORY_HELPER_TEST) $(HEAP_TEST) $(HEAP_PAGES_TEST) $(SCHED_TEST) $(THREAD_STACK_TEST) $(ARCH_USER_TEST) $(USER_VM_TEST) $(PROCESS_SYSCALL_TEST) $(DISPATCH_TEST)
+VFS_ELF_TEST := $(BUILD_DIR)/tests/utamo-vfs-elf-tests
+VFS_ELF_TEST_SOURCES := tests/test_vfs_elf.c kernel/fs/vfs.c kernel/fs/initramfs.c kernel/core/elf.c kernel/lib/string.c
+$(VFS_ELF_TEST): $(VFS_ELF_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(VFS_ELF_TEST_SOURCES) -o "$@"
+
+ELF_LOAD_TEST := $(BUILD_DIR)/tests/utamo-elf-load-tests
+ELF_LOAD_TEST_SOURCES := tests/test_elf_load.c kernel/core/elf.c kernel/core/elf_load.c kernel/lib/string.c
+$(ELF_LOAD_TEST): $(ELF_LOAD_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(ELF_LOAD_TEST_SOURCES) -o "$@"
+
+PROCESS_FILES_TEST := $(BUILD_DIR)/tests/utamo-process-files-tests
+PROCESS_FILES_TEST_SOURCES := tests/test_process_files.c kernel/core/process_files.c kernel/fs/vfs.c kernel/lib/string.c
+$(PROCESS_FILES_TEST): $(PROCESS_FILES_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(PROCESS_FILES_TEST_SOURCES) -o "$@"
+
+PROCESS_EXEC_TEST := $(BUILD_DIR)/tests/utamo-process-exec-tests
+PROCESS_EXEC_TEST_SOURCES := tests/test_process_exec.c kernel/core/process.c kernel/lib/string.c
+$(PROCESS_EXEC_TEST): $(PROCESS_EXEC_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -ffunction-sections -fdata-sections -Wl,--gc-sections -Ikernel/include $(PROCESS_EXEC_TEST_SOURCES) -o "$@"
+
+test-host: $(PROCESS_EXEC_TEST) $(PROCESS_FILES_TEST) $(ELF_LOAD_TEST) $(VFS_ELF_TEST) $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) $(PIT_TEST) $(INPUT_TEST) $(KEYBOARD_TEST) $(SHELL_TEST) $(PMM_TEST) $(VMM_TEST) $(MEMORY_HELPER_TEST) $(HEAP_TEST) $(HEAP_PAGES_TEST) $(SCHED_TEST) $(THREAD_STACK_TEST) $(ARCH_USER_TEST) $(USER_VM_TEST) $(PROCESS_SYSCALL_TEST) $(DISPATCH_TEST)
+	"./$(VFS_ELF_TEST)"
+	"./$(ELF_LOAD_TEST)"
+	"./$(PROCESS_FILES_TEST)"
+	"./$(PROCESS_EXEC_TEST)"
 	"./$(HOST_TEST)"
 	"./$(VIDEO_TEST)"
 	"./$(GDT_TEST)"
@@ -250,10 +278,11 @@ test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) 
 	"./$(PROCESS_SYSCALL_TEST)"
 	"./$(DISPATCH_TEST)"
 
-inspect: $(KERNEL)
+inspect: $(KERNEL) userspace
 	$(READELF) -h -l -S "$(KERNEL)"
 	$(NM) -u "$(KERNEL)"
 	python3 scripts/inspect-elf.py "$(KERNEL)"
+	python3 scripts/inspect-userspace.py
 
 # Only the literal build directory is removed; sources and vendor remain intact.
 clean:
@@ -264,3 +293,17 @@ clean:
 	fi
 
 -include $(DEPS)
+
+USER_PROGRAMS := init hello echo sysinfo filetest badptr
+USER_BINARIES := $(addprefix $(BUILD_DIR)/userspace/,$(USER_PROGRAMS))
+USER_CFLAGS := $(filter-out -mcmodel=kernel,$(KERNEL_CFLAGS)) -mcmodel=small -fdebug-prefix-map=$(CURDIR)=. -ffile-prefix-map=$(CURDIR)=.
+USER_COMMON := userspace/libc/runtime.c userspace/include/utamo.h kernel/include/utamo/syscall_abi.h userspace/linker/user.ld
+$(BUILD_DIR)/userspace/start.o: userspace/crt/start.asm Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(NASM) $(NASMFLAGS) "$<" -o "$@"
+$(BUILD_DIR)/userspace/%: userspace/bin/%.c $(USER_COMMON) $(BUILD_DIR)/userspace/start.o Makefile | guard-build
+	$(KERNEL_CC) $(USER_CFLAGS) -Iuserspace/include -Ikernel/include -nostdlib -static -no-pie -Wl,-T,userspace/linker/user.ld -Wl,--build-id=none -Wl,-z,max-page-size=0x1000 -Wl,-z,noexecstack $(BUILD_DIR)/userspace/start.o userspace/libc/runtime.c "$<" -o "$@"
+.PHONY: userspace initramfs
+userspace: $(USER_BINARIES)
+initramfs: $(USER_BINARIES) | guard-build
+	python3 scripts/make-initramfs.py

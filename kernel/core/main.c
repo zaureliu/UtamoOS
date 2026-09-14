@@ -12,6 +12,7 @@
 #include <utamo/shell.h>
 #include <utamo/scheduler.h>
 #include <utamo/process.h>
+#include <utamo/filesystem.h>
 #include <utamo/interrupts.h>
 #include <utamo/log.h>
 #include <utamo/panic.h>
@@ -101,6 +102,9 @@ _Noreturn void kernel_main(void)
     } else {
         LOG_WARN("Ring 3 unavailable on this CPU/paging configuration");
     }
+    if (!filesystem_init()) {
+        PANIC("Cannot mount required initramfs");
+    }
     if (!keyboard_init()) {
         PANIC("Cannot initialize PS/2 keyboard");
     }
@@ -109,6 +113,9 @@ _Noreturn void kernel_main(void)
     pic_unmask(1);
     cpu_enable_interrupts();
     LOG_OK("Interrupts enabled");
+    if (process_available() && !filesystem_start_init()) {
+        PANIC("Native ELF init failed");
+    }
     kprintf("\nUTAMO OS ready.\n\n");
     shell_init(&boot_memory, &boot_terminal);
     for (;;) {

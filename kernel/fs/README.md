@@ -1,6 +1,8 @@
-# Filesystems — planejado
+# Filesystem subsystem
 
-Ainda não implementado. A sequência é VFS, RAM filesystem, importação de
-initramfs e FAT32. Definir handles, ownership de nós, limites de paths e erros
-antes de um parser de disco. FAT32 sobre dispositivos depende do storage;
-nenhuma chamada atual lê ou grava discos.
+The v0.6 candidate uses a bounded immutable newc index and a read-only VFS.
+The boot module stays reserved. File handles have independent offsets; native
+processes own descriptor tables and user copies remain checked.
+
+See [VFS ownership, format and limits](../../docs/vfs.md).
+Disk-backed storage is a later gated milestone.

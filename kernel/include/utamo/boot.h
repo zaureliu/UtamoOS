@@ -8,6 +8,8 @@
 
 /* Limine structures are confined to the x86_64 boot adapter. */
 bool boot_protocol_supported(void);
+/* After memory_init; immutable module retained for the kernel lifetime. */
+bool boot_read_initramfs(const void **image, size_t *size);
 bool boot_paging_supported(void);
 bool boot_init_framebuffer(struct framebuffer *framebuffer);
 bool boot_read_memory_map(struct memory_map *map);

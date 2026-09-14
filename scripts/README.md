@@ -105,3 +105,18 @@ no projeto antes de limpar.
 Os roteiros completos estão em [debugging](../docs/debugging.md), contratos
 em [memory-management](../docs/memory-management.md) e cobertura em
 [tests/README](../tests/README.md).
+
+## v0.6 candidate tools
+
+- make-initramfs.py packages native ELF programs as deterministic uncompressed newc.
+- inspect-userspace.py independently inspects the linked entry, LOAD permissions,
+  file bounds, BSS and absence of undefined symbols; included in make inspect.
+- test-filesystem-qemu.py reuses the sequential bounded VM owner and records
+  module/ELF hashes, actual CPL3 observation, file operations, malicious buffers
+  and repeated process cleanup. Run with --suite, a unique --name and optional
+  --ram/--cpu/--expect-nx. It never requests a graphical display.
+
+The process suite now distinguishes the four real ELF startup processes from
+embedded probes: normal startup still executes no probe selftests. The previous
+unknown-syscall fixture moved its number from 6 to 14 because 6 is now OPEN;
+all original error/preservation assertions remain.

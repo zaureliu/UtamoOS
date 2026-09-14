@@ -476,8 +476,15 @@ def suite(vm, symbols):
     vm.command("help", ("processes", "usertest", "schedtest", "heaptest", "pmmtest", "vmmtest"))
     first_system = vm.command("sysinfo", ("Ticks:", "x86_64", "Limine"))
     initial_processes = process_snapshot(vm, "Initial process state")
-    vm.check(all(initial_processes[key] == 0 for key in COUNTER_FIELDS),
-             "Normal boot does not execute embedded user tests")
+    if "init: controlled startup complete" in boot:
+        vm.check(all(initial_processes[key] == 4 for key in LIFETIME_FIELDS)
+                 and initial_processes["faults"] == 0
+                 and initial_processes["syscalls"] > 0
+                 and "Hello from UTAMO ring 3!" not in boot,
+                 "Native init reaps its four ELF processes without running embedded probes")
+    else:
+        vm.check(all(initial_processes[key] == 0 for key in COUNTER_FIELDS),
+                 "Normal boot without native init does not execute embedded user tests")
     initial = SCHED.memory_snapshots(vm, "Initial process baseline")
     MEMORY.hardware_memory_checks(vm, initial[2])
     architecture_checks(vm, symbols, "Initial")

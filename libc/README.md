@@ -1,6 +1,6 @@
-# Libc de userspace — reservada
+# Library scope
 
-Não implementada. A biblioteca freestanding hoje necessária ao kernel fica
-em `kernel/lib/`. Esta pasta será a libc de programas UTAMO, construída sobre
-uma ABI própria de syscalls. Não contém libc do host nem implica compatibilidade
-POSIX. Não faz parte do build de v0.0.1.
+The minimal native userspace runtime lives in
+[userspace/libc](../userspace/libc/runtime.c). It supplies UTAMO-specific syscall
+wrappers and small output helpers. This directory does not contain a POSIX libc,
+glibc port or a second competing implementation.

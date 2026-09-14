@@ -308,7 +308,7 @@ static void test_pid_yield_sleep_unknown(void)
         CHECK(fixture.resumed == 0u && fixture.exited == 0u);
         CHECK(fixture.copied == 0u && fixture.logged == 0u);
     }
-    const uint64_t unknown[] = {0u, 6u, UINT64_C(0x100000001), UINT64_MAX};
+    const uint64_t unknown[] = {0u, 14u, UINT64_C(0x100000001), UINT64_MAX};
     for (size_t i = 0u; i < sizeof(unknown) / sizeof(unknown[0]); ++i) {
         reset();
         frame = make_frame(unknown[i]);
@@ -445,4 +445,12 @@ int main(void)
     (void)printf("UTAMO process syscall host tests: %u checks, %u failures\n",
                  checks, failures);
     return failures == 0u ? 0 : 1;
+}
+
+/* Extension dispatch is exercised against real VFS in test_process_files.c. */
+int64_t process_file_syscall(struct process *process, uint64_t number,
+                             uint64_t a, uint64_t b, uint64_t c)
+{
+    (void)process; (void)number; (void)a; (void)b; (void)c;
+    return UTAMO_SYS_ENOSYS;
 }

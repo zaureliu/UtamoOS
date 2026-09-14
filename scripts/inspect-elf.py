@@ -292,6 +292,8 @@ for name in ("pmm_alloc_page", "pmm_free_page", "pmm_pin_page",
 request_section = named_sections[".limine_requests"]
 request_bytes = data[request_section[4]:request_section[4] + request_section[5]]
 for label, words in (
+        ("Modules", (0xc7b1dd30df4c8b88, 0x0a82e883a194f07b,
+                     0x3e7e279702be32af, 0xca1c4f3bd1280cee)),
         ("HHDM", (0xc7b1dd30df4c8b88, 0x0a82e883a194f07b,
                   0x48dcf1cb8ad2b852, 0x63984e959a98244b)),
         ("Executable Address", (0xc7b1dd30df4c8b88, 0x0a82e883a194f07b,

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 /* Host-only shell integration: hardware effects are explicit test doubles. */
 #include <utamo/shell.h>
+#include <utamo/filesystem.h>
 
 #include <setjmp.h>
 #include <stdio.h>
@@ -754,6 +755,30 @@ static void test_process_commands(void)
     CHECK(contains("utamo> "));
 }
 
+static void test_filesystem_commands(void)
+{
+    issue("help\n");
+    CHECK(contains("ls/cat") && contains("exec") && contains("fstest"));
+    issue("ls\n");
+    CHECK(contains("mock ls /\n"));
+    issue("ls /bin\n");
+    CHECK(contains("mock ls /bin\n"));
+    issue("cat /etc/motd\n");
+    CHECK(contains("mock cat /etc/motd\n"));
+    issue("cat\n");
+    CHECK(contains("Usage:") && !contains("mock cat"));
+    issue("cat /etc/motd extra\n");
+    CHECK(contains("Unexpected arguments.") && !contains("mock cat"));
+    issue("exec /bin/hello one argument\n");
+    CHECK(contains("mock exec /bin/hello one argument") && contains("Exec: PASS"));
+    issue("exec /missing\n");
+    CHECK(contains("Exec: FAIL"));
+    issue("fstest\n");
+    CHECK(contains("Filesystem self-test: PASS"));
+    issue("fstest extra\n");
+    CHECK(contains("Unexpected arguments.") && !contains("Filesystem self-test:"));
+}
+
 static void test_direct_output_preemption(void)
 {
     CHECK(unprotected_direct_io == 0u);
@@ -798,6 +823,7 @@ int main(void)
     test_heap_commands();
     test_scheduler_commands();
     test_process_commands();
+    test_filesystem_commands();
     test_direct_output_preemption();
     test_stop("halt\n", 1);
     test_stop("fault ud2\n", 2);
@@ -809,3 +835,13 @@ int main(void)
                  checks, failures);
     return failures == 0u ? 0 : 1;
 }
+
+/* Filesystem routing doubles; actual VFS/ELF contracts have separate fixtures. */
+bool filesystem_run(const char *path, const char *argument)
+{
+    kprintf("mock exec %s %s\n", path, argument);
+    return strcmp(path, "/bin/hello") == 0;
+}
+bool filesystem_selftest(void) { return true; }
+void filesystem_list(const char *path) { kprintf("mock ls %s\n", path); }
+void filesystem_cat(const char *path) { kprintf("mock cat %s\n", path); }

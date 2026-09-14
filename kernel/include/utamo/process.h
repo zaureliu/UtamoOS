@@ -4,6 +4,8 @@
 #include <utamo/arch_user.h>
 #include <utamo/user_vm.h>
 #include <utamo/interrupts.h>
+#include <utamo/vfs.h>
+#define UTAMO_PROCESS_FD_LIMIT 16u
 #define UTAMO_PROCESS_LIMIT 16u
 #define UTAMO_PROCESS_NAME_SIZE 24u
 #define UTAMO_PROCESS_HISTORY 64u
@@ -11,7 +13,8 @@ enum process_state {UTAMO_PROCESS_READY, UTAMO_PROCESS_EXITED};
 /* Single thread and exclusive address-space owner. Kernel-internal only. */
 struct process {
     struct user_vm vm;
-    uint64_t pid, tid, syscalls;
+    uint64_t pid, tid, syscalls, parent_pid;
+    struct vfs_file files[UTAMO_PROCESS_FD_LIMIT];
     enum process_state state;
     char name[UTAMO_PROCESS_NAME_SIZE];
     int64_t exit_code;
@@ -24,7 +27,8 @@ struct process_stats {
     enum arch_user_status status;
 };
 struct process_result {
-    uint64_t pid;
+    uint64_t pid, parent_pid;
+    bool collected;
     int64_t exit_code;
     uint64_t fault_vector, fault_error, fault_address, syscalls;
     bool faulted;
@@ -32,6 +36,13 @@ struct process_result {
 bool process_init(void);
 bool process_available(void);
 bool process_spawn_probe(unsigned int probe, uint64_t *out_pid);
+/* Bounded construction in kernel thread or IF=0 native syscall context. */
+bool process_spawn_elf(const char *path, const char *argument, uint64_t parent_pid,
+                       uint64_t *out_pid);
+int64_t process_collect_child(struct process *parent, uint64_t child_pid,
+                              uint64_t status_address);
+int64_t process_file_syscall(struct process *process, uint64_t number,
+                             uint64_t a, uint64_t b, uint64_t c);
 bool process_get_stats(struct process_stats *out);
 bool process_get_result(uint64_t pid, struct process_result *out);
 bool process_selftest(void);
