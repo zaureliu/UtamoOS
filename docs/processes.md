@@ -1,5 +1,8 @@
 # Processos e isolamento de memória
 
+Este documento registra o escopo preservado da v0.5. As extensões de arquivos,
+ELF, SPAWN/WAIT e init estão em [userspace](userspace.md) e [VFS](vfs.md).
+
 **Estado: GREEN local — v0.5.0 compilada e validada no gate headless.**
 O [registro v0.5](validation-astra-v0.5.json) identifica código, hashes e fases
 observadas. Publicação, aceite visual, UEFI e hardware físico permanecem separados.

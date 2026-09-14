@@ -1,5 +1,8 @@
 # ABI nativa de syscalls
 
+Este documento registra o escopo preservado da v0.5. As extensões de arquivos,
+ELF, SPAWN/WAIT e init estão em [userspace](userspace.md) e [VFS](vfs.md).
+
 **Estado: GREEN local — ABI executada em CPL3 no gate v0.5.0.**
 O [registro de validação](validation-astra-v0.5.json) distingue a matriz candidata
 da confirmação da versão final. A ABI continua própria, sem compatibilidade Linux/POSIX.

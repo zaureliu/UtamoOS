@@ -331,3 +331,12 @@ Validation commands actually executed:
 Observed result / exit code / artifact paths:
 Pending validation:
 ```
+
+## Astra v0.6 — 2026-09-14
+
+Retomada na branch existente astra-campaign. A v0.5 já estava aprovada em
+4f303c8; a documentação pendente foi preservada em 4c0ad97. Nenhum marco anterior
+foi reimplementado. VFS/newc/ELF em e802940; integração em 3190609; stamp em
+c5b2a91. Gate: 39.528 checks, 26 VMs aprovadas/recolhidas, uma tentativa histórica
+de harness corrigida/preservada. Hashes em validation-astra-v0.6.json.
+O próximo marco é PCI/AHCI/FAT32 somente leitura.

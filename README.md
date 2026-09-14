@@ -3,13 +3,13 @@
 UTAMO OS is an experimental x86_64 operating system built from scratch in C17
 and NASM Assembly for learning and exploring low-level operating-system development.
 
-![Development v0.5.0](https://img.shields.io/badge/development-v0.5.0-blue)
+![Development v0.6.0](https://img.shields.io/badge/development-v0.6.0-blue)
 [![License MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 ![Architecture x86_64](https://img.shields.io/badge/architecture-x86__64-lightgrey)
 
 | | |
 | --- | --- |
-| Development version | **v0.5.0** on `astra-campaign` |
+| Development version | **v0.6.0** on `astra-campaign` |
 | Latest public release | **v0.1.0** |
 | Architecture | x86_64 |
 | Kernel | Freestanding C17 + NASM Assembly |
@@ -25,9 +25,9 @@ Linux kernel. Linux or WSL2 provides the development environment.
 
 Development proceeds through preserved milestones. The public baseline is
 [v0.1.0](docs/releases/v0.1.0.md). The preserved memory and heap milestones now
-support **v0.5.0 isolated Ring 3 processes and native syscalls**, whose local Astra
+support **v0.6.0 VFS, initramfs and native ELF userspace**, whose local Astra
 campaign gate is GREEN. The campaign has not been tagged, merged into main or
-published; both public baseline tags remain unchanged. v0.6 VFS/ELF userspace is planning.
+published; both public baseline tags remain unchanged. v0.7 PCI/storage follows this preserved checkpoint.
 
 ## Current Features
 
@@ -51,6 +51,9 @@ published; both public baseline tags remain unchanged. v0.6 VFS/ELF userspace is
 - Private user address spaces, TSS CPL3 entry, user-page W^X and contained faults.
 - Native INT128 WRITE/EXIT/GETPID/YIELD/SLEEP with bounded checked user copies.
 - Embedded user probes, 16-process capacity rejection and process diagnostics.
+- Immutable newc initramfs, VFS, private file descriptors and checked file syscalls.
+- Strict ELF64 loader, zeroed BSS/stacks, native runtime and PID 1 init.
+- Separate hello, echo and sysinfo programs, plus VFS/hostile-buffer tests.
 
 New mappings use 4 KiB pages. Existing 2 MiB/1 GiB leaves are queried and
 preserved; they are never silently split. The public mapping API modifies only its
@@ -64,13 +67,17 @@ delivery paths have not been deliberately triggered.
 ## Shell
 
 The prompt is `utamo>`. Commands execute inside the kernel; `usertest` launches
-controlled embedded CPL3 programs. Executables are not loaded from files yet.
+controlled embedded CPL3 probes. Native init launches real ELF programs;
+exec runs files from the immutable VFS.
 
 | Command | Action |
 | --- | --- |
+| `ls [path]` / `cat path` | List/read immutable VFS content |
+| `exec path [argument]` | Create and await a native ELF process |
+| `fstest` | Stress VFS, ELF, bad pointers, descriptors and cleanup |
 | `help` | List implemented commands |
 | `clear` | Clear the framebuffer terminal and send clear/home to serial |
-| `version` | Print UTAMO OS 0.5.0 |
+| `version` | Print UTAMO OS 0.6.0 |
 | `sysinfo` | Show known boot, memory, framebuffer and timer information |
 | `mem` | Show boot-map totals, PMM accounting and VMM configuration |
 | `pmm` | Show managed/used/free frames and bitmap storage |
@@ -106,15 +113,17 @@ tables; repeated runs reuse them. Data frames are released.
 
 ## Current Boot
 
-Recorded serial output from the final v0.5.0 headless process suite
+Recorded serial output from the final v0.6.0 headless filesystem suite
 (256 MiB VM, 1024x768 framebuffer reported by Limine), preserved in
-`build/validation/astra-v05-final-process/serial.log`:
+`build/validation/astra-v06-final-fs/serial.log`:
 
 ```text
+[ INFO  ] Starting UTAMO kernel
+==============================================
 UTAMO OS
 Experimental x86_64 Operating System
 
-Version: 0.5.0
+Version: 0.6.0
 Architecture: x86_64
 
 [ OK    ] Limine boot protocol (base revision 3)
@@ -122,14 +131,14 @@ Architecture: x86_64
 [ OK    ] Framebuffer detected: 1024x768, 32 bpp
 [ OK    ] Terminal initialized
 [ OK    ] Serial COM1 initialized (115200 8N1)
-[ INFO  ] Memory map entries: 16
+[ INFO  ] Memory map entries: 19
 Total usable memory: 253 MiB
 [ OK    ] GDT initialized
 [ OK    ] IDT initialized
 [ OK    ] CPU exception handlers initialized
 [ OK    ] PMM initialized
-[ INFO  ] Physical frames: 64942
-[ INFO  ] Free frames: 64938
+[ INFO  ] Physical frames: 64877
+[ INFO  ] Free frames: 64873
 [ INFO  ] PMM metadata: phys=0x53000, 16384 bytes
 [ OK    ] VMM initialized
 [ INFO  ] HHDM offset: 0xffff800000000000
@@ -141,8 +150,14 @@ Total usable memory: 253 MiB
 [ OK    ] PIT timer initialized (100 Hz)
 [ OK    ] Kernel scheduler initialized (round-robin, 2 ticks)
 [ OK    ] Ring 3 process infrastructure initialized
+[ OK    ] VFS initramfs mounted: 13 nodes, 138676 bytes
 [ OK    ] PS/2 keyboard initialized
 [ OK    ] Interrupts enabled
+init: PID 1 executing native ELF programs
+Hello from UTAMO userspace!
+echo from an ELF process
+UTAMO native userspace: x86_64; PID 4; free pages 64754; PIT ticks 4
+init: controlled startup complete
 
 UTAMO OS ready.
 
@@ -172,7 +187,7 @@ UTAMO Kernel
   +-- Heap: allocation, growth and integrity
   +-- Kernel threads / round-robin scheduler / guarded stacks
   +-- Private user VM / CPL3 / native INT128 syscalls
-  +-- Kernel shell / idle thread / embedded user probes
+  +-- Kernel shell / idle thread / native ELF init and user programs
 ```
 
 The kernel runs on one CPU in ring 0; isolated processes execute at CPL3.
@@ -232,7 +247,7 @@ make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" iso
 
 The native compiler is used only for host tests. The kernel must use the
 cross compiler. Outputs are `build/utamo-kernel.elf` and
-`build/utamo-os-0.5.0.iso`. `make clean` removes `build/`, including validation
+`build/utamo-os-0.6.0.iso`. `make clean` removes `build/`, including validation
 logs; archive any evidence you want to keep before cleaning.
 
 ## Running
@@ -242,7 +257,7 @@ For a bounded headless boot with serial output, after building the ISO:
 ```sh
 timeout --signal=TERM --kill-after=2s 30s \
   qemu-system-x86_64 -machine q35,accel=tcg -cpu qemu64 -m 256M -smp 1 \
-  -cdrom build/utamo-os-0.5.0.iso -boot d -display none \
+  -cdrom build/utamo-os-0.6.0.iso -boot d -display none \
   -serial stdio -monitor none -nic none -no-reboot -no-shutdown
 ```
 
@@ -278,36 +293,34 @@ No window opens and no framebuffer capture is required.
 
 ## Testing
 
-The v0.5.0 gate is recorded in [machine-readable evidence](docs/validation-astra-v0.5.json)
-and [campaign state](docs/astra-campaign-state.md). Local summary:
-`validation-artifacts/astra-v05-final-20260914T101644Z/summary.json`.
+The v0.6 gate is recorded in [evidence](docs/validation-astra-v0.6.json) and
+[campaign state](docs/astra-campaign-state.md). Frozen artifacts:
+`validation-artifacts/astra-last-known-good/v0.6.0/`.
 
-| Validation phase | Checks | Failures |
+| Phase | Checks | Failures |
 | --- | ---: | ---: |
-| Final host tests | 25,541 | 0 |
-| Final ELF / ABI inspection | 1,707 | 0 |
-| Candidate QEMU matrix, banner 0.4.0, 19 VMs | 10,257 | 0 |
-| Final 0.5.0 process/NX-off/kernel-PF checks, 3 VMs | 3,115 | 0 |
-| **Total recorded** | **40,620** | **0** |
+| Final clean host | 25,926 | 0 |
+| Final kernel and native ELF / ABI | 1,843 | 0 |
+| Candidate headless matrix, 23 passing VMs | 11,293 | 0 |
+| Final 0.6.0 VFS / NX-off / RO checks, 3 VMs | 466 | 0 |
+| **Passing gate total** | **39,528** | **0** |
 
-The candidate matrix covered processes at 64/256/512 MiB, NX-off refusal,
-kernel scheduler/allocator/shell regressions and fatal kernel probes. The final
-stamp passed process, NX-off and original kernel page-fault suites. All 22
-sequential headless VMs passed and were reaped. `.text`, `.data` and
-`.limine_requests` match between phases; `.rodata` differs by one version
-byte. The complete matrix was not repeated after stamping.
+The candidate covers 64/256/512 MiB, NX-off, VFS/ELF/process stress, allocator,
+scheduler, shell and fatal probes. All 26 passing VMs were reaped. One earlier
+RO probe harness timed out before init completed; readiness-based arming fixed
+it. The failed attempt remains separate: 27 actual VM attempts.
 
-Twelve usertests created/reaped 480 processes, contained 156 user faults and
-completed 3,934,800 syscalls. Final host/ELF count once plus both QEMU phases;
-these are recorded assertions, not unique tests or coverage. Supplemental
-UBSan results are separate and excluded from the total.
-Historical [v0.4](docs/validation-astra-v0.4.json), [v0.3](docs/validation-astra-v0.3.json),
-[v0.2](docs/validation-v0.2.json) and [v0.1](docs/validation-v0.1.json) remain separate.
+Kernel text/data/requests match across stamping, with one rodata version byte
+changed. Native runtime sections also match; debug paths were normalized.
+The full RAM matrix was not repeated after stamping. Final host/ELF count once
+plus both QEMU phases; these are assertions, not unique tests or coverage.
+Supplemental AddressSanitizer/UBSan runs are separate.
 
-Serial, QMP PS/2 input and GDB provide automated evidence. Physical keyboard,
-visual framebuffer review, UEFI and physical hardware acceptance remain manual.
-Earlier QEMU/VNC acceptance applies to v0.1.0.
-See the [test guide](tests/README.md) for reproduction commands.
+Twelve VFS/ELF stress runs created/reaped 420 processes. Nine embedded-probe
+runs created/reaped 360 processes and contained 117 user faults. Startup and
+explicit exec checks are separate. See [the review](docs/audit-astra-v0.6.md).
+Visual, physical keyboard, UEFI and real hardware checks remain separate;
+earlier manual acceptance belongs to v0.1.0.
 
 ## Roadmap
 
@@ -321,7 +334,7 @@ Future milestones describe planned work, not implemented features.
 | v0.3.0 | Kernel heap - GREEN local campaign gate |
 | v0.4.0 | Threads and scheduler - GREEN local campaign gate |
 | v0.5.0 | Isolated Ring 3 processes and syscalls - GREEN local campaign gate |
-| v0.6.0 | VFS, initramfs, ELF loader and userspace - planning |
+| v0.6.0 | VFS, initramfs, ELF and native userspace - GREEN local gate |
 | v0.7.0 | PCI and storage |
 | v0.8.0 | Networking |
 | v0.9.0 | Graphics / window system |
@@ -330,6 +343,8 @@ Future milestones describe planned work, not implemented features.
 The [detailed roadmap](docs/roadmap.md) records dependencies and intermediate steps.
 
 ## Documentation
+
+- [VFS](docs/vfs.md), [ELF loader](docs/elf-loader.md), [userspace](docs/userspace.md) and [v0.6 evidence](docs/validation-astra-v0.6.json)
 
 - [Processes and isolation](docs/processes.md), [syscall ABI](docs/syscalls.md) and [v0.5 validation](docs/validation-astra-v0.5.json)
 
@@ -359,12 +374,12 @@ Third-party notices and Limine provenance are documented in
 
 **UTAMO OS is experimental software and is not intended for production use.**
 
-PMM, VMM, heap, preemptive threads and isolated single-threaded processes are
-implemented. User processes require NX, have bounded private resources and run
-embedded probes only. There is no file-backed ELF loader, filesystem, networking,
-GUI, POSIX compatibility, SMP, TLS or FPU/vector context switching.
+PMM, VMM, heap, preemptive threads, isolated processes, immutable VFS and
+static native ELF userspace are implemented. User processes require NX.
+The root is read-only; disk storage, networking, input syscalls, a userspace
+shell, GUI, POSIX, SMP, TLS and FPU/vector context switching remain absent.
 
 Heap pages and empty kernel page tables remain retained; process destruction
-returns its exclusive user pages and private tables. The heap must not be called
-from IRQ/NMI context. The shell remains in the kernel. Bootloader-memory reclaim
-and global HHDM alias hardening remain future work.
+returns private user pages/tables. Modules stay reserved. SPAWN is bounded but
+keeps IF=0 during construction. The kernel shell remains the recovery interface;
+global HHDM alias hardening remains future work.

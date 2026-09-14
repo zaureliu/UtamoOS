@@ -1,10 +1,12 @@
-# Arquitetura do UTAMO OS v0.4
+# Arquitetura do UTAMO OS
 
 O kernel monolítico x86_64 evolui o baseline funcional v0.1.0, preservando v0.0.1. Limine v8.7.0,
 ELF64 higher half, linker, stack bootstrap de 64 KiB, C17 freestanding,
 biblioteca, formatter, framebuffer e mapa físico mantêm seus contratos.
-A execução continua no BSP, ring 0, com PMM/VMM, heap e threads preemptivas
-próprios. Threads compartilham o espaço virtual; userspace ainda não existe.
+O kernel executa no BSP, ring 0, com PMM/VMM, heap e threads preemptivas
+próprios. Processos CPL3 têm VMs privadas e compartilham mappings supervisor
+do kernel. VFS/initramfs e executáveis ELF nativos usam essa base; o
+[estado dos gates](astra-campaign-state.md) identifica a última versão aprovada.
 
 ```mermaid
 flowchart TD
@@ -17,13 +19,17 @@ flowchart TD
     memory --> heap[Heap]
     heap --> irq[PIC + PIT]
     irq --> scheduler[Scheduler + idle]
+    scheduler --> process[Processos CPL3 / VMs privadas]
+    process --> fs[VFS / initramfs / ELF]
+    fs --> init[init PID 1 / programas nativos]
     scheduler --> keyboard[PS/2]
     keyboard --> loop[STI e threads]
     loop --> shell[Shell de kernel]
     shell --> out[Formatter / serial / terminal]
     keyboard --> input[Buffer de scancodes]
     input --> shell
-    desc --> fault[Exceção fatal]
+    desc --> userfault[Fault CPL3: encerra processo e faz reap]
+    desc --> fault[Exceção de kernel: fatal]
     fault --> serial[Dump completo na serial]
     serial --> display[Tentativa de dump no framebuffer]
     display --> stop[CLI / HLT permanente]
@@ -33,7 +39,9 @@ flowchart TD
 
 | Diretório | Responsabilidade |
 | --- | --- |
-| kernel/core | Boot, logger, panic, shell, scheduler e pilhas de threads |
+| kernel/core | Boot, logger, shell, scheduler, processos, ELF e syscalls |
+| kernel/fs | Índice newc, VFS imutável e integração de boot |
+| userspace | Runtime freestanding, CRT e programas ELF nativos |
 | kernel/arch/x86_64 | Adaptador Limine, CPU/portas, COM1, GDT/TSS, IDT, stubs, PIC |
 | kernel/interrupts | Dispatch, nomes e diagnóstico de exceções, dispatch de IRQ |
 | kernel/drivers/timer | PIT e conversões de tempo |
@@ -182,6 +190,10 @@ comparadas são idênticas entre as fases; o byte da versão mudou em rodata.
 [O registro v0.4](validation-astra-v0.4.json) identifica esses limites.
 Teclado físico, aparência gráfica, UEFI e hardware real são evidências separadas.
 
-O próximo milestone é v0.5: Ring 3, isolamento e syscalls. Reclaim, aliases
+O próximo milestone é v0.7: PCI, AHCI e FAT32 somente leitura. Reclaim, aliases
 HHDM, estado de CPU adicional e SMP exigem contratos próprios.
 ACPI/APIC continua uma frente separada.
+
+Os contratos de userspace estão em [processes](processes.md), [syscalls](syscalls.md),
+[VFS](vfs.md), [ELF](elf-loader.md) e [runtime](userspace.md). O documento
+de processos descreve a base v0.5; VFS/ELF acrescentam executáveis de arquivos.

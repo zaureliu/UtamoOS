@@ -4,7 +4,8 @@ Versões indicam marcos técnicos, não prazos. v0.0.1/v0.1.0 são baselines
 preservados; v0.1.0 tem aceite manual registrado. O v0.2 implementa PMM/VMM
 sobre essa arquitetura; sua validação host/ELF/QEMU está registrada no development log.
 Heap v0.3 e threads/scheduler v0.4 passaram gates locais da campanha Astra.
-Marcos a partir de v0.5.0 são planos, sujeitos a revisão pelas evidências.
+Processos v0.5 e VFS/ELF v0.6 também passaram gates locais.
+Marcos a partir de v0.7 são planos, sujeitos às evidências.
 
 | Marco | Entrega | Estado / critério de saída |
 | --- | --- | --- |
@@ -13,29 +14,19 @@ Marcos a partir de v0.5.0 são planos, sujeitos a revisão pelas evidências.
 | **v0.2.0** | Gerenciamento físico e virtual de memória | PMM, HHDM, VMM sobre CR3 herdado, permissões e selftests; host/ELF/QEMU aprovados, 14.213 checks sem falhas; revisão gráfica/teclado físico separada |
 | **v0.3.0** | Kernel heap, `kmalloc`, `kfree` e diagnóstico de memória | GREEN local: 23.679 checks sem falhas, 14 VMs recolhidas; calloc/realloc, crescimento e rollback |
 | **v0.4.0** | Threads, context switching e scheduler | GREEN local: 31.681 checks sem falhas; 18 VMs em fases candidata/final; quantum, guards, sleep, reap e registradores exercitados |
-| **v0.5.0** | Ring 3, processos, ELF loader e syscalls | Memória de userspace isolada; ABI e cópias user/kernel documentadas |
-| **v0.6.0** | VFS, userspace, initramfs e filesystem em RAM | Parsers e operações por handles validados; utilitários executam como processos |
+| **v0.5.0** | Ring 3, processos e syscalls | GREEN local: 40.620 checks; isolamento e fault containment |
+| **v0.6.0** | VFS, initramfs e ELF userspace | GREEN local: 39.528 checks; init e programas reais |
 | **v0.7.0** | PCI/PCIe e armazenamento | Enumerar dispositivos e ler imagens de teste com limites/DMA corretos |
 | **v0.8.0** | Networking | Comunicação reproduzível e pacotes malformados rejeitados |
 | **v0.9.0** | Gráficos e window system experimental | Input, superfícies e ownership definidos; falhas de clientes isoladas |
 | **v1.0.0** | Baseline experimental estabilizado | Arquitetura/documentação estáveis, plataformas testadas e limitações publicadas |
 
-## Próximo milestone: v0.5.0 — Ring 3, processos e syscalls
+## Próximo milestone: v0.7.0 — PCI e armazenamento
 
-1. Definir ownership e teardown de address spaces isolados, mantendo o kernel
-   protegido e compartilhado conforme um contrato explícito.
-2. Ampliar GDT/TSS, entrada/saída de privilégio e frames sem quebrar threads
-   de kernel, IRQs, guards ou a ABI de interrupções.
-3. Definir syscalls, validação de ponteiros e cópias user/kernel limitadas;
-   erros de processo não podem corromper nem encerrar o kernel.
-4. Validar isolamento, lifecycle, argumentos inválidos e regressões por host,
-   inspeção ELF e QEMU antes de promover o marco.
-
-As bases GREEN estão em [memória](memory-management.md), [heap](heap.md) e
-[scheduler](scheduler.md). [A evidência v0.4](validation-astra-v0.4.json)
-distingue os 15 QEMU candidatos com stamp 0.3.0 dos três QEMU finais 0.4.0.
-Reclaim de bootloader/ACPI e revisão dos aliases HHDM continuam separados;
-as guard pages de threads não estabelecem W^X global.
+Descobrir PCI/BARs, definir block devices, implementar leitura AHCI com
+ownership DMA explícito e validar FAT32 somente leitura em imagens descartáveis.
+O gate exige corrupção/bounds rejeitados e leitura real no QEMU q35.
+A base preservada está em [campaign state](astra-campaign-state.md).
 
 ## Etapas complementares
 

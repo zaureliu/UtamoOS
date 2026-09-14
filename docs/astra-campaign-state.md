@@ -5,18 +5,18 @@ main, release or public tag is authorized during the campaign.
 
 | Field | Current value |
 | --- | --- |
-| Current milestone | v0.6.0 — VFS, initramfs and ELF userspace |
-| Current status | PLANNING; implementation has not started at this checkpoint |
-| Highest GREEN milestone | v0.5.0 — Isolated Ring 3 processes and native syscalls |
-| Last known good commit | `4f303c8aeca26051f4affe92b0ba5af4e2296026` |
-| Kernel version | 0.5.0; advance only after the next milestone passes |
-| Last known good ELF SHA-256 | `58a6bdfff0b0408f37eff0033956f8449480cddfe60b23a14d6eefcec96a4b82` |
-| Last known good ISO SHA-256 | `88f2a20abca8d27f2df682f9700cf7b7638b15beebe4a1a779a976df95004607` |
-| Host validation | v0.5 final: 25,541 checks, 0 failures |
-| ELF validation | v0.5 final: 1,707 checks, 0 failures |
-| QEMU validation | 10,257 candidate + 3,115 final-stamp checks; 22 sequential VMs reaped; 0 failures |
-| Known blockers | None observed at the v0.5 gate |
-| Next task | Plan VFS/initramfs, a bounded ELF loader and userspace runtime on the preserved v0.5 base |
+| Current milestone | v0.7.0 — PCI, block layer, AHCI and FAT32 |
+| Current status | PLANNING; v0.6 checkpoint recorded and preserved |
+| Highest GREEN milestone | v0.6.0 — VFS, initramfs and native ELF userspace |
+| Last known good commit | `c5b2a915422df7c6d71e353335e6fc812225ea62` |
+| Kernel version | 0.6.0; advance only after the next milestone passes |
+| Last known good ELF SHA-256 | `ee6dd92b975e294d857323629e5d9297d4ed3a004e0c28ebb05ddb4cc46fe0ec` |
+| Last known good ISO SHA-256 | `cef89221c9df0b0cb6328240db3292a2d76188878b9895f83c0b7a6e28a1de1b` |
+| Host validation | v0.6 final: 25,926 checks, 0 failures |
+| ELF validation | v0.6 final: 1,843 checks, 0 failures (kernel and six native ELFs) |
+| QEMU validation | 11,293 candidate + 466 final checks; 26 passing VMs reaped; one corrected historical harness timeout |
+| Known blockers | None observed at the completed v0.6 gate |
+| Next task | Implement PCI discovery, safe MMIO/DMA, read-only AHCI/block operations and bounded FAT32 parsing on the preserved v0.6 base |
 
 ## Last known good history
 
@@ -26,6 +26,7 @@ main, release or public tag is authorized during the campaign.
 | v0.3.0 | GREEN, 2026-09-14 | `2fb66be740ed8c153b3d733fc1d16bc978f2364f` | `validation-artifacts/astra-v03-final-20260914T074134Z/summary.json` |
 | v0.4.0 | GREEN, 2026-09-14 | `7e07719f2207fca29de4c7bafcaa296d2dd30b8a` | `validation-artifacts/astra-v04-final-20260914T084853Z/summary.json` |
 | v0.5.0 | GREEN, 2026-09-14 | `4f303c8aeca26051f4affe92b0ba5af4e2296026` | `validation-artifacts/astra-v05-final-20260914T101644Z/summary.json` |
+| v0.6.0 | GREEN, 2026-09-14 | `c5b2a915422df7c6d71e353335e6fc812225ea62` | `validation-artifacts/astra-v06-final-20260914T130610Z/summary.json` |
 
 Baseline was rebuilt from a clean build directory before campaign edits:
 host, cross kernel, ELF/ABI, ISO and the full existing headless matrix passed.
@@ -117,3 +118,33 @@ higher-half permissions in user fault diagnostics and wait-deadline overflow.
 The GDB observer now reads architectural RFL from its same paused monitor
 snapshot; the original cast failure and its offline replay remain historical
 evidence, outside the passing matrix totals. Earlier GREEN entries are preserved.
+
+## v0.6 gate evidence
+
+The preserved v0.5 documentation was completed in 4c0ad97 without replaying
+earlier milestones. VFS/newc/ELF work was committed in e802940 and 3190609;
+c5b2a91 stamps the gated implementation as 0.6.0.
+
+The final clean host and ELF/ABI suites passed 25,926 and 1,843 assertions.
+The full candidate matrix passed 11,293 QEMU assertions in 23 VMs, including
+VFS/ELF at 64/256/512 MiB and NX-off, process matrices, scheduler/allocator
+regressions and fatal probes. Final VFS, NX-off and RO-fault checks added 466
+assertions in three VMs. Passing total: 39,528, zero gate failures, 26 VMs reaped.
+
+One earlier RO harness attempt timed out because its pre-HLT probe fired while
+native init was waiting for a child, before the shell. The expected kernel
+protection fault was present. The harness now waits for the readiness marker
+before arming the next pre-HLT breakpoint; the repeated check passed. The failed
+attempt and logs remain separate (27 total VM attempts), with its VM reaped.
+
+Kernel text/data/requests are identical between candidate and stamp; rodata
+differs by one version byte. All six userspace runtime text/rodata/data sections
+are identical; debug build paths were normalized. The complete RAM matrix was
+not repeated after stamping. Final host/ELF count once; sanitizer runs are separate.
+
+The VFS/ELF stress evidence comprises 12 runs and 420 created/reaped processes,
+apart from startup demonstrations and explicit exec checks. Existing embedded
+probe stress remains separately counted. See validation-astra-v0.6.json for
+phases, hashes, counts and history, and audit-astra-v0.6.md for the review.
+The frozen v0.6 ELF, ISO, archive and user binaries are in
+validation-artifacts/astra-last-known-good/v0.6.0/.

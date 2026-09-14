@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.6.0 (unreleased)
+
+GREEN local at c5b2a915422df7c6d71e353335e6fc812225ea62; no push, merge or tag.
+
+### Added
+
+- Bounded immutable newc initramfs and read-only VFS with private file offsets.
+- Strict ELF64 loader, W^X, zeroed BSS/stacks and complete rollback.
+- Native runtime and separate init (PID 1), hello, echo and sysinfo programs.
+- OPEN/READ/CLOSE/SEEK/FSTAT/SPAWN/WAIT/INFO with checked buffers and ownership.
+- Kernel ls/cat/exec/fstest, actual CPL3 ELF observation and lifecycle stress.
+
+### Validation and fixes
+
+Final clean host/ELF: 25,926 / 1,843. Candidate QEMU: 11,293 in 23 VMs;
+final confirmation: 466 in three VMs. Passing total 39,528, zero gate failures,
+26 passing VMs reaped. One prior harness readiness timeout remains separate;
+arming the probe after init fixed it. Runtime section bytes match across the
+final version/debug-path changes. Full RAM matrix ran on the candidate.
+
+WAIT separates signed exit status from syscall errors. Failed READ/WAIT copies
+preserve offsets/results. Sanitizers cover loader rollback, file calls and real
+process publication/WAIT. [Evidence](docs/validation-astra-v0.6.json).
+
+### Limits
+
+Read-only root; static native ELF; no input syscall, user shell, POSIX execve,
+disk or network. SPAWN keeps IF=0; WAIT uses finite history. Manual/UEFI/hardware
+validation is separate.
+
 ## v0.5.0 (unreleased)
 
 GREEN local milestone on `astra-campaign`, recorded on 2026-09-14 at
