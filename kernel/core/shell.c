@@ -13,6 +13,8 @@
 #include <utamo/scheduler.h>
 #include <utamo/process.h>
 #include <utamo/filesystem.h>
+#include <utamo/storage.h>
+#include <utamo/pci.h>
 #include <utamo/serial.h>
 #include <utamo/shell_line.h>
 #include <utamo/string.h>
@@ -343,6 +345,7 @@ static void execute_line(void)
     if (strcmp(name, "help") == 0) {
         kprintf("help     List implemented commands\n");
         kprintf("ls/cat   Read the native VFS\n");
+        kprintf("lspci/storage/disktest PCI and readonly disk diagnostics\n");
         kprintf("exec     Run an ELF file with one argument string\n");
         kprintf("fstest   Bounded VFS/ELF lifecycle stress\n");
         kprintf("clear    Clear framebuffer and serial terminal\n");
@@ -367,6 +370,12 @@ static void execute_line(void)
         kprintf("echo     Repeat following text\n");
         kprintf("halt     Disable interrupts and stop CPU\n");
         kprintf("fault    ud2, div0 or pf; vmm or stack: guard/unmapped page (fatal)\n");
+    } else if (strcmp(name, "lspci") == 0) {
+        pci_list();
+    } else if (strcmp(name, "storage") == 0) {
+        storage_status();
+    } else if (strcmp(name, "disktest") == 0) {
+        kprintf("Storage self-test: %s\n", (const char *)(storage_selftest() ? "PASS" : "FAIL"));
     } else if (strcmp(name, "clear") == 0) {
         preempt_disable();
         terminal_clear(system_terminal);

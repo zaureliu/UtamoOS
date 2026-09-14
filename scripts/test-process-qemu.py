@@ -551,6 +551,8 @@ def main():
     parser.add_argument("--version", help="Expected semver; defaults to version.h")
     parser.add_argument("--timeout", type=float, default=300.0)
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--disk", type=HARNESS.project_path, help="Readonly fixture under build/tests")
+    parser.add_argument("--expect-disk", choices=("mounted", "rejected", "absent"), default="mounted")
     args = parser.parse_args()
     if not re.fullmatch(r"[a-zA-Z0-9_-]{1,40}", args.name):
         parser.error("--name must contain 1-40 letters, digits, underscores or hyphens")
@@ -575,6 +577,10 @@ def main():
         args.iso = HARNESS.project_path(candidates[0])
     if not args.iso.is_file():
         parser.error("ISO does not exist")
+
+    if args.disk is not None:
+        if not args.disk.is_file() or not args.disk.resolve().is_relative_to(ROOT / "build/tests") or "," in str(args.disk):
+            parser.error("--disk must be an existing fixture inside build/tests without commas")
 
     # VM is the existing shared implementation, with no graphics/probe path.
     args.probe = None

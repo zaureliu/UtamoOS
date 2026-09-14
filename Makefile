@@ -252,7 +252,30 @@ $(PROCESS_EXEC_TEST): $(PROCESS_EXEC_TEST_SOURCES) $(HOST_HEADERS) Makefile | gu
 	@mkdir -p -- "$(@D)"
 	$(HOST_CC) $(HOST_CFLAGS) -ffunction-sections -fdata-sections -Wl,--gc-sections -Ikernel/include $(PROCESS_EXEC_TEST_SOURCES) -o "$@"
 
-test-host: $(PROCESS_EXEC_TEST) $(PROCESS_FILES_TEST) $(ELF_LOAD_TEST) $(VFS_ELF_TEST) $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) $(PIT_TEST) $(INPUT_TEST) $(KEYBOARD_TEST) $(SHELL_TEST) $(PMM_TEST) $(VMM_TEST) $(MEMORY_HELPER_TEST) $(HEAP_TEST) $(HEAP_PAGES_TEST) $(SCHED_TEST) $(THREAD_STACK_TEST) $(ARCH_USER_TEST) $(USER_VM_TEST) $(PROCESS_SYSCALL_TEST) $(DISPATCH_TEST)
+STORAGE_CORE_TEST := $(BUILD_DIR)/tests/utamo-storage-core-tests
+STORAGE_CORE_SOURCES := tests/test_storage_core.c kernel/drivers/pci_core.c kernel/drivers/pci.c kernel/drivers/block.c kernel/drivers/ahci_core.c kernel/memory/mmio_policy.c kernel/lib/string.c
+$(STORAGE_CORE_TEST): $(STORAGE_CORE_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(STORAGE_CORE_SOURCES) -o "$@"
+
+FAT32_TEST := $(BUILD_DIR)/tests/utamo-fat32-tests
+FAT32_SOURCES := tests/test_fat32.c kernel/fs/fat32.c kernel/fs/vfs.c kernel/drivers/block.c kernel/lib/string.c
+$(BUILD_DIR)/tests/fat32-fixtures.json: scripts/make-test-disk.py | guard-build
+	python3 scripts/make-test-disk.py
+$(FAT32_TEST): $(FAT32_SOURCES) $(HOST_HEADERS) Makefile $(BUILD_DIR)/tests/fat32-fixtures.json | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(FAT32_SOURCES) -o "$@"
+
+AHCI_DRIVER_TEST := $(BUILD_DIR)/tests/utamo-ahci-driver-tests
+AHCI_DRIVER_SOURCES := tests/test_ahci_driver.c kernel/drivers/ahci.c kernel/drivers/ahci_core.c kernel/drivers/block.c kernel/lib/string.c
+$(AHCI_DRIVER_TEST): $(AHCI_DRIVER_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(AHCI_DRIVER_SOURCES) -o "$@"
+
+test-host: $(AHCI_DRIVER_TEST) $(STORAGE_CORE_TEST) $(FAT32_TEST) $(PROCESS_EXEC_TEST) $(PROCESS_FILES_TEST) $(ELF_LOAD_TEST) $(VFS_ELF_TEST) $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) $(PIT_TEST) $(INPUT_TEST) $(KEYBOARD_TEST) $(SHELL_TEST) $(PMM_TEST) $(VMM_TEST) $(MEMORY_HELPER_TEST) $(HEAP_TEST) $(HEAP_PAGES_TEST) $(SCHED_TEST) $(THREAD_STACK_TEST) $(ARCH_USER_TEST) $(USER_VM_TEST) $(PROCESS_SYSCALL_TEST) $(DISPATCH_TEST)
+	@for scenario in good absent alloc-fail map-fail enable-fail identify-fail stop-timeout timeout task-error bus-error short-dma; do "./$(AHCI_DRIVER_TEST)" "$$scenario" || exit $$?; done
+	"./$(STORAGE_CORE_TEST)"
+	"./$(FAT32_TEST)"
 	"./$(VFS_ELF_TEST)"
 	"./$(ELF_LOAD_TEST)"
 	"./$(PROCESS_FILES_TEST)"
@@ -294,7 +317,7 @@ clean:
 
 -include $(DEPS)
 
-USER_PROGRAMS := init hello echo sysinfo filetest badptr
+USER_PROGRAMS := init hello echo sysinfo filetest badptr diskread
 USER_BINARIES := $(addprefix $(BUILD_DIR)/userspace/,$(USER_PROGRAMS))
 USER_CFLAGS := $(filter-out -mcmodel=kernel,$(KERNEL_CFLAGS)) -mcmodel=small -fdebug-prefix-map=$(CURDIR)=. -ffile-prefix-map=$(CURDIR)=.
 USER_COMMON := userspace/libc/runtime.c userspace/include/utamo.h kernel/include/utamo/syscall_abi.h userspace/linker/user.ld

@@ -132,6 +132,13 @@ class VM:
             "-qmp", "unix:" + str(self.socket_path) + ",server=on,wait=off",
             "-monitor", "none", "-nic", "none", "-no-reboot", "-no-shutdown",
         ]
+        disk = getattr(self.args, "disk", None)
+        if disk is not None:
+            disk = Path(disk).resolve()
+            if not disk.is_file() or not disk.is_relative_to(ROOT / "build/tests") or "," in str(disk):
+                raise CheckFailed("Disk must be a disposable project build/tests fixture")
+            command += ["-drive", "if=none,id=utamo_disk,format=raw,snapshot=on,file=" + str(disk),
+                        "-device", "ide-hd,drive=utamo_disk,bus=ide.0"]
         if self.args.probe or self.args.check_timer:
             command += ["-chardev", "socket,path=" + str(self.gdb_path) +
                         ",server=on,wait=off,id=gdb0", "-gdb", "chardev:gdb0"]
@@ -144,8 +151,14 @@ class VM:
                         "-D", str(self.directory / "qemu-debug.log")]
         self.report["qemu_command"] = command
         self.output = (self.directory / "qemu-stderr.log").open("wb")
+        environment = os.environ.copy()
+        if disk is not None:
+            # ide-hd refuses a readonly block node. QEMU snapshot mode opens the
+            # base readonly and directs any guest writes to an unlinked overlay.
+            environment["TMPDIR"] = str(ROOT / "build/tests")
+            self.report["disk_overlay_policy"] = "snapshot=on; temporary overlay in build/tests; base opened readonly"
         self.process = subprocess.Popen(
-            command, cwd=ROOT, stdin=subprocess.DEVNULL,
+            command, cwd=ROOT, env=environment, stdin=subprocess.DEVNULL,
             stdout=self.output, stderr=subprocess.STDOUT,
         )
         self.report["qemu_pid"] = self.process.pid

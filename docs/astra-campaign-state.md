@@ -6,7 +6,7 @@ main, release or public tag is authorized during the campaign.
 | Field | Current value |
 | --- | --- |
 | Current milestone | v0.7.0 — PCI, block layer, AHCI and FAT32 |
-| Current status | PLANNING; v0.6 checkpoint recorded and preserved |
+| Current status | CANDIDATE GATE PASSED; 34 VMs, 12,202 QEMU checks; final version confirmation pending |
 | Highest GREEN milestone | v0.6.0 — VFS, initramfs and native ELF userspace |
 | Last known good commit | `c5b2a915422df7c6d71e353335e6fc812225ea62` |
 | Kernel version | 0.6.0; advance only after the next milestone passes |
@@ -16,7 +16,7 @@ main, release or public tag is authorized during the campaign.
 | ELF validation | v0.6 final: 1,843 checks, 0 failures (kernel and six native ELFs) |
 | QEMU validation | 11,293 candidate + 466 final checks; 26 passing VMs reaped; one corrected historical harness timeout |
 | Known blockers | None observed at the completed v0.6 gate |
-| Next task | Implement PCI discovery, safe MMIO/DMA, read-only AHCI/block operations and bounded FAT32 parsing on the preserved v0.6 base |
+| Next task | Run the clean v0.7 gate, RAM/NX matrix, corrupt media and existing regressions; audit before promotion |
 
 ## Last known good history
 

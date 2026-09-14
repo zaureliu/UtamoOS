@@ -2,6 +2,8 @@
 /* Host-only shell integration: hardware effects are explicit test doubles. */
 #include <utamo/shell.h>
 #include <utamo/filesystem.h>
+#include <utamo/storage.h>
+#include <utamo/pci.h>
 
 #include <setjmp.h>
 #include <stdio.h>
@@ -845,3 +847,7 @@ bool filesystem_run(const char *path, const char *argument)
 bool filesystem_selftest(void) { return true; }
 void filesystem_list(const char *path) { kprintf("mock ls %s\n", path); }
 void filesystem_cat(const char *path) { kprintf("mock cat %s\n", path); }
+
+void pci_list(void) { kprintf("PCI mock\n"); }
+void storage_status(void) { kprintf("Storage mock\n"); }
+bool storage_selftest(void) { return true; }

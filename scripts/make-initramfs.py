@@ -18,7 +18,7 @@ def newc(entries):
     return bytes(output)
 
 def main():
-    programs = ("init", "hello", "echo", "sysinfo", "filetest", "badptr")
+    programs = ("init", "hello", "echo", "sysinfo", "filetest", "badptr", "diskread")
     entries = [(name, 0o40755, b"") for name in ("bin", "dev", "etc")]
     entries += [("bin/" + name, 0o100755, (ROOT / "build/userspace" / name).read_bytes())
                 for name in programs]

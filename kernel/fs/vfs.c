@@ -2,6 +2,8 @@
 #include <utamo/vfs.h>
 #include <utamo/string.h>
 static const struct ramfs *root;
+static const struct ramfs *mounts[4];
+static size_t mount_count;
 
 bool vfs_path_valid(const char *path)
 {
@@ -56,12 +58,17 @@ bool vfs_mount_root(const struct ramfs *fs)
         return false;
     }
     root = fs;
+    mounts[mount_count++] = fs;
     return true;
 }
 
 const struct vfs_node *vfs_lookup(const char *path)
 {
-    return ramfs_lookup(root, path);
+    for (size_t i = 0u; i < mount_count; ++i) {
+        const struct vfs_node *node = ramfs_lookup(mounts[i], path);
+        if (node != NULL) { return node; }
+    }
+    return NULL;
 }
 
 bool vfs_open(const char *path, struct vfs_file *file)
@@ -118,8 +125,9 @@ const struct vfs_node *vfs_child(const char *directory, size_t index)
         return NULL;
     }
     const size_t prefix = strlen(directory);
-    for (size_t i = 1u; i < root->count; ++i) {
-        const char *path = root->nodes[i].path;
+    for (size_t m = 0u; m < mount_count; ++m) {
+      for (size_t i = 0u; i < mounts[m]->count; ++i) {
+        const char *path = mounts[m]->nodes[i].path;
         if (strncmp(path, directory, prefix) != 0 ||
             (prefix != 1u && path[prefix] != '/')) {
             continue;
@@ -133,8 +141,45 @@ const struct vfs_node *vfs_child(const char *directory, size_t index)
             ++j;
         }
         if (name[j] == '\0' && index-- == 0u) {
-            return &root->nodes[i];
+            return &mounts[m]->nodes[i];
         }
     }
+    }
     return NULL;
+}
+
+bool vfs_mount_subtree(const struct ramfs *fs)
+{
+    if (root == NULL || fs == NULL || !fs->ready || fs->count == 0u ||
+        fs->count > UTAMO_VFS_NODE_LIMIT || mount_count == 4u ||
+        fs->nodes[0].type != UTAMO_VFS_DIRECTORY ||
+        !vfs_path_valid(fs->nodes[0].path) || fs->nodes[0].path[1] == '\0') {
+        return false;
+    }
+    const char *base = fs->nodes[0].path;
+    const size_t prefix = strlen(base);
+    for (size_t i = 1u; i < prefix; ++i) { if (base[i] == '/') { return false; } }
+    for (size_t i = 0u; i < fs->count; ++i) {
+        const struct vfs_node *node = &fs->nodes[i];
+        if (!vfs_path_valid(node->path) || vfs_lookup(node->path) != NULL ||
+            (node->type != UTAMO_VFS_DIRECTORY && node->type != UTAMO_VFS_FILE) ||
+            (node->type == UTAMO_VFS_FILE && node->size != 0u && node->data == NULL) ||
+            strncmp(node->path, base, prefix) != 0 ||
+            (i != 0u && node->path[prefix] != '/')) { return false; }
+        for (size_t j = 0u; j < i; ++j) {
+            if (strcmp(node->path, fs->nodes[j].path) == 0) { return false; }
+        }
+        if (i != 0u) {
+            char parent[UTAMO_VFS_PATH_MAX];
+            const size_t length = strlen(node->path);
+            memcpy(parent, node->path, length + 1u);
+            size_t end = length;
+            while (end != 0u && parent[end] != '/') { --end; }
+            parent[end] = '\0';
+            const struct vfs_node *dir = ramfs_lookup(fs, parent);
+            if (dir == NULL || dir->type != UTAMO_VFS_DIRECTORY) { return false; }
+        }
+    }
+    mounts[mount_count++] = fs;
+    return true;
 }

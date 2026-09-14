@@ -11,7 +11,7 @@ def check(value, message):
     checks+=1
     if not value:
         raise SystemExit("FAIL userspace ELF: "+message)
-for name in ("init","hello","echo","sysinfo","filetest","badptr"):
+for name in ("init","hello","echo","sysinfo","filetest","badptr","diskread"):
     path=ROOT/"build/userspace"/name
     data=path.read_bytes()
     header=struct.unpack_from("<16sHHIQQQIHHHHHH",data)

@@ -32,6 +32,8 @@ bool vfs_path_valid(const char *path);
 bool ramfs_import(struct ramfs *fs, const void *image, size_t size);
 const struct vfs_node *ramfs_lookup(const struct ramfs *fs, const char *path);
 bool vfs_mount_root(const struct ramfs *fs); /* Once, before process publication. */
+/* Publish a verified immutable top-level subtree; no shadowing or unmount. */
+bool vfs_mount_subtree(const struct ramfs *fs);
 const struct vfs_node *vfs_lookup(const char *path);
 bool vfs_open(const char *path, struct vfs_file *file);
 bool vfs_read(struct vfs_file *file, void *buffer, size_t bytes, size_t *read);
