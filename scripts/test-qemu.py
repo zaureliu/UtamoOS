@@ -24,6 +24,7 @@ import argparse
 import hashlib
 import fcntl
 import json
+import ipaddress
 import os
 from pathlib import Path
 import re
@@ -132,6 +133,15 @@ class VM:
             "-qmp", "unix:" + str(self.socket_path) + ",server=on,wait=off",
             "-monitor", "none", "-nic", "none", "-no-reboot", "-no-shutdown",
         ]
+        if getattr(self.args, "network", False):
+            subnet = ipaddress.IPv4Network(self.args.network_subnet)
+            if not subnet.is_private or subnet.prefixlen != 24:
+                raise CheckFailed("Network fixture requires a private IPv4 /24")
+            command += ["-netdev", "user,id=utamo_net,net=" + str(subnet) +
+                        ",dhcpstart=" + str(subnet.network_address + 100),
+                        "-device", "e1000,netdev=utamo_net,id=utamo_nic,mac=" + self.args.network_mac,
+                        "-object", "filter-dump,id=utamo_capture,netdev=utamo_net,file=" +
+                        str(self.directory / "network.pcap")]
         disk = getattr(self.args, "disk", None)
         if disk is not None:
             disk = Path(disk).resolve()

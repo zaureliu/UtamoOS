@@ -553,6 +553,9 @@ def main():
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--disk", type=HARNESS.project_path, help="Readonly fixture under build/tests")
     parser.add_argument("--expect-disk", choices=("mounted", "rejected", "absent"), default="mounted")
+    parser.add_argument("--network", action="store_true", help="Enable an explicit emulated E1000")
+    parser.add_argument("--network-subnet", default="10.0.2.0/24")
+    parser.add_argument("--network-mac", default="52:54:00:12:34:56")
     args = parser.parse_args()
     if not re.fullmatch(r"[a-zA-Z0-9_-]{1,40}", args.name):
         parser.error("--name must contain 1-40 letters, digits, underscores or hyphens")
@@ -562,6 +565,19 @@ def main():
         parser.error("--cpu must be a QEMU model/features string without whitespace")
     if not 0 < args.timeout <= 600:
         parser.error("--timeout must be in (0, 600]")
+    if args.network:
+        import ipaddress
+        try:
+            subnet = ipaddress.IPv4Network(args.network_subnet)
+        except ValueError:
+            parser.error("--network-subnet must be a private IPv4 /24")
+        if not subnet.is_private or subnet.prefixlen != 24:
+            parser.error("--network-subnet must be a private IPv4 /24")
+        if not re.fullmatch(r"(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}", args.network_mac):
+            parser.error("--network-mac must be six hexadecimal octets")
+        raw_mac = bytes.fromhex(args.network_mac.replace(":", ""))
+        if raw_mac[0] & 1 or not any(raw_mac):
+            parser.error("--network-mac must be nonzero unicast")
     if args.version is None:
         match = re.search(r'^#define UTAMO_VERSION "([^"]+)"$',
                           (ROOT / "kernel/include/utamo/version.h").read_text(), re.M)
