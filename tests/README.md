@@ -7,9 +7,24 @@ interrupções/input/shell e validação headless do kernel real. Consulte o
 contagem final, comandos, hashes e resultados observados; uma cobertura
 implementada não é automaticamente uma validação de hardware.
 
+## Resultados registrados de v0.1.0
+
+| Camada | Checks aprovados |
+| --- | ---: |
+| Testes host | 5214 |
+| Inspeção ELF/ABI | 1303 |
+| QEMU headless | 126 |
+| **Total** | **6643** |
+
+A validação registrada terminou com zero falhas. As contagens identificam
+execuções e artefatos específicos, descritos no relatório e no
+[índice de evidências](../docs/validation-v0.1.json); não são uma promessa
+para futuras revisões ou outros ambientes. O aceite manual do usuário é
+registrado separadamente e não acrescenta checks automatizados.
+
 ## Execução
 
-No Ubuntu WSL, a partir de `~/UtamoOS`:
+Em Linux/WSL2 Ubuntu, a partir da raiz do checkout:
 
 ~~~sh
 make test-host
@@ -109,13 +124,12 @@ A validação do binário é separada dos testes host:
 ~~~sh
 make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" kernel
 make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" inspect
-python3 scripts/inspect-elf.py
 make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" iso
 python3 scripts/test-qemu.py --marker "utamo> " --name boot-review \
     --check-gdt --check-idt --check-timer
 ~~~
 
-A inspeção Python verifica os bytes do ELF realmente ligado, incluindo as 256
+`make inspect` inclui a inspeção Python, que verifica os bytes do ELF realmente ligado, incluindo as 256
 entradas da tabela relativa dos stubs, a distinção entre error code da CPU e
 sintético, destinos dos jumps, preservação/restauração de registradores,
 alinhamento antes do CALL e IRETQ. Ela não executa esses caminhos.
@@ -125,8 +139,8 @@ Todos os modos do harness usam `-display none`, uma única VM por vez e
 timeout. Os probes de exceção usam GDB e instruções reais; o boot normal não
 dispara testes fatais. O [guia de debugging](../docs/debugging.md) descreve
 os comandos para UD2/div0/page fault e o breakpoint `cpu_wait_interrupt`
-antes de HLT. O desenvolvimento já observou UD2 real e avanço do PIT; o
-relatório final distingue as execuções feitas sobre a imagem final.
+antes de HLT. A validação registrada observou UD2, divisão por zero, page fault e avanço
+do PIT; o relatório identifica a imagem final e os resultados de cada execução.
 
 Os artefatos ficam em `build/validation/<name>/`: serial, report JSON,
 registros GDB/HMP e, quando solicitado, log interno do QEMU.
@@ -135,19 +149,18 @@ encerrado. Use nomes novos para não sobrescrever evidências.
 `make clean` remove também esses diretórios; uma contagem copiada sem
 identificar a execução/artefato não é suficiente como evidência.
 
-## Validação manual pendente
+## Validação manual e cobertura adicional
 
-Por orientação do usuário, esta sessão não automatiza digitação PS/2 nem
-validação visual. A suíte `--suite`, os comandos `--fault` via teclado e
-`--capture-framebuffer` permanecem preparados para uma sessão posterior;
-não contam como testes executados nesta entrega.
+O usuário confirmou em 2026-09-14 testes manuais no QEMU/VNC de teclado PS/2,
+digitação de caracteres, Enter, Backspace, comandos do shell, clear e halt.
+A release foi aceita com base nessa confirmação e nas evidências automatizadas
+anteriores. Veja as [notas da release](../docs/releases/v0.1.0.md).
 
-Aprovação do parser ou de portas simuladas não demonstra IRQ1 real. Exigir
-observação manual para letras, números, sinais/Shift, Enter/backspace,
-comandos digitados, comportamento de `clear`, prompt/cursor e legibilidade
-do framebuffer. UEFI e hardware físico também exigem resultados próprios.
-Use o estado do [relatório](../docs/v0.1-implementation-report.md), sem
-inferir aprovação desses itens a partir do boot serial ou dos host tests.
+Os testes automatizados mantiveram a restrição headless. A suíte `--suite`,
+`--fault` via teclado e `--capture-framebuffer` não foi executada e não entra nas contagens de checks.
+O aceite informado pelo usuário é uma categoria separada de evidência.
+UEFI, hardware físico e casos de input/saída não citados explicitamente
+continuam sem comprovação específica.
 
 ## Cobertura futura
 

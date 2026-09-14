@@ -1,5 +1,10 @@
 # Auditoria estática de geração — 0.0.1
 
+> Registro histórico de 2026-09-13. O escopo e as pendências abaixo pertencem
+> à geração inicial, antes do boot validado. Consulte o
+> [relatório v0.1](v0.1-implementation-report.md) para evidências posteriores.
+> Caminhos pessoais foram normalizados para `UtamoOS/` na preparação pública.
+
 Data: 2026-09-13. Escopo: todos os fontes C/headers/NASM, linker, Makefile,
 configuração Limine, script de ISO, testes preparados, licenças e documentação.
 
@@ -70,7 +75,7 @@ Correções e esclarecimentos aplicados:
   sem sinal para magnitudes. Ponteiros e strings continuam sujeitos ao contrato
   de validade do chamador.
 - Os arquivos de projeto foram mantidos dentro do diretório confirmado
-  `C:/Users/anderson.justino/Desktop/UtamoOS`.
+  `UtamoOS/`.
 
 ## Riscos que permanecem para validação real
 

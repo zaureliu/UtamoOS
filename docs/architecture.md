@@ -56,9 +56,9 @@ as tabelas/pilhas têm armazenamento estático; nenhuma memória do bootloader
 | 0x28 / 0x30 | Descritor TSS de 16 bytes |
 
 A GDT possui 56 bytes; GDTR.limit=55. A CPU atualiza bits accessed/busy,
-portanto ela é gravável. A TSS64 tem 104 bytes, limite103 e iomap_base104
-(sem bitmap de permissões de I/O). RSP0 permanece sem uso, pois não há ring3.
-Três stacks estáticas de16 KiB, alinhadas16, alimentam IST1 Double Fault,
+portanto ela é gravável. A TSS64 tem 104 bytes, limite 103 e iomap_base 104
+(sem bitmap de permissões de I/O). RSP0 permanece sem uso, pois não há ring 3.
+Três stacks estáticas de 16 KiB, alinhadas a 16 bytes, alimentam IST1 Double Fault,
 IST2 NMI e IST3 Machine Check. Não há guard pages nesta versão.
 
 `lgdt`, retorno far para recarregar CS, atualização de DS/ES/SS/FS/GS e
@@ -66,25 +66,25 @@ IST2 NMI e IST3 Machine Check. Não há guard pages nesta versão.
 
 ## Interrupções e concorrência
 
-A IDT tem256 gates de16 bytes, tipo0x8e (interrupt gate DPL0), CS0x08.
-Vetores0–31 são exceções,32–47 são IRQs PIC,48–255 têm tratamento fatal seguro.
-Detalhes do frame176 bytes, códigos de erro e tabela relativa dos stubs em
+A IDT tem 256 gates de 16 bytes, tipo 0x8e (interrupt gate DPL0), CS 0x08.
+Vetores 0–31 são exceções, 32–47 são IRQs PIC, 48–255 têm tratamento fatal seguro.
+Detalhes do frame de 176 bytes, códigos de erro e tabela relativa dos stubs em
 [interrupts.md](interrupts.md).
 
 A ordem obrigatória é GDT → IDT → PIC mascarado → PIT/PS2 → desmascarar
-somente drivers prontos → STI. IRQs entram com IF0, salvam15 GPRs, limpam DF,
+somente drivers prontos → STI. IRQs entram com IF=0, salvam 15 GPRs, limpam DF,
 alinham RSP antes de CALL e retornam com IRETQ. Flags do contexto são restauradas.
 
-O PIC8259 usa0x20/0x28; IRQ0→32 e IRQ1→33. Apenas essas linhas são abertas.
+O PIC 8259 usa offsets 0x20/0x28; IRQ0 → 32 e IRQ1 → 33. Apenas essas linhas são abertas.
 O slave permanece mascarado. IRQ7/15 espúrias consultam ISR: IRQ7 espúria não
 recebe EOI; IRQ15 espúria reconhece apenas o cascade do master. IRQs reais
 recebem EOI no slave quando aplicável, seguido do master. Fontes sem driver
 são mascaradas. Futuro APIC/IOAPIC terá descoberta ACPI, mantendo essa camada
 de IRQ como fronteira; não há APIC implementado.
 
-PIT canal0, modo2, comando0x34, divisor11932, clock nominal1193182 Hz:
-aproximadamente99,99849 Hz, alvo100 Hz. IRQ0 apenas incrementa contador uint64
-monotônico saturante. Uptime usa conversão nominal100 Hz; não é relógio civil,
+PIT canal 0, modo 2, comando 0x34, divisor 11932, clock nominal 1193182 Hz:
+aproximadamente 99,99849 Hz, alvo 100 Hz. IRQ0 apenas incrementa contador uint64
+monotônico saturante. Uptime usa conversão nominal de 100 Hz; não é relógio civil,
 não é calibrado e pode perder ticks se IF ficar desabilitado por muito tempo.
 
 IRQs não chamam o logger, terminal ou shell. O logger tem sinks fixos após
@@ -101,7 +101,7 @@ sem alegar que volatile por si só fornece sincronização. Isso não é contrat
 O loop processa input fora da ISR, desabilita IF, verifica novamente trabalho,
 e usa `sti; hlt` contíguos quando vazio. A sombra de STI evita a janela de
 perda de wakeup. HLT operacional retorna quando chega IRQ; `cpu_halt` mantém
-IF0 e nunca retorna.
+IF=0 e nunca retorna.
 
 ## Input e shell
 
@@ -114,7 +114,9 @@ do boot, não páginas livres de um allocator.
 
 A matriz efetivamente executada e suas limitações ficam em
 [v0.1-implementation-report.md](v0.1-implementation-report.md).
-QEMU automatizado é sempre headless e sequencial. Input PS/2 em execução e
-inspeção visual permanecem pendentes de validação manual por solicitação do usuário.
+QEMU automatizado é sempre headless e sequencial. O usuário confirmou o aceite
+manual em QEMU/VNC: teclado PS/2, digitação, Enter, Backspace, comandos, clear
+e halt. A origem dessa confirmação e seus limites estão nas
+[notas da release](releases/v0.1.0.md).
 A evolução seguinte deve estabelecer PMM/VMM, reservas, page tables próprias
 e guard pages; ACPI/APIC é uma etapa independente antes de SMP.

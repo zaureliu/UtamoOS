@@ -85,5 +85,8 @@ privilegiadas por efeitos observáveis no processo host.
 
 Esses testes não provam entrega real de IRQ1, captura de teclado pela janela
 QEMU, aparência da tela ou apagamento em um terminal serial externo.
-A validação interativa real de PS/2, digitação, Backspace, Enter e renderização
-do shell permanece manual conforme a restrição headless desta sessão.
+Em 2026-09-14, o usuário confirmou testes manuais em QEMU/VNC de teclado
+PS/2, digitação de caracteres, Enter, Backspace, comandos do shell, clear e
+halt. Esse aceite encerra a pendência de interação da release; não é um
+resultado do harness automatizado. Casos não especificados, como cobertura
+de todas as combinações Shift, não recebem uma afirmação adicional de teste.

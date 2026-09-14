@@ -1,14 +1,35 @@
 # Development log
 
+## 2026-09-14 — aceite manual e preparação da release v0.1.0
+
+O usuário confirmou que os testes manuais passaram no QEMU/VNC: teclado PS/2,
+digitação de caracteres, Enter, Backspace, comandos do shell, clear e halt.
+O relato é atribuído ao usuário e não contado como execução automatizada.
+
+O release check anterior passou 5214 checks host, 1303 checks ELF/ABI, build
+limpo e ISO. O ELF manteve o hash da validação QEMU anterior (126 checks).
+As evidências anteriores à limpeza foram preservadas dentro do projeto.
+
+O usuário autorizou criar main a partir de master, fazer merge --no-ff de
+v0.1-dev, criar v0.1.0 anotado, configurar origin e publicar main/tags no
+repositório zaureliu/UtamoOS. O baseline v0.0.1 permanece intacto; sem force push,
+sem publicação de build, toolchain ou vendor. O registro anterior abaixo
+descreve o estado histórico, anterior a esta confirmação.
+
+[Notas da release](releases/v0.1.0.md).
+
+
 ## 2026-09-14 — evolução v0.1.0 sobre baseline validado
+
+Registro histórico anterior ao aceite manual acima.
 
 Implementação e validação automatizada concluídas no escopo headless;
 aceite integral pendente de input PS/2 e framebuffer visual manual.
 [Relatório completo](v0.1-implementation-report.md).
 
 O usuário confirmou boot real v0.0.1. Inspeção encontrou master limpo e
-tag v0.0.1 em 273e476. Repositório real: /home/aurelio/UtamoOS no WSL;
-Desktop era cópia sem Git. Criada v0.1-dev; master/tag preservados, sem push.
+tag v0.0.1 em 273e476. O checkout Git utilizado estava em `~/UtamoOS`, no filesystem Linux do WSL;
+a cópia inicial fora dele não continha o histórico Git. Criada v0.1-dev; master/tag preservados, sem push.
 Antes de alterar: 3044 checks host, zero falhas.
 
 ### D008 — tabelas e diagnóstico
@@ -64,6 +85,9 @@ Nenhum pacote, toolchain, dependência externa ou configuração global alterado
 
 
 ## 2026-09-13 — geração inicial 0.0.1
+
+Registro histórico da geração dos fontes, anterior ao boot validado do
+baseline e à implementação v0.1.0.
 
 Estado global: fontes implementados, com duas revisões estáticas. Nenhum
 compilador, teste, script de projeto, QEMU ou sistema operacional foi executado.

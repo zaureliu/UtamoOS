@@ -1,11 +1,12 @@
 # Layout e estratégia de memória
 
-## Estado do milestone
+## Estado de v0.1.0
 
 O kernel é ELF64 estático, ligado no higher half em `0xffffffff80000000`.
 O endereço físico de carga é escolhido pelo loader e não é presumido igual
 ao virtual. A paginação inicial de quatro níveis permanece a do bootloader.
-O kernel não modifica CR3 nem cria mappings novos em 0.0.1.
+O kernel não modifica CR3 nem cria mappings novos em v0.1.0. Page faults
+são diagnosticados; não há recuperação de página nem VMM próprio.
 
 | Região do ELF | Alinhamento | Flags do segmento | Uso |
 | --- | --- | --- | --- |
@@ -24,6 +25,12 @@ A pilha bootstrap tem 65536 bytes em `.bss`; RSP começa no topo e cresce para
 endereços menores. Não há guard page, stack canary ou detector de overflow.
 O build usa `-mno-red-zone` e frame pointers. O mapa, terminal e framebuffer
 ficam em estado estático para evitar grandes temporários na pilha.
+
+GDT, TSS, IDT e três pilhas de emergência de 16 KiB também são estáticas.
+IST1, IST2 e IST3 atendem Double Fault, NMI e Machine Check respectivamente;
+RSP0 da TSS ainda não é usado. Esses objetos pertencem aos segmentos de dados
+do kernel e precisarão ser incluídos nas reservas do futuro PMM. O layout
+está descrito em [arquitetura](architecture.md) e [interrupções](interrupts.md).
 
 ## Mapa físico
 
@@ -66,17 +73,19 @@ responsabilidade do chamador; não é verificada por esses limites aritméticos.
 
 ## Próximas etapas
 
-1. Instalar GDT/IDT/TSS/IST próprios e diagnóstico de exceções.
-2. Obter explicitamente HHDM e endereço físico/virtual do kernel via requests
+GDT/IDT/TSS/IST próprios e diagnóstico de exceções já fazem parte de v0.1.0.
+As etapas de gerenciamento de memória seguintes ainda são propostas:
+
+1. Obter explicitamente HHDM e endereço físico/virtual do kernel via requests
    específicos, copiar os metadados necessários e registrar todas as reservas.
-3. Criar bitmap do PMM em memória previamente reservada. Começar com tudo ocupado,
+2. Criar bitmap do PMM em memória previamente reservada. Começar com tudo ocupado,
    liberar apenas páginas inteiras de regiões usable e reservar o frame zero
    por política própria, kernel, módulos, framebuffer e metadados do allocator.
-4. Manter as páginas do bootloader, GDT herdada e page tables ocupadas até
-   substituir todas as dependências. ACPI reclaimable tem ciclo de vida separado.
-5. Construir VMM com permissões por mapping, checagem de endereços e guard pages.
+3. Manter as páginas do bootloader e page tables ocupadas até substituir
+   todas as dependências remanescentes. ACPI reclaimable tem ciclo de vida separado.
+4. Construir VMM com permissões por mapping, checagem de endereços e guard pages.
    Definir ownership e contabilização antes de `kmalloc`/`kfree`.
-6. Introduzir espaços virtuais por processo, cópia user/kernel e TLB shootdown
+5. Introduzir espaços virtuais por processo, cópia user/kernel e TLB shootdown
    antes de SMP e isolamento de processos.
 
 As etapas acima são projeto futuro. Nenhuma página é alocada, liberada ou

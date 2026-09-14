@@ -26,8 +26,18 @@ Não se usa o antigo terminal do Limine.
 6. Seleciona o primeiro framebuffer RGB compatível, validando formato e geometria.
 7. Inicializa terminal, limpa a tela, conecta sink e emite identificação/estado.
 8. Copia o mapa físico para estruturas próprias e soma somente regiões utilizáveis.
-9. Emite a mensagem final e entra em `cpu_halt`, que desabilita interrupções e
-   repete `hlt` indefinidamente, inclusive se houver retorno de uma SMI.
+9. Instala GDT própria, TSS e três pilhas IST, depois conecta o terminal de
+   emergência e carrega os 256 gates da IDT.
+10. Remapeia o PIC com IRQs mascaradas; configura PIT em 100 Hz e teclado PS/2.
+11. Desmascara somente IRQ0 e IRQ1 após os drivers estarem prontos e habilita IF.
+12. Emite `UTAMO OS ready.`, inicializa o shell e mostra `utamo> `.
+13. Processa input no fluxo principal. Antes de repousar, desabilita IF, confere
+    novamente a fila e executa `sti; hlt` contíguos se ela estiver vazia.
+    Interrupções despertam a CPU; o loop continua enquanto não ocorrer halt
+    explícito ou falha fatal.
+
+O fluxo implementado está em [kernel_main](../kernel/core/main.c).
+[Interrupções](interrupts.md) e [teclado/shell](keyboard.md) detalham os contratos.
 
 ## Dependências do handoff
 
@@ -38,9 +48,10 @@ O memory map contém bases físicas, que não são dereferenciadas.
 [Contrato de handoff e memória](https://github.com/limine-bootloader/limine/blob/v8.7.0/PROTOCOL.md).
 
 A `.bss` usa `SHT_NOBITS`/`PT_LOAD` e depende do zero-fill do loader ELF. A pilha
-própria remove a dependência da pilha do bootloader após `_start`; GDT e page
-tables iniciais ainda permanecem sob o contrato de boot. Não reutilize regiões
-bootloader-reclaimable nesta versão, mesmo após copiar o memory map.
+própria remove a dependência da pilha do bootloader após `_start`. A GDT
+inicial é substituída por `gdt_init`; as page tables continuam sendo as do
+bootloader. Não reutilize regiões bootloader-reclaimable nesta versão, mesmo
+após copiar o memory map e instalar os descritores próprios.
 
 Não se pede SMP, ACPI, módulos, kernel-address ou HHDM sem necessidade de uso.
 Esses requests serão acrescentados junto ao subsistema que souber validar e
@@ -55,15 +66,28 @@ administrar sua vida útil. Não há acesso físico improvisado por identity map
 | Framebuffer ausente/incompatível | Panic via serial se disponível; halt |
 | Falha de terminal/registro de sink | Panic pelos sinks já registrados; halt |
 | Mapa ausente, inválido ou acima de 512 entradas | Panic em framebuffer e serial disponíveis |
-| Exceção de CPU | Sem handler próprio; diagnóstico real requer GDB/QEMU |
+| Falha ao inicializar IDT ou teclado PS/2 | Panic pelos sinks disponíveis; IF continua desabilitado |
+| Exceção de CPU após IDT | Dump fatal com frame normalizado, serial antes do terminal; CLI/HLT |
+| Page fault após IDT | Mesmo dump, incluindo CR2 e bits relevantes do error code |
+| Comando `halt` | Mensagem explícita e `cpu_halt` permanente com IF=0 |
 
-`System halted safely.` indica apenas o término intencional do fluxo do kernel.
-Não representa shutdown ACPI, sistema multitarefa saudável ou proteção contra NMI.
+Antes da instalação da IDT, falhas de CPU ainda dependem do ambiente de
+handoff e podem exigir GDB/QEMU. IST não substitui guard pages nem torna
+qualquer falha recuperável. `cli` não bloqueia NMI ou machine checks.
 
-## Artefatos futuros
+`System halted safely.` pertence ao fluxo histórico v0.0.1. O estado
+operacional v0.1.0 é o shell com IRQs ativas. `halt` não é shutdown ACPI.
 
-`make` produzirá o ELF com símbolos de debug; `make iso` preparará uma ISO híbrida
-com boot BIOS e x86_64 UEFI. A sintaxe da configuração segue
+## Artefatos e evidência
+
+`make` gera `build/utamo-kernel.elf` com símbolos de debug; `make iso` gera
+`build/utamo-os-0.1.0.iso`, contendo assets BIOS e x86_64 UEFI. A sintaxe da
+configuração segue
 [CONFIG.md v8.7.0](https://github.com/limine-bootloader/limine/blob/v8.7.0/CONFIG.md).
-A ISO e o boot ainda não foram produzidos/observados. Execute o roteiro em
-[tests/boot-validation.md](../tests/boot-validation.md) no ambiente pessoal.
+A geração da ISO e o boot BIOS foram observados em QEMU headless; suporte de
+composição UEFI não equivale a uma execução UEFI validada.
+
+O [relatório v0.1](v0.1-implementation-report.md) registra os resultados.
+Para repetir os testes atuais, consulte [debugging](debugging.md) e
+[testes](../tests/README.md). O [roteiro inicial](../tests/boot-validation.md)
+é preservado como histórico do baseline.

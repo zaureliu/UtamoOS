@@ -75,4 +75,4 @@ xorriso -as mkisofs -R -r -J \
 # Operates on this ISO file only. Never pass a disk/device to this command.
 "$vendor/limine" bios-install "$iso_tmp"
 mv -f -- "$iso_tmp" "$iso"
-printf 'ISO criada: %s\nValidacao de boot: use o harness QEMU headless; entrada PS2 e visual pendentes.\n' "$iso"
+printf 'ISO criada: %s\nValide esta imagem em QEMU headless; consulte docs/debugging.md.\n' "$iso"

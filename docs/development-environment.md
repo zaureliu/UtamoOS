@@ -1,16 +1,21 @@
-# Ambiente de desenvolvimento pessoal
+# Ambiente de desenvolvimento
 
-Estado desta entrega: arquivos-fonte e infraestrutura implementados; compilação,
-scripts, testes e boot pendentes. Nenhum comando deste documento foi executado na
-máquina corporativa. Os exemplos abaixo são instruções para o proprietário
-executar posteriormente em seu computador pessoal.
+Este guia descreve as dependências e os comandos de build do UTAMO OS v0.1.0.
+O baseline v0.0.1 e a evolução v0.1.0 foram compilados e executados em Ubuntu
+no WSL2. Os resultados registrados estão no
+[relatório de implementação](v0.1-implementation-report.md) e em
+[testes](../tests/README.md); preparar um novo ambiente requer repetir as
+validações pertinentes.
+
+O projeto não instala ferramentas automaticamente. Use as versões já disponíveis
+quando compatíveis; não é necessário atualizar uma toolchain validada.
 
 ## Plataforma e ferramentas
 
-Use Linux nativo x86_64 ou uma instalação pessoal de WSL2 com Ubuntu e terminal
-Bash. A instalação do WSL2 fica a cargo do usuário; este projeto não modifica
-Windows, PATH ou configurações do sistema. No WSL2, copie `UtamoOS` para um
-diretório do filesystem Linux, sem espaços no caminho. O Makefile utiliza GNU
+Use Linux x86_64 ou WSL2 com Ubuntu e terminal Bash. A instalação do ambiente
+fica a cargo do desenvolvedor; o projeto não modifica Windows, PATH ou
+configurações do sistema. No WSL2, mantenha o checkout no filesystem Linux,
+por exemplo `~/UtamoOS`, sem espaços no caminho. O Makefile utiliza GNU
 Make, Bash no script de ISO, `find` e utilitários POSIX; não foi projetado para
 PowerShell ou `cmd.exe`.
 
@@ -23,24 +28,23 @@ PowerShell ou `cmd.exe`.
 | GNU Make | Orquestrar compilação e dependências |
 | `xorriso` | Criar a ISO híbrida BIOS/UEFI |
 | Git | Obter e conferir a revisão exata do Limine |
-| QEMU system x86 | Executar futuramente a máquina virtual x86_64 |
+| QEMU system x86 | Executar a máquina virtual x86_64 |
 | GDB com suporte x86_64 | Depurar o kernel pelo stub do QEMU |
+| Python 3 | Inspeção ELF/ABI e harness QEMU com biblioteca padrão |
 | OVMF, opcional | Firmware UEFI para a validação complementar |
 
-Os seguintes comandos são **somente exemplos para Ubuntu na máquina pessoal**.
-Eles instalam ferramentas no ambiente pessoal; não são parte de `make`, nem
-devem ser executados no computador corporativo:
+A toolchain validada usa x86_64-elf GCC 14.2.0, GNU binutils 2.43.1 e NASM
+3.01, com GNU Make, xorriso, QEMU x86_64 e Limine v8.7.0-binary.
+A construção opcional do compilador abaixo também requer Bison, Flex,
+GMP/MPFR/MPC, Texinfo e utilitários de extração. O GCC nativo, sozinho, não
+fornece `x86_64-elf-gcc`.
 
-```sh
-sudo apt update
-sudo apt install build-essential binutils bison flex libgmp-dev libmpfr-dev \
-    libmpc-dev texinfo nasm make xorriso qemu-system-x86 gdb git ovmf xz-utils
-```
-
-QEMU usa TCG por padrão neste projeto, sem exigir KVM ou permissões de acesso a
-dispositivos. A janela gráfica precisa de uma sessão Linux com display, ou WSLg
-funcional no ambiente pessoal. Esses requisitos não foram verificados durante a
-geração. O pacote `gcc` do Ubuntu, sozinho, não fornece `x86_64-elf-gcc`.
+QEMU usa TCG por padrão, sem exigir KVM. Os exemplos atuais usam
+`-display none` e serial; GTK/SDL não são requisitos. WSLg apresentou falhas
+RemoteApp/RDP durante o desenvolvimento, portanto mantenha os testes
+automatizados headless, sequenciais e com timeout. O usuário confirmou
+manualmente teclado PS/2, caracteres, Enter, Backspace, comandos do shell,
+clear e halt em QEMU/VNC. Serial é somente saída, não entrada para o shell.
 
 ## Por que usar um cross compiler
 
@@ -61,9 +65,9 @@ deve ser investigado; não adicione bibliotecas do host para mascará-lo.
 Se já houver uma toolchain confiável `x86_64-elf`, pule esta etapa e informe seu
 prefixo absoluto ao Makefile. Não é necessário alterar PATH.
 
-Uma combinação de referência para construir a ferramenta é GCC 14.2.0 com GNU
-binutils 2.43.1. É uma seleção explícita de versões, **ainda não validada com este
-projeto**, não uma alegação de ser a versão mais recente. Obtenha os arquivos-fonte
+A combinação GCC 14.2.0 com GNU binutils 2.43.1 foi usada na validação do
+projeto. As versões são fixadas como referência, sem alegação de serem as
+mais recentes. Obtenha os arquivos-fonte
 e respectivas assinaturas nos diretórios oficiais
 [GCC 14.2.0](https://ftp.gnu.org/gnu/gcc/gcc-14.2.0/) e
 [GNU binutils](https://ftp.gnu.org/gnu/binutils/), verifique sua autenticidade pelo
@@ -71,7 +75,8 @@ procedimento GNU e coloque os tarballs em `UtamoOS/toolchain/src/`. Preserve os
 avisos de licença dessas ferramentas. Nenhum tarball ou binário acompanha esta
 entrega.
 
-Execute os comandos abaixo na raiz de `UtamoOS`, somente no computador pessoal.
+Se precisar construir a toolchain, execute os comandos abaixo na raiz do
+checkout.
 As pastas de fontes, build e instalação são distintas. A configuração segue as
 opções oficiais de [instalação do GCC](https://gcc.gnu.org/install/configure.html).
 O prefixo local evita instalação global ou uso de `sudo make install`:
@@ -107,7 +112,7 @@ consumo de RAM. Todos os artefatos dessa toolchain ficam em `toolchain/`, ignora
 pelo Git. Os caminhos de assembler/linker configurados são absolutos; se mover a
 pasta depois, reconstrua a toolchain ou utilize outra instalada no novo local.
 
-Confira o target e registre versões antes do primeiro build pessoal:
+Confira o target e registre as versões antes do primeiro build em um ambiente:
 
 ```sh
 ./toolchain/prefix/bin/x86_64-elf-gcc -dumpmachine
@@ -120,8 +125,9 @@ qemu-system-x86_64 --version
 gdb --version
 ```
 
-O target esperado do compilador é `x86_64-elf`. Registre as saídas reais no seu
-diário de desenvolvimento; elas não foram produzidas nesta entrega.
+O target esperado do compilador é `x86_64-elf`. Registre as saídas reais com
+os resultados de cada validação; versões de outro ambiente não comprovam a
+configuração local.
 
 ## Limine fixado em v8.7.0
 
@@ -139,7 +145,7 @@ identificado pela [release oficial](https://github.com/limine-bootloader/limine/
 Não substitua pela branch de desenvolvimento nem por uma versão nova sem revisar
 o header, o protocolo, a configuração e os testes de boot em conjunto.
 
-Somente em casa, a partir da raiz do projeto:
+Se o checkout fixado ainda não existir, prepare-o a partir da raiz do projeto:
 
 ```sh
 git clone --branch v8.7.0-binary --depth 1 \
@@ -176,7 +182,7 @@ A composição da imagem e a configuração acompanham as instruções oficiais
 [USAGE v8.7.0](https://github.com/limine-bootloader/limine/blob/v8.7.0/USAGE.md) e
 [CONFIG v8.7.0](https://github.com/limine-bootloader/limine/blob/v8.7.0/CONFIG.md).
 
-## Build e validação futura
+## Build e validação
 
 Na raiz do projeto, com a toolchain local descrita acima:
 
@@ -185,15 +191,18 @@ make test-host
 make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" kernel
 make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" inspect
 make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" iso
-make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" run
 ```
 
 Se `x86_64-elf-*` já estiver disponível no ambiente, `make`, `make kernel`,
 `make iso`, `make run` e `make debug` funcionam sem informar `CROSS_COMPILE`.
 Informar o prefixo absoluto não modifica PATH. `make` sozinho constrói somente
 `build/utamo-kernel.elf`, com símbolos DWARF e mapa `build/utamo-kernel.map`.
-`make iso` produz `build/utamo-os-0.0.1.iso`. `make clean` apaga somente `build/`;
+`make iso` produz `build/utamo-os-0.1.0.iso`, com versão derivada de
+`kernel/include/utamo/version.h`. `make clean` apaga somente `build/`;
 não apaga fontes, checkout do Limine ou toolchain.
+
+O NASM mantém `-Wall -Werror -Wno-error=reloc-rel-dword`: somente o warning
+específico de relocation conhecido fica fora de `-Werror`.
 
 O build usa warnings como erros, sem red zone, sem instruções SIMD/FPU geradas
 por C, sem PIE e com seções ELF inesperadas tratadas como erro de link. Essas
@@ -207,18 +216,27 @@ Execute apenas uma instância independente de Make por diretório de build.
 invocação. Não use symlinks em `build/`. Este marco não promete ISO bit a bit
 reproduzível: timestamps e versões das ferramentas ainda precisam de controle.
 
-O teste complementar UEFI usa uma cópia local do NVRAM, mantendo a imagem CODE
-somente para leitura:
+## QEMU headless
+
+Depois de gerar a ISO, execute o harness a partir da raiz do checkout:
 
 ```sh
-make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" run-uefi \
-    OVMF_CODE=/usr/share/OVMF/OVMF_CODE_4M.fd \
-    OVMF_VARS=/usr/share/OVMF/OVMF_VARS_4M.fd
+python3 scripts/test-qemu.py --marker "utamo> " --name boot-local \
+    --check-gdt --check-idt --check-timer
 ```
 
-Informe um par CODE/VARS correspondente ao pacote OVMF instalado; os nomes
-podem variar. O target recria `build/OVMF_VARS.fd` a cada execução para começar
-com estado conhecido. A validação inicial considera OVMF sem Secure Boot
-ativado; assinatura de executáveis EFI não faz parte do marco. Detalhes de
-breakpoints, serial, inspeção ELF e critérios de evidência estão em
-[debugging.md](debugging.md) e na documentação de testes.
+Use um nome novo por execução. O harness verifica o prompt na serial,
+inspeciona GDT/IDT e observa ticks reais, com uma única VM headless e timeout.
+Ele encerra o subprocesso inclusive em caso de erro. Nunca inicie outra VM
+antes de a anterior terminar. Consulte [debugging.md](debugging.md) para
+comandos diretos com timeout e probes controlados de exceção.
+
+Os targets `run`, `debug` e `run-uefi` existentes também usam configuração
+headless, mas não possuem o timeout do harness. A validação automatizada da
+release usou o harness, não esses targets.
+
+A ISO contém assets BIOS/UEFI, mas boot UEFI não foi confirmado nesta release.
+Uma validação futura requer um par OVMF CODE/VARS correspondente; preserve
+CODE como somente leitura e use cópia de VARS dentro de `build/`.
+Assinatura EFI/Secure Boot não faz parte do milestone.
+Resultados, cobertura e limites estão em [testes](../tests/README.md).

@@ -1,7 +1,12 @@
 # UTAMO OS v0.0.1 Generation Report
 
+> Registro histórico de 2026-09-13, anterior ao primeiro boot validado.
+> As limitações e pendências abaixo descrevem aquele momento. O estado atual
+> está no [relatório v0.1](v0.1-implementation-report.md). Caminhos pessoais
+> foram normalizados para `UtamoOS/` na preparação pública.
+
 Entrega: 2026-09-13. Diretório confirmado antes da primeira escrita:
-`C:/Users/anderson.justino/Desktop/UtamoOS`.
+`UtamoOS/`.
 
 **Milestone concluído do ponto de vista de código-fonte. Preparado para
 validação; compilação, testes, geração de ISO e boot ainda pendentes.**
@@ -12,7 +17,8 @@ O projeto contém 66 arquivos: 11 unidades C do kernel, dois programas C de
 testes de host, três fontes NASM, 14 headers próprios, um header Limine adaptado,
 linker script, Makefile, configuração de boot, script de ISO, licença,
 configurações de texto/Git e documentação. O
-[inventário completo](file-index.md) relaciona cada caminho entregue.
+[índice atual](file-index.md) organiza os principais caminhos; o tag
+v0.0.1 preserva o inventário original dessa entrega.
 
 Entradas principais:
 

@@ -10,9 +10,6 @@
   "elf_failures": 0,
   "qemu_failures": 0,
   "manual_pending": [
-    "PS2 IRQ1 characters",
-    "guest shell commands via keyboard",
-    "visual framebuffer",
     "UEFI"
   ],
   "runs": [
@@ -92,15 +89,15 @@
         "-smp",
         "1",
         "-cdrom",
-        "/home/aurelio/UtamoOS/build/utamo-os-0.1.0.iso",
+        "<project>/build/utamo-os-0.1.0.iso",
         "-boot",
         "d",
         "-display",
         "none",
         "-serial",
-        "file:/home/aurelio/UtamoOS/build/validation/final-boot/serial.log",
+        "file:<project>/build/validation/final-boot/serial.log",
         "-qmp",
-        "unix:/home/aurelio/UtamoOS/build/validation/final-boot/qmp.sock,server=on,wait=off",
+        "unix:<project>/build/validation/final-boot/qmp.sock,server=on,wait=off",
         "-monitor",
         "none",
         "-nic",
@@ -108,7 +105,7 @@
         "-no-reboot",
         "-no-shutdown",
         "-chardev",
-        "socket,path=/home/aurelio/UtamoOS/build/validation/final-boot/gdb.sock,server=on,wait=off,id=gdb0",
+        "socket,path=<project>/build/validation/final-boot/gdb.sock,server=on,wait=off,id=gdb0",
         "-gdb",
         "chardev:gdb0"
       ],
@@ -354,15 +351,15 @@
         "-smp",
         "1",
         "-cdrom",
-        "/home/aurelio/UtamoOS/build/utamo-os-0.1.0.iso",
+        "<project>/build/utamo-os-0.1.0.iso",
         "-boot",
         "d",
         "-display",
         "none",
         "-serial",
-        "file:/home/aurelio/UtamoOS/build/validation/final-ud2/serial.log",
+        "file:<project>/build/validation/final-ud2/serial.log",
         "-qmp",
-        "unix:/home/aurelio/UtamoOS/build/validation/final-ud2/qmp.sock,server=on,wait=off",
+        "unix:<project>/build/validation/final-ud2/qmp.sock,server=on,wait=off",
         "-monitor",
         "none",
         "-nic",
@@ -370,7 +367,7 @@
         "-no-reboot",
         "-no-shutdown",
         "-chardev",
-        "socket,path=/home/aurelio/UtamoOS/build/validation/final-ud2/gdb.sock,server=on,wait=off,id=gdb0",
+        "socket,path=<project>/build/validation/final-ud2/gdb.sock,server=on,wait=off,id=gdb0",
         "-gdb",
         "chardev:gdb0",
         "-S"
@@ -596,15 +593,15 @@
         "-smp",
         "1",
         "-cdrom",
-        "/home/aurelio/UtamoOS/build/utamo-os-0.1.0.iso",
+        "<project>/build/utamo-os-0.1.0.iso",
         "-boot",
         "d",
         "-display",
         "none",
         "-serial",
-        "file:/home/aurelio/UtamoOS/build/validation/final-div0/serial.log",
+        "file:<project>/build/validation/final-div0/serial.log",
         "-qmp",
-        "unix:/home/aurelio/UtamoOS/build/validation/final-div0/qmp.sock,server=on,wait=off",
+        "unix:<project>/build/validation/final-div0/qmp.sock,server=on,wait=off",
         "-monitor",
         "none",
         "-nic",
@@ -612,7 +609,7 @@
         "-no-reboot",
         "-no-shutdown",
         "-chardev",
-        "socket,path=/home/aurelio/UtamoOS/build/validation/final-div0/gdb.sock,server=on,wait=off,id=gdb0",
+        "socket,path=<project>/build/validation/final-div0/gdb.sock,server=on,wait=off,id=gdb0",
         "-gdb",
         "chardev:gdb0",
         "-S"
@@ -886,15 +883,15 @@
         "-smp",
         "1",
         "-cdrom",
-        "/home/aurelio/UtamoOS/build/utamo-os-0.1.0.iso",
+        "<project>/build/utamo-os-0.1.0.iso",
         "-boot",
         "d",
         "-display",
         "none",
         "-serial",
-        "file:/home/aurelio/UtamoOS/build/validation/final-pf/serial.log",
+        "file:<project>/build/validation/final-pf/serial.log",
         "-qmp",
-        "unix:/home/aurelio/UtamoOS/build/validation/final-pf/qmp.sock,server=on,wait=off",
+        "unix:<project>/build/validation/final-pf/qmp.sock,server=on,wait=off",
         "-monitor",
         "none",
         "-nic",
@@ -902,7 +899,7 @@
         "-no-reboot",
         "-no-shutdown",
         "-chardev",
-        "socket,path=/home/aurelio/UtamoOS/build/validation/final-pf/gdb.sock,server=on,wait=off,id=gdb0",
+        "socket,path=<project>/build/validation/final-pf/gdb.sock,server=on,wait=off,id=gdb0",
         "-gdb",
         "chardev:gdb0",
         "-S"
@@ -973,5 +970,204 @@
       "bytes": 4038656,
       "sha256": "658f2bf77d1c959bc6814535fb4c9f55bb03d2b0bc25be9af1f8691eec762dae"
     }
+  },
+  "release_acceptance": {
+    "status": "accepted_by_user",
+    "date": "2026-09-14",
+    "source": "explicit user confirmation in release conversation",
+    "environment": "QEMU/VNC",
+    "checks": [
+      "PS/2 keyboard",
+      "character typing",
+      "Enter",
+      "Backspace",
+      "shell commands",
+      "clear",
+      "halt"
+    ],
+    "performed_by": "user",
+    "observed_by_agent": false,
+    "manual_image_hash": "not supplied",
+    "authorization": {
+      "main_from": "master",
+      "merge_from": "v0.1-dev",
+      "annotated_tag": "v0.1.0",
+      "remote": "https://github.com/zaureliu/UtamoOS.git",
+      "push": [
+        "main",
+        "v0.0.1",
+        "v0.1.0"
+      ],
+      "force_push": false
+    }
+  },
+  "release_preflight": {
+    "started_utc": "20260914T053306Z",
+    "baseline": "273e47634b113497cfb667a4c9de602420634e2c",
+    "steps": [
+      {
+        "name": "branch",
+        "command": [
+          "git",
+          "switch",
+          "v0.1-dev"
+        ],
+        "exit_code": 0
+      },
+      {
+        "name": "host-tests",
+        "command": [
+          "make",
+          "test-host"
+        ],
+        "exit_code": 0
+      },
+      {
+        "name": "clean",
+        "command": [
+          "make",
+          "clean"
+        ],
+        "exit_code": 0
+      },
+      {
+        "name": "kernel",
+        "command": [
+          "make",
+          "CROSS_COMPILE=<project>/toolchain/prefix/bin/x86_64-elf-",
+          "kernel"
+        ],
+        "exit_code": 0
+      },
+      {
+        "name": "inspect",
+        "command": [
+          "make",
+          "CROSS_COMPILE=<project>/toolchain/prefix/bin/x86_64-elf-",
+          "inspect"
+        ],
+        "exit_code": 0
+      },
+      {
+        "name": "iso",
+        "command": [
+          "make",
+          "CROSS_COMPILE=<project>/toolchain/prefix/bin/x86_64-elf-",
+          "iso"
+        ],
+        "exit_code": 0
+      },
+      {
+        "name": "artifact-types",
+        "command": [
+          "file",
+          "build/utamo-kernel.elf",
+          "build/utamo-os-0.1.0.iso"
+        ],
+        "exit_code": 0
+      }
+    ],
+    "artifacts": {
+      "build/utamo-kernel.elf": {
+        "bytes": 166736,
+        "sha256": "cd1fb97cc4b3f8f924a52108e37bbbd8f7fab437286e04ea52200fed02c09e5b"
+      },
+      "build/utamo-os-0.1.0.iso": {
+        "bytes": 4038656,
+        "sha256": "ca7b1c6bb3cd4904ef84366a5085dccc49ff528ac57f6a69a538e69c6b982776"
+      }
+    },
+    "head": "aba8f8b220449065d121ea74f13c1a07da06f9b0",
+    "git_status": "",
+    "manual_confirmation": "pending; no merge, release tag, remote configuration or push performed",
+    "note": "Historical pre-confirmation check; release_acceptance records subsequent user approval."
+  },
+  "public_record_note": "Absolute local project paths normalized to <project>; counts, hashes and observations preserved. Original run-level pending_manual fields describe their historical execution; release_acceptance records later maintainer confirmation.",
+  "public_preparation_validation": {
+    "date": "2026-09-14",
+    "host_checks": 5214,
+    "elf_checks": 1303,
+    "qemu_checks": 126,
+    "total": 6643,
+    "failures": 0,
+    "steps": [
+      {
+        "name": "host",
+        "exit_code": 0
+      },
+      {
+        "name": "kernel",
+        "exit_code": 0
+      },
+      {
+        "name": "inspect",
+        "exit_code": 0
+      },
+      {
+        "name": "iso",
+        "exit_code": 0
+      },
+      {
+        "name": "iso-syntax",
+        "exit_code": 0
+      }
+    ],
+    "qemu_runs": [
+      {
+        "name": "public-boot-final",
+        "started_utc": "2026-09-14T05:52:15Z",
+        "finished_utc": "2026-09-14T05:52:19Z",
+        "check_count": 9,
+        "passed": true,
+        "qemu_exit_code": 0,
+        "qemu_process_reaped": true,
+        "iso_sha256": "10ef79dfe317e569868afd4aef25c52f7311dba4cd04085e97545c7164b4d63f",
+        "elf_sha256": "cd1fb97cc4b3f8f924a52108e37bbbd8f7fab437286e04ea52200fed02c09e5b"
+      },
+      {
+        "name": "public-ud2-final",
+        "started_utc": "2026-09-14T05:53:19Z",
+        "finished_utc": "2026-09-14T05:53:23Z",
+        "check_count": 37,
+        "passed": true,
+        "qemu_exit_code": 0,
+        "qemu_process_reaped": true,
+        "iso_sha256": "10ef79dfe317e569868afd4aef25c52f7311dba4cd04085e97545c7164b4d63f",
+        "elf_sha256": "cd1fb97cc4b3f8f924a52108e37bbbd8f7fab437286e04ea52200fed02c09e5b"
+      },
+      {
+        "name": "public-div0",
+        "started_utc": "2026-09-14T05:52:23Z",
+        "finished_utc": "2026-09-14T05:52:27Z",
+        "check_count": 34,
+        "passed": true,
+        "qemu_exit_code": 0,
+        "qemu_process_reaped": true,
+        "iso_sha256": "10ef79dfe317e569868afd4aef25c52f7311dba4cd04085e97545c7164b4d63f",
+        "elf_sha256": "cd1fb97cc4b3f8f924a52108e37bbbd8f7fab437286e04ea52200fed02c09e5b"
+      },
+      {
+        "name": "public-pf",
+        "started_utc": "2026-09-14T05:52:27Z",
+        "finished_utc": "2026-09-14T05:52:31Z",
+        "check_count": 46,
+        "passed": true,
+        "qemu_exit_code": 0,
+        "qemu_process_reaped": true,
+        "iso_sha256": "10ef79dfe317e569868afd4aef25c52f7311dba4cd04085e97545c7164b4d63f",
+        "elf_sha256": "cd1fb97cc4b3f8f924a52108e37bbbd8f7fab437286e04ea52200fed02c09e5b"
+      }
+    ],
+    "artifacts": {
+      "build/utamo-kernel.elf": {
+        "bytes": 166736,
+        "sha256": "cd1fb97cc4b3f8f924a52108e37bbbd8f7fab437286e04ea52200fed02c09e5b"
+      },
+      "build/utamo-os-0.1.0.iso": {
+        "bytes": 4038656,
+        "sha256": "10ef79dfe317e569868afd4aef25c52f7311dba4cd04085e97545c7164b4d63f"
+      }
+    },
+    "note": "Repeated acceptance matrix, not additional checks added to the historical total. A prior project VNC VM was closed before headless runs; initial refusal and intermediate UD2 run are retained in local logs. No kernel changes."
   }
 }

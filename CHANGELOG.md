@@ -1,41 +1,49 @@
 # Changelog
 
-## UTAMO OS 0.1.0 — 2026-09-14
+## v0.1.0
 
-Estado: implementado, compilado e testado em host; boot e interrupções
-validados em QEMU headless. Input real e framebuffer visual pendentes de
-validação manual; tag de release reservado ao usuário.
+Released milestone: interrupts, keyboard and an interactive kernel shell.
+Validation and manual acceptance were recorded on 2026-09-14.
 
 ### Added
 
-- GDT própria, TSS64 e IST para Double Fault/NMI/Machine Check.
-- IDT completa e stubs NASM 64-bit, frame de 176 bytes e ABI SysV/IRETQ.
-- Diagnóstico serial/framebuffer, PF/CR2 e probes UD2/DIV0/PF.
-- PIC8259 com máscaras, cascade, EOI e IRQ7/15 espúrias.
-- PIT nominal 100 Hz, ticks monotônicos e idle STI/HLT.
-- PS/2 set 1, buffer circular e decoder independente.
-- Shell help/clear/version/sysinfo/mem/uptime/echo/halt/fault.
-- Testes host, inspeção ELF/ABI e automação QEMU headless limitada.
+- Own x86_64 GDT, 64-bit TSS and IST stacks for critical exceptions.
+- A complete 256-entry IDT, NASM interrupt stubs and a normalized 176-byte frame.
+- Fatal CPU exception diagnostics with registers, serial-first output and framebuffer output.
+- Page fault diagnostics with CR2 and decoded error bits.
+- PIC 8259 remapping, masks, EOI and spurious IRQ handling.
+- PIT channel 0 at a nominal 100 Hz and monotonic ticks.
+- PS/2 set 1 keyboard, circular input buffer and independent scancode decoder.
+- Interactive shell: `help`, `clear`, `version`, `sysinfo`, `mem`,
+  `uptime`, `echo`, `halt`, and `fault ud2|div0|pf`.
+- Host tests, ELF/ABI inspection and bounded headless QEMU validation.
+- Public contribution/security guidance, GitHub issue/PR templates and release notes.
 
 ### Changed
 
-- Evolução do baseline v0.0.1, com interfaces existentes preservadas.
-- Boot normal chega a utamo>; halt permanente somente explícito/fatal.
-- Versão 0.1.0 centralizada no header; nome ISO derivado.
-- Flag NASM deduplicada; -Werror e demais warnings mantidos.
-- Arquitetura, debugging e evidências documentados.
+- Normal boot reaches `utamo>` and idles with STI/HLT.
+- Existing boot, framebuffer, serial, memory-map and freestanding interfaces preserved.
+- Version centralized in the kernel header; ISO name derived from that version.
+- Strict C and NASM warnings retained, including the validated narrow NASM
+  `reloc-rel-dword` exception to `-Werror`.
+- Architecture, debugging, build and public documentation updated.
 
 ### Validation
 
-3044 checks originais preservados. Final: 5214 host, 1303 ELF e 126 QEMU,
-todos aprovados. Build limpo e ISO com toolchain existente.
-Sem GUI, push ou tag v0.1.0. Aceite integral condicionado aos itens manuais
-do [relatório v0.1](docs/v0.1-implementation-report.md).
+All 3,044 previous host checks were preserved. Recorded totals: **5,214 host,
+1,303 ELF/ABI and 126 headless QEMU checks; 6,643 checks, zero failures**.
+The kernel and ISO were built with the existing cross toolchain.
 
+The maintainer separately confirmed manual QEMU/VNC acceptance of PS/2 input,
+typing, Enter, Backspace, shell commands, `clear` and `halt`.
+See the [release notes](docs/releases/v0.1.0.md) and
+[implementation report](docs/v0.1-implementation-report.md) for evidence and limits.
 
 ## UTAMO OS 0.0.1 — 2026-09-13
 
-Estado: implementado em código-fonte; teste pendente no ambiente de desenvolvimento.
+Registro histórico da geração inicial, antes do primeiro boot validado.
+O baseline v0.0.1 foi posteriormente compilado e validado em QEMU, como
+registrado no development log; as notas abaixo preservam o estado original.
 
 ### Added
 

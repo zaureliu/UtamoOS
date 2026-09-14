@@ -1,17 +1,17 @@
 # Debugging UTAMO OS 0.1.0
 
-O desenvolvimento usa o repositório existente em `~/UtamoOS`, no Ubuntu WSL.
-GDT, IDT, uma exceção UD2 real, PIC e avanço do contador PIT já tiveram
-validação incremental em QEMU **headless**, por serial e GDB. Os comandos deste
+Execute os comandos a partir da raiz do checkout em Linux/WSL2 Ubuntu.
+GDT, IDT, exceções UD2/div0/page fault e avanço do contador PIT foram validados
+em QEMU **headless**, por serial e GDB, na imagem v0.1.0. Os comandos deste
 documento permitem repetir essas observações; só uma execução concluída gera
 evidência. O [relatório da implementação](v0.1-implementation-report.md) e o
 [development log](development-log.md) registram resultados e limitações.
 
 Toda execução automatizada mantém `-display none`, uma única VM por vez e
-tempo limitado. Digitação PS/2, edição de linha, comandos pelo teclado e
-aparência do framebuffer permanecem **PENDENTES DE VALIDAÇÃO MANUAL**, conforme
-o escopo de validação solicitado. Nenhuma janela gráfica foi necessária para
-os testes incrementais descritos aqui.
+tempo limitado. Em 2026-09-14, o usuário confirmou manualmente teclado PS/2,
+digitação, Enter, Backspace, comandos, clear e halt em QEMU/VNC, aceitando a
+release. Essa confirmação é distinta dos testes automatizados descritos aqui.
+Os testes automatizados não abriram janelas gráficas.
 
 ## Build e inspeção antes da VM
 
@@ -21,14 +21,13 @@ Execute na raiz do projeto, com a toolchain existente:
 make test-host
 make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" kernel
 make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" inspect
-python3 scripts/inspect-elf.py
 make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" iso
 ~~~
 
 O GCC nativo compila apenas os executáveis de teste host. O kernel continua
-C17 freestanding, com o cross compiler x86_64-elf. `make inspect` exibe
-`readelf` e `nm -u`; `inspect-elf.py` acrescenta verificações estruturais
-com resultado explícito. Consulte a descrição de cada script em
+C17 freestanding, com o cross compiler x86_64-elf. `make inspect` executa `readelf`, `nm -u` e `inspect-elf.py`; o script
+Python também pode ser chamado separadamente para inspecionar um ELF já
+construído, com resultado explícito. Consulte a descrição de cada script em
 [scripts/README.md](../scripts/README.md).
 
 Confira ELF64 x86-64 `EXEC`, entry point `_start`, segmentos `LOAD` com
@@ -186,17 +185,20 @@ serial antes de framebuffer e tem contenção de recursão, mas não substitui
 um debugger nem um gerenciador de memória virtual. Não há scheduler,
 recuperação de page fault ou backtrace automático no kernel.
 
-## Validação manual pendente
+## Validação manual e cobertura adicional
 
-O harness mantém `--suite` e `--fault` preparados para uma sessão futura
-explicitamente escolhida pelo usuário. Essas opções enviam teclas por QMP
-ao controlador PS/2 emulado; não devem ser contabilizadas como executadas
-nesta validação headless. `--capture-framebuffer` é opt-in e também não
-foi usado para afirmar correção visual.
+Em 2026-09-14, o usuário confirmou em QEMU/VNC: teclado PS/2, digitação de
+caracteres, Enter, Backspace, comandos do shell, clear e halt. Esse aceite
+manual autoriza a release v0.1.0 e está registrado nas
+[notas da release](releases/v0.1.0.md).
 
-Permanecem para revisão manual: entrada de letras/números/sinais/Shift,
-backspace/Enter, continuidade de IRQ1, comandos help/version/sysinfo/mem/
-uptime/echo/clear/halt/fault pelo teclado, prompt/cursor e legibilidade do
-framebuffer. UEFI e hardware físico precisam de evidência própria se não
-constarem como executados no relatório da entrega. Aprovação de host tests,
-build ou boot serial não preenche esses itens.
+A validação automatizada registrada não executou a suíte de teclado QMP nem
+capturas de framebuffer.
+As opções `--suite`, `--fault` e `--capture-framebuffer` continuam disponíveis
+para sessões futuras. Aprovação manual não transforma essas opções em
+testes automatizados executados.
+
+UEFI, hardware físico, todas as combinações de modificadores e legibilidade
+de todos os dumps gráficos não foram confirmados individualmente. Essas
+coberturas adicionais exigem evidência própria; não são atribuídas ao aceite
+genérico dos comandos nem aos resultados de host/serial.

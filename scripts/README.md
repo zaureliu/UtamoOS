@@ -1,7 +1,7 @@
 # Scripts do UTAMO OS
 
-Os scripts usam as ferramentas já existentes no Ubuntu WSL e trabalham a
-partir de `~/UtamoOS`. Não instalam pacotes, não atualizam a toolchain nem
+Os scripts usam as ferramentas existentes em Linux/WSL2 Ubuntu e trabalham
+a partir da raiz do checkout. Não instalam pacotes, não atualizam a toolchain nem
 dependências externas e não alteram configurações globais.
 
 ## make-iso.sh
@@ -30,7 +30,7 @@ dinâmicas. Também verifica os bytes ligados dos 256 stubs/tabela relativa e
 a convenção Assembly/C de entrada/retorno das interrupções.
 
 A saída informa o número de checks e o processo falha no primeiro contrato
-violado. Essa inspeção complementa `make inspect` e os testes de execução;
+violado. Essa inspeção faz parte de `make inspect` e complementa os testes de execução;
 não carrega GDT/IDT nem executa instruções privilegiadas.
 
 ## test-qemu.py
@@ -64,7 +64,7 @@ recolhido em `finally`, também após erro ou timeout.
 | `--probe-at` | Símbolo do breakpoint; usar `cpu_wait_interrupt` na imagem final |
 | `--debug` | Salva log QEMU de interrupções, resets e guest errors |
 | `--gdb-port` / `--hold` | Janela limitada para inspeção externa; endpoint somente loopback |
-| `--suite` / `--fault` | Entrada por QMP no PS/2 emulado; preparados, pendentes nesta entrega |
+| `--suite` / `--fault` | Entrada por QMP no PS/2 emulado; preparados; não incluídos na validação automatizada registrada |
 | `--capture-framebuffer` | Captura headless opcional; não executada para afirmar validação visual |
 
 No boot anterior à introdução do shell, o breakpoint de probe era
@@ -73,8 +73,8 @@ por isso o modo de probe inicia com `-S` e para por hardware antes de HLT.
 Não há código de auto-fault adicionado ao boot normal.
 
 Os comandos de teclado e capturas permanecem disponíveis para uma sessão
-futura escolhida pelo usuário. Esta validação não os executou nem abriu
-uma janela gráfica. Inicialização PS/2 bem-sucedida e testes host de parser
+futura escolhida pelo usuário. A validação automatizada registrada não os executou nem abriu uma janela
+gráfica. O aceite manual em QEMU/VNC foi confirmado separadamente pelo usuário. Inicialização PS/2 bem-sucedida e testes host de parser
 não substituem evidência de IRQ1/digitação real.
 
 As evidências ficam em `build/validation/<name>/`. O JSON registra checks,
