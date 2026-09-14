@@ -208,12 +208,53 @@ static void test_parser(void)
     CHECK(shell_next_token(&cursor) == NULL);
 }
 
+static void test_hex_parser(void)
+{
+    uint64_t value = UINT64_C(0x55aa);
+    CHECK(!shell_parse_u64_hex(NULL, &value));
+    CHECK(value == UINT64_C(0x55aa));
+    CHECK(!shell_parse_u64_hex("12", NULL));
+    static const char *const invalid[] = {
+        "", "0x", "0X", "-1", "+1", " 1", "1 ", "1\t", "1g",
+        "0x1_0", "0x1.0", "0xx1", "10000000000000000",
+        "00000000000000000", "0x10000000000000000",
+        "0xfffffffffffffffff", "18446744073709551615"
+    };
+    for (size_t i = 0u; i < sizeof(invalid) / sizeof(invalid[0]); ++i) {
+        value = UINT64_C(0x55aa);
+        CHECK(!shell_parse_u64_hex(invalid[i], &value));
+        CHECK(value == UINT64_C(0x55aa));
+    }
+    CHECK(shell_parse_u64_hex("0", &value) && value == 0u);
+    CHECK(shell_parse_u64_hex("0x0", &value) && value == 0u);
+    CHECK(shell_parse_u64_hex("0000000000000000", &value) && value == 0u);
+    CHECK(shell_parse_u64_hex("0X1aBcDeF", &value) &&
+          value == UINT64_C(0x1abcdef));
+    CHECK(shell_parse_u64_hex("ffffffffffffffff", &value) &&
+          value == UINT64_MAX);
+    CHECK(shell_parse_u64_hex("0xFFFFFFFFFFFFFFFF", &value) &&
+          value == UINT64_MAX);
+    CHECK(shell_parse_u64_hex("7fffffffffffffff", &value) &&
+          value == UINT64_C(0x7fffffffffffffff));
+    CHECK(shell_parse_u64_hex("8000000000000000", &value) &&
+          value == UINT64_C(0x8000000000000000));
+    CHECK(shell_parse_u64_hex("0000800000000000", &value) &&
+          value == UINT64_C(0x0000800000000000)); /* VMM checks canonicality. */
+    static const char digits[] = "0123456789abcdefABCDEF";
+    for (size_t i = 0u; i < sizeof(digits) - 1u; ++i) {
+        const char token[] = {digits[i], '\0'};
+        const uint64_t expected = i < 16u ? (uint64_t)i : (uint64_t)(i - 6u);
+        CHECK(shell_parse_u64_hex(token, &value) && value == expected);
+    }
+}
+
 int main(void)
 {
     test_ring();
     test_scancodes();
     test_line();
     test_parser();
+    test_hex_parser();
     (void)printf("UTAMO input/shell host tests: %u checks, %u failures\n",
                  checks, failures);
     return failures == 0u ? 0 : 1;

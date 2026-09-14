@@ -5,11 +5,15 @@
 #include <utamo/interrupts.h>
 #include <utamo/keyboard.h>
 #include <utamo/log.h>
+#include <utamo/memory.h>
+#include <utamo/memory_selftest.h>
+#include <utamo/pmm.h>
 #include <utamo/pit.h>
 #include <utamo/serial.h>
 #include <utamo/shell_line.h>
 #include <utamo/string.h>
 #include <utamo/version.h>
+#include <utamo/vmm.h>
 
 static const struct memory_map *system_memory;
 static struct terminal *system_terminal;
@@ -37,6 +41,81 @@ void shell_init(const struct memory_map *map, struct terminal *terminal)
     show_prompt();
 }
 
+static void show_physical_memory(void)
+{
+    struct pmm_stats stats;
+    if (!pmm_get_stats(&stats)) {
+        kprintf("Physical memory manager: unavailable\n");
+        return;
+    }
+    kprintf("Physical Memory\n");
+    kprintf("Managed frames: %llu\nUsed frames: %llu\nFree frames: %llu\n",
+            (unsigned long long)stats.total_frames,
+            (unsigned long long)stats.used_frames,
+            (unsigned long long)stats.free_frames);
+    kprintf("Managed: %llu KiB\nUsed: %llu KiB\nFree: %llu KiB\n",
+            (unsigned long long)(stats.total_frames * (MEMORY_PAGE_SIZE / 1024u)),
+            (unsigned long long)(stats.used_frames * (MEMORY_PAGE_SIZE / 1024u)),
+            (unsigned long long)(stats.free_frames * (MEMORY_PAGE_SIZE / 1024u)));
+    kprintf("Page size: %llu bytes\nBitmap physical: 0x%llx\n",
+            (unsigned long long)MEMORY_PAGE_SIZE,
+            (unsigned long long)stats.bitmap_phys);
+    kprintf("Bitmap bytes: %llu\nBitmap storage: %llu bytes\n",
+            (unsigned long long)stats.bitmap_bytes,
+            (unsigned long long)stats.storage_bytes);
+}
+
+static void show_virtual_memory(void)
+{
+    struct vmm_info info;
+    if (!vmm_get_info(&info)) {
+        kprintf("Virtual memory manager: unavailable\n");
+        return;
+    }
+    kprintf("Virtual Memory\nKernel base: 0x%llx\nCR3 root: 0x%llx\n",
+            (unsigned long long)info.kernel_base,
+            (unsigned long long)info.root_phys);
+    kprintf("HHDM offset: 0x%llx\nPhysical address bits: %u\n",
+            (unsigned long long)info.hhdm_offset, info.physical_bits);
+    kprintf("NX supported: %s\nNX enabled: %s\nSection protections: %s\n",
+            (const char *)(info.nx_supported ? "Yes" : "No"),
+            (const char *)(info.nx_enabled ? "Yes" : "No"),
+            (const char *)(info.sections_protected ? "Applied" : "Not applied"));
+    kprintf("PMM-owned page tables: %llu\n",
+            (unsigned long long)info.table_pages);
+}
+
+static void show_mapping(char *arguments)
+{
+    char *cursor = arguments;
+    const char *token = shell_next_token(&cursor);
+    uint64_t address;
+    if (token == NULL || shell_next_token(&cursor) != NULL ||
+        !shell_parse_u64_hex(token, &address)) {
+        kprintf("Usage: mapinfo <hexadecimal virtual address>\n");
+        return;
+    }
+    struct vmm_mapping mapping;
+    kprintf("Virtual: 0x%llx\n", (unsigned long long)address);
+    if (!vmm_query_page(address, &mapping)) {
+        kprintf("VMM query unavailable or address invalid.\n");
+        return;
+    }
+    kprintf("Mapped: %s\n", (const char *)(mapping.mapped ? "Yes" : "No"));
+    if (!mapping.mapped) {
+        return;
+    }
+    kprintf("Physical: 0x%llx\nPage size: %llu bytes\nEffective flags: 0x%llx\n",
+            (unsigned long long)mapping.physical,
+            (unsigned long long)mapping.page_size,
+            (unsigned long long)mapping.flags);
+    kprintf("Present: %s\nWritable: %s\nUser: %s\nNX: %s\n",
+            (const char *)((mapping.flags & VMM_PRESENT) != 0u ? "Yes" : "No"),
+            (const char *)((mapping.flags & VMM_WRITABLE) != 0u ? "Yes" : "No"),
+            (const char *)((mapping.flags & VMM_USER) != 0u ? "Yes" : "No"),
+            (const char *)((mapping.flags & VMM_NX) != 0u ? "Yes" : "No"));
+}
+
 static void show_memory(void)
 {
     kprintf("Memory map entries: %llu\nUsable memory: %llu MiB (%llu bytes)\n",
@@ -46,6 +125,8 @@ static void show_memory(void)
     kprintf("Bootloader reclaimable: %llu KiB\n",
             (unsigned long long)(system_memory->bootloader_reclaimable_bytes /
                                   1024u));
+    show_physical_memory();
+    show_virtual_memory();
 }
 
 static void show_sysinfo(void)
@@ -69,7 +150,7 @@ static void run_fault(char *arguments)
     char *cursor = arguments;
     const char *kind = shell_next_token(&cursor);
     if (kind == NULL || shell_next_token(&cursor) != NULL) {
-        kprintf("Usage: fault ud2|div0|pf (fatal; restart QEMU afterwards)\n");
+        kprintf("Usage: fault ud2|div0|pf|vmm (fatal; restart QEMU afterwards)\n");
         return;
     }
     if (strcmp(kind, "ud2") == 0) {
@@ -78,8 +159,10 @@ static void run_fault(char *arguments)
         exception_fault_div0();
     } else if (strcmp(kind, "pf") == 0) {
         exception_fault_page();
+    } else if (strcmp(kind, "vmm") == 0) {
+        memory_fault_unmapped();
     } else {
-        kprintf("Usage: fault ud2|div0|pf (fatal; restart QEMU afterwards)\n");
+        kprintf("Usage: fault ud2|div0|pf|vmm (fatal; restart QEMU afterwards)\n");
     }
 }
 
@@ -98,6 +181,10 @@ static void execute_line(void)
         run_fault(command.arguments);
         return;
     }
+    if (strcmp(name, "mapinfo") == 0) {
+        show_mapping(command.arguments);
+        return;
+    }
     if (*command.arguments != '\0') {
         kprintf("Unexpected arguments. Type help.\n");
         return;
@@ -107,11 +194,16 @@ static void execute_line(void)
         kprintf("clear    Clear framebuffer and serial terminal\n");
         kprintf("version  Kernel version\n");
         kprintf("sysinfo  Known boot and hardware information\n");
-        kprintf("mem      Boot memory map totals\n");
+        kprintf("mem      Boot memory map, PMM and VMM statistics\n");
+        kprintf("pmm      Physical frame allocator statistics\n");
+        kprintf("vmm      Virtual memory configuration\n");
+        kprintf("mapinfo  Query a hexadecimal virtual address\n");
+        kprintf("pmmtest  Bounded physical frame self-test\n");
+        kprintf("vmmtest  Bounded virtual mapping self-test\n");
         kprintf("uptime   PIT uptime and ticks\n");
         kprintf("echo     Repeat following text\n");
         kprintf("halt     Disable interrupts and stop CPU\n");
-        kprintf("fault    ud2, div0 or pf: fatal exception self-test\n");
+        kprintf("fault    ud2, div0 or pf; vmm: unmapped test page (fatal)\n");
     } else if (strcmp(name, "clear") == 0) {
         terminal_clear(system_terminal);
         /* ANSI is for the external serial terminal, not the bitmap renderer. */
@@ -122,6 +214,16 @@ static void execute_line(void)
         show_sysinfo();
     } else if (strcmp(name, "mem") == 0) {
         show_memory();
+    } else if (strcmp(name, "pmm") == 0) {
+        show_physical_memory();
+    } else if (strcmp(name, "vmm") == 0) {
+        show_virtual_memory();
+    } else if (strcmp(name, "pmmtest") == 0) {
+        kprintf("PMM self-test: %s\n",
+                (const char *)(memory_pmm_selftest() ? "PASS" : "FAIL"));
+    } else if (strcmp(name, "vmmtest") == 0) {
+        kprintf("VMM self-test: %s\n",
+                (const char *)(memory_vmm_selftest() ? "PASS" : "FAIL"));
     } else if (strcmp(name, "uptime") == 0) {
         const uint64_t ticks = pit_get_ticks();
         const uint64_t seconds = pit_ticks_to_seconds(ticks);
