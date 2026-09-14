@@ -1,9 +1,8 @@
 # Heap do kernel
 
-Este documento descreve o heap introduzido durante o desenvolvimento da v0.3.
-O código integra o PMM e o VMM existentes; a versão publicada continua a depender
-do gate da campanha. A existência dos testes descritos abaixo não constitui,
-por si só, evidência de execução ou aprovação em QEMU.
+Este documento descreve o heap da v0.3.0, marco GREEN local da campanha Astra.
+O código integra o PMM e o VMM existentes. O gate de build, testes e QEMU foi
+aprovado; isso não cria uma release pública nem altera os tags preservados.
 
 ## Organização e inicialização
 
@@ -172,5 +171,8 @@ mapeamento preexistente e falha de limpeza, sem instruções privilegiadas.
 três repetições de heaptest, estabilização da capacidade, contabilidade
 PMM/VMM, permissões, regressão pmmtest/vmmtest, PIT, entrada PS/2, clear e halt.
 Executa sem janela, com timeout e coleta/encerramento do processo.
-O gate de heap permanece pendente nesta revisão documental; contagens e
-resultado de QEMU só devem ser registrados após execução observada.
+Gate v0.3 GREEN em 2026-09-14: 18.994 host, 1.482 ELF/ABI e 3.203 checks
+QEMU; total de 23.679, zero falhas. As 14 VMs foram encerradas e coletadas.
+As quatro suítes de heap (64/256/512 MiB e 64 MiB sem NX) completaram
+98.304 operações aleatórias no kernel. Registro: [validação v0.3](validation-astra-v0.3.json).
+Esses resultados não substituem validação visual, UEFI ou em hardware físico.

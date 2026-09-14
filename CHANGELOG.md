@@ -1,5 +1,54 @@
 # Changelog
 
+## v0.3.0 (unreleased)
+
+GREEN local milestone on `astra-campaign`, recorded on 2026-09-14 at code
+commit `2fb66be740ed8c153b3d733fc1d16bc978f2364f`. No release tag, merge into
+`main` or push was performed. Public v0.1.0 and the v0.2 history are preserved.
+
+### Added
+
+- Kernel heap with 16-byte payload alignment, 48-byte headers, an address-ordered
+  first-fit free list, block splitting, adjacent coalescing and O(N) validation.
+- `kmalloc`, checked `kfree`, overflow-checked `kcalloc` and content-preserving
+  `krealloc`; explicit zero-size behavior, accounting and debug payload patterns.
+- Dedicated virtual heap at `0xffffc00001000000`, initially 64 KiB, growing
+  in 64 KiB units up to 64 MiB through the existing PMM/HHDM/VMM.
+- Supervisor writable 4 KiB backing pages with NX when available; failed
+  growth rolls back newly acquired data pages and preserves the existing prefix.
+- `heap` diagnostics and explicit `heaptest`, using 128 slots, seed
+  `0x41535452` and 8,192 deterministic random operations per complete run.
+- Host models for fragmentation, corruption, allocation failure and rollback;
+  a reusable headless heap harness with PMM/VMM and shell regression checks.
+
+### Changed
+
+- Boot initializes the heap after PMM/VMM and before PIC/drivers/STI.
+- Kernel version and derived ISO name are 0.3.0 after the heap gate passed.
+- Strict warnings and existing boot, interrupt, input and memory contracts remain.
+
+### Validation
+
+Clean build, host tests, cross kernel, ELF/ABI inspection and ISO generation
+passed. Final results: **18,994 host, 1,482 ELF/ABI and 3,203 headless QEMU
+checks; 23,679 checks, zero failures**. All 14 sequential VMs were reaped.
+
+Heap suites at 64/256/512 MiB and 64 MiB without NX each completed three
+stress runs: **98,304 kernel stress operations**. Memory/shell and controlled
+exception regressions passed. Counts are recorded assertions across runs,
+not unique tests or a coverage measurement. See the
+[validation record](docs/validation-astra-v0.3.json) and [heap guide](docs/heap.md).
+
+### Known limits
+
+- Single CPU and local IF exclusion; heap use from IRQ/NMI is prohibited.
+- Free/realloc retain mapped pages; no decommit or arena teardown.
+- Empty VMM tables may remain pinned after growth rollback.
+- Metadata checks and poison patterns do not prevent stale-pointer reuse,
+  out-of-bounds writes or use-after-free; HHDM alias hardening remains unchanged.
+- No scheduler, userspace or SMP; allocation work can increase IRQ latency.
+- Visual/physical keyboard review, UEFI and physical hardware remain manual.
+
 ## v0.2.0 (unreleased)
 
 Implemented locally on `v0.2-dev`; awaiting maintainer acceptance. No release
