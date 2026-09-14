@@ -122,9 +122,11 @@ bool memory_vmm_selftest(void)
         good = vmm_protect_page(VMM_TEST_BASE, VMM_PRESENT | nx) &&
                vmm_query_page(VMM_TEST_BASE, &query) && query.mapped &&
                (query.flags & VMM_WRITABLE) == 0u &&
-               vmm_protect_page(VMM_TEST_BASE, flags | VMM_USER) &&
+               !vmm_protect_page(VMM_TEST_BASE, flags | VMM_USER) &&
                vmm_query_page(VMM_TEST_BASE, &query) &&
-               (query.flags & VMM_USER) != 0u &&
+               (query.flags & (VMM_USER | VMM_WRITABLE)) == 0u &&
+               !vmm_map_page(VMM_TEST_BASE + 32u * MEMORY_PAGE_SIZE,
+                              pages[0], flags | VMM_USER) &&
                vmm_protect_page(VMM_TEST_BASE, flags);
         if (good) {
             memory_write_address(VMM_TEST_BASE, UINT64_C(0xabcdef0123456789));

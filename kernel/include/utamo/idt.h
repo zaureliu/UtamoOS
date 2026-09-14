@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define UTAMO_SYSCALL_VECTOR 128u
 #define UTAMO_IDT_ENTRIES 256u
 #define UTAMO_IDT_INTERRUPT_GATE UINT8_C(0x8e)
 
@@ -26,6 +27,12 @@ struct idt_gate {
  */
 bool idt_gate_encode(struct idt_gate *gate, uint64_t address,
                      uint16_t selector, uint8_t ist);
+
+/* Pure narrow encoder: present DPL3 interrupt gate, kernel CS, IST0.
+ * Invalid input leaves the destination unchanged. */
+bool idt_user_gate_encode(struct idt_gate *gate, uint64_t address);
+/* After IDT initialization, IF=0; only changes vector 128 to DPL3. */
+bool idt_enable_user_syscall(void);
 
 /* Bootstrap only, IF=0; gdt_init() must precede idt_init(). */
 bool idt_set_gate(uint16_t vector, uintptr_t handler, uint8_t ist);

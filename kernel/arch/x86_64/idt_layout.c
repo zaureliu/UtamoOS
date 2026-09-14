@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 #include <stddef.h>
 #include <utamo/idt.h>
+#include <utamo/gdt.h>
 #include <utamo/memory.h>
 
 _Static_assert(sizeof(struct idt_gate) == 16u, "IDT gate size");
@@ -27,5 +28,17 @@ bool idt_gate_encode(struct idt_gate *gate, uint64_t address,
         .offset_high = (uint32_t)(address >> 32u),
         .reserved = 0u
     };
+    return true;
+}
+
+bool idt_user_gate_encode(struct idt_gate *gate, uint64_t address)
+{
+    struct idt_gate encoded;
+    if (gate == NULL ||
+        !idt_gate_encode(&encoded, address, UTAMO_GDT_CODE_SELECTOR, 0u)) {
+        return false;
+    }
+    encoded.type_attributes |= UINT8_C(0x60);
+    *gate = encoded;
     return true;
 }

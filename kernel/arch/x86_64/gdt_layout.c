@@ -7,7 +7,8 @@ void gdt_build(uint64_t entries[UTAMO_GDT_ENTRIES], uint64_t tss_address)
     }
     entries[1] = UTAMO_GDT_CODE;
     entries[2] = UTAMO_GDT_DATA;
-    /* Slots 3/4 reserved (not present) for future user code/data. */
+    entries[3] = UTAMO_GDT_USER_CODE;
+    entries[4] = UTAMO_GDT_USER_DATA;
     const uint64_t limit = sizeof(struct tss64) - 1u;
     entries[5] = limit | ((tss_address & UINT64_C(0xffffff)) << 16u) |
         (UINT64_C(0x89) << 40u) |

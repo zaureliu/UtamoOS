@@ -4,7 +4,8 @@
 #include <utamo/vmm.h>
 /* Caller supplies owned, stable table storage and serialization.
  * alloc returns a distinct aligned frame; table returns NULL for unsafe access.
- * free and commit cannot fail. commit pins a published table permanently.
+ * free and commit cannot fail. commit transfers published-table ownership:
+ * kernel tables are pinned; private spaces retain tables until destruction.
  * IRQ code must not access the allocator or mutate the page tables. */
 struct vmm_ops {
     void *context;

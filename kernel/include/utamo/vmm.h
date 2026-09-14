@@ -30,7 +30,8 @@ struct vmm_info {
     bool nx_supported, nx_enabled, sections_protected;
 };
 /* Mutations only inside the owned dynamic PML4 slot; 4-KiB aligned.
- * PRESENT is mandatory. Existing/huge mappings are never replaced/split.
+ * PRESENT is mandatory; USER is forbidden in kernel mappings.
+ * Existing/huge mappings are never replaced/split.
  * Unmap does not free the data frame. Empty table pages remain pinned.
  * These operations serialize with IF on the BSP; no SMP contract. */
 bool vmm_map_page(uint64_t virt, uint64_t phys, uint64_t flags);
@@ -39,4 +40,7 @@ bool vmm_protect_page(uint64_t virt, uint64_t flags);
 /* Read-only, no allocation; false=unready/unsafe/invalid, true+!mapped=absent. */
 bool vmm_query_page(uint64_t virt, struct vmm_mapping *out);
 bool vmm_get_info(struct vmm_info *out);
+/* Snapshot entries 256..511 for a private root. USER is cleared in the
+ * snapshot; the source is unchanged. The dynamic kernel slot must exist. */
+bool vmm_copy_kernel_half(uint64_t out_entries[256]);
 #endif

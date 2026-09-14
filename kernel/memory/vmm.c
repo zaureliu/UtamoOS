@@ -102,7 +102,7 @@ bool vmm_map_page(uint64_t virt, uint64_t phys, uint64_t flags)
      * Kernel/bootloader aliases are forbidden, including any USER alias. */
     const bool result = ready && dynamic_address(virt) && region != NULL &&
         region->type == UTAMO_MEMORY_USABLE && pmm_is_allocated_page(phys) &&
-        (flags & (VMM_CACHE_DISABLE | VMM_WRITE_THROUGH)) == 0u &&
+        (flags & (VMM_USER | VMM_CACHE_DISABLE | VMM_WRITE_THROUGH)) == 0u &&
         vmm_space_map(&kernel_space, virt, phys, flags);
     cpu_irq_restore(saved);
     return result;
@@ -121,7 +121,7 @@ bool vmm_protect_page(uint64_t virt, uint64_t flags)
 {
     const uint64_t saved = cpu_irq_save();
     const bool result = ready && dynamic_address(virt) &&
-        (flags & (VMM_CACHE_DISABLE | VMM_WRITE_THROUGH)) == 0u &&
+        (flags & (VMM_USER | VMM_CACHE_DISABLE | VMM_WRITE_THROUGH)) == 0u &&
         vmm_space_protect(&kernel_space, virt, flags);
     cpu_irq_restore(saved);
     return result;
@@ -144,6 +144,28 @@ bool vmm_get_info(struct vmm_info *out)
     }
     cpu_irq_restore(saved);
     return result;
+}
+
+bool vmm_copy_kernel_half(uint64_t out_entries[256])
+{
+    const uint64_t saved = cpu_irq_save();
+    const uint64_t *const root = ready ?
+        table_access(NULL, information.root_phys) : NULL;
+    const unsigned int slot = memory_page_index(VMM_DYNAMIC_BASE, 4u);
+    if (out_entries == NULL || root == NULL ||
+        (__atomic_load_n(&root[slot], __ATOMIC_ACQUIRE) & VMM_PRESENT) == 0u) {
+        cpu_irq_restore(saved);
+        return false;
+    }
+    /* The permanent shared subtree already exists: later heap/stack mappings
+     * change its children and remain visible through every private root.
+     */
+    for (size_t i = 0u; i < 256u; ++i) {
+        out_entries[i] = __atomic_load_n(&root[256u + i], __ATOMIC_ACQUIRE) &
+                         ~VMM_USER;
+    }
+    cpu_irq_restore(saved);
+    return true;
 }
 
 /* Bounded depth 4; budget rejects pathological aliasing without a static
