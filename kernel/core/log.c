@@ -57,6 +57,15 @@ static void console_leave(bool guard)
     }
 }
 
+void log_write(const char *bytes, size_t length)
+{
+    const bool guard = console_enter();
+    for (size_t i = 0u; i < length; ++i) {
+        log_emit(bytes[i], NULL);
+    }
+    console_leave(guard);
+}
+
 void kvprintf(const char *format, va_list args)
 {
     const bool guard = console_enter();

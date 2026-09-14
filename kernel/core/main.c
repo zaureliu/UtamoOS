@@ -11,6 +11,7 @@
 #include <utamo/keyboard.h>
 #include <utamo/shell.h>
 #include <utamo/scheduler.h>
+#include <utamo/process.h>
 #include <utamo/interrupts.h>
 #include <utamo/log.h>
 #include <utamo/panic.h>
@@ -92,6 +93,14 @@ _Noreturn void kernel_main(void)
         PANIC("Cannot initialize kernel scheduler");
     }
     LOG_OK("Kernel scheduler initialized (round-robin, 2 ticks)");
+    if (!process_init()) {
+        PANIC("Cannot initialize process policy");
+    }
+    if (process_available()) {
+        LOG_OK("Ring 3 process infrastructure initialized");
+    } else {
+        LOG_WARN("Ring 3 unavailable on this CPU/paging configuration");
+    }
     if (!keyboard_init()) {
         PANIC("Cannot initialize PS/2 keyboard");
     }

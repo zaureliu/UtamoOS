@@ -1,0 +1,26 @@
+/* SPDX-License-Identifier: MIT */
+#ifndef UTAMO_USER_PROBE_H
+#define UTAMO_USER_PROBE_H
+/* Controlled embedded CPL3 probes only; no probe executes during normal boot. */
+#define UTAMO_USER_CODE 0x400000
+#define UTAMO_USER_DATA 0x600000
+#define UTAMO_USER_STACK_TOP 0x70000000
+#define UTAMO_USER_STACK_PAGES 16
+#define UTAMO_PROBE_PID_LOOPS 32768
+#define UTAMO_PROBE_GOOD 0
+#define UTAMO_PROBE_KERNEL_READ 1
+#define UTAMO_PROBE_KERNEL_WRITE 2
+#define UTAMO_PROBE_NX 3
+#define UTAMO_PROBE_UD2 4
+#define UTAMO_PROBE_DIV0 5
+#define UTAMO_PROBE_CLI 6
+#define UTAMO_PROBE_OUT 7
+#define UTAMO_PROBE_INT240 8
+#define UTAMO_PROBE_SYSCALL 9
+#define UTAMO_PROBE_SYSENTER 10
+#define UTAMO_PROBE_FPU 11
+#define UTAMO_PROBE_BAD_RSP 12
+#define UTAMO_PROBE_POINTERS 13
+#define UTAMO_PROBE_KERNEL_RSP 14
+#define UTAMO_PROBE_COUNT 15
+#endif

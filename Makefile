@@ -83,6 +83,12 @@ $(BUILD_DIR)/%.c.o: %.c Makefile | guard-build
 	@mkdir -p -- "$(@D)"
 	$(KERNEL_CC) $(KERNEL_CPPFLAGS) $(KERNEL_CFLAGS) -MMD -MP -MF "$(@:.o=.d)" -c "$<" -o "$@"
 
+$(BUILD_DIR)/generated/constants.stamp: scripts/gen-nasm-constants.py kernel/include/utamo/syscall_abi.h kernel/include/utamo/user_probe.h | guard-build
+	python3 scripts/gen-nasm-constants.py
+	@touch "$@"
+
+$(BUILD_DIR)/kernel/arch/x86_64/user_probe.asm.o: $(BUILD_DIR)/generated/constants.stamp
+
 $(BUILD_DIR)/%.asm.o: %.asm Makefile | guard-build
 	@mkdir -p -- "$(@D)"
 	$(NASM) $(NASMFLAGS) -MD "$(@:.o=.d)" "$<" -o "$@"
@@ -198,7 +204,31 @@ $(THREAD_STACK_TEST): $(THREAD_STACK_TEST_SOURCES) $(HOST_HEADERS) Makefile | gu
 	@mkdir -p -- "$(@D)"
 	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(THREAD_STACK_TEST_SOURCES) -o "$@"
 
-test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) $(PIT_TEST) $(INPUT_TEST) $(KEYBOARD_TEST) $(SHELL_TEST) $(PMM_TEST) $(VMM_TEST) $(MEMORY_HELPER_TEST) $(HEAP_TEST) $(HEAP_PAGES_TEST) $(SCHED_TEST) $(THREAD_STACK_TEST)
+ARCH_USER_TEST := $(BUILD_DIR)/tests/utamo-arch-user-tests
+ARCH_USER_TEST_SOURCES := tests/test_arch_user.c kernel/arch/x86_64/arch_user.c kernel/arch/x86_64/gdt.c kernel/arch/x86_64/gdt_layout.c kernel/arch/x86_64/idt.c kernel/arch/x86_64/idt_layout.c kernel/memory/memory_helpers.c
+$(ARCH_USER_TEST): $(ARCH_USER_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(ARCH_USER_TEST_SOURCES) -o "$@"
+
+USER_VM_TEST := $(BUILD_DIR)/tests/utamo-user-vm-tests
+USER_VM_TEST_SOURCES := tests/test_user_vm.c kernel/memory/user_vm.c kernel/memory/vmm_core.c kernel/memory/memory_helpers.c kernel/lib/string.c
+$(USER_VM_TEST): $(USER_VM_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(USER_VM_TEST_SOURCES) -o "$@"
+
+PROCESS_SYSCALL_TEST := $(BUILD_DIR)/tests/utamo-process-syscall-tests
+PROCESS_SYSCALL_TEST_SOURCES := tests/test_process_syscall.c kernel/core/process_syscall.c kernel/core/process_policy.c kernel/memory/memory_helpers.c kernel/lib/string.c
+$(PROCESS_SYSCALL_TEST): $(PROCESS_SYSCALL_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(PROCESS_SYSCALL_TEST_SOURCES) -o "$@"
+
+DISPATCH_TEST := $(BUILD_DIR)/tests/utamo-dispatch-tests
+DISPATCH_TEST_SOURCES := tests/test_dispatch.c kernel/interrupts/exceptions.c kernel/lib/string.c
+$(DISPATCH_TEST): $(DISPATCH_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(DISPATCH_TEST_SOURCES) -o "$@"
+
+test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) $(PIT_TEST) $(INPUT_TEST) $(KEYBOARD_TEST) $(SHELL_TEST) $(PMM_TEST) $(VMM_TEST) $(MEMORY_HELPER_TEST) $(HEAP_TEST) $(HEAP_PAGES_TEST) $(SCHED_TEST) $(THREAD_STACK_TEST) $(ARCH_USER_TEST) $(USER_VM_TEST) $(PROCESS_SYSCALL_TEST) $(DISPATCH_TEST)
 	"./$(HOST_TEST)"
 	"./$(VIDEO_TEST)"
 	"./$(GDT_TEST)"
@@ -215,6 +245,10 @@ test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) 
 	"./$(HEAP_PAGES_TEST)"
 	"./$(SCHED_TEST)"
 	"./$(THREAD_STACK_TEST)"
+	"./$(ARCH_USER_TEST)"
+	"./$(USER_VM_TEST)"
+	"./$(PROCESS_SYSCALL_TEST)"
+	"./$(DISPATCH_TEST)"
 
 inspect: $(KERNEL)
 	$(READELF) -h -l -S "$(KERNEL)"

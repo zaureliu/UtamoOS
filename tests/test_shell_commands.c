@@ -12,6 +12,7 @@
 #include <utamo/memory_selftest.h>
 #include <utamo/pmm.h>
 #include <utamo/pit.h>
+#include <utamo/process.h>
 #include <utamo/scheduler.h>
 #include <utamo/serial.h>
 #include <utamo/string.h>
@@ -45,6 +46,11 @@ static unsigned int query_calls;
 static uint64_t queried_address;
 static uint64_t mock_flags = VMM_PRESENT | VMM_NX;
 static uint64_t mock_page_size = 4096u;
+static bool process_ready = true;
+static bool process_test_passes = true;
+static enum arch_user_status process_status = UTAMO_USER_READY;
+static unsigned int process_stats_calls;
+static unsigned int process_test_calls;
 static bool scheduler_ready = true;
 static bool scheduler_valid = true;
 static bool scheduler_test_passes = true;
@@ -263,9 +269,31 @@ bool scheduler_get_stats(struct scheduler_stats *out)
             .blocked_count = 1u, .zombie_count = 1u,
             .switches = UINT64_C(4294967297)
         },
-        .timer_preemptions = 123u, .created = 6u, .exited = 3u, .reaped = 2u
+        .timer_preemptions = 123u, .created = 6u, .exited = 3u, .reaped = 2u,
+        .user_timer_preemptions = UINT64_C(4294967301),
+        .address_space_switches = UINT64_C(8589934600)
     };
     return true;
+}
+
+bool process_get_stats(struct process_stats *out)
+{
+    ++process_stats_calls;
+    if (!process_ready || out == NULL) {
+        return false;
+    }
+    *out = (struct process_stats){
+        .created = UINT64_C(4294967299), .exited = 2u, .reaped = 1u,
+        .user_faults = 17u, .syscalls = UINT64_MAX, .active = 3u,
+        .status = process_status
+    };
+    return true;
+}
+
+bool process_selftest(void)
+{
+    ++process_test_calls;
+    return process_test_passes;
 }
 
 bool scheduler_validate(void)
@@ -587,7 +615,7 @@ static void test_heap_commands(void)
 static void test_scheduler_commands(void)
 {
     issue("help\n");
-    CHECK(contains("ps       List kernel thread snapshots"));
+    CHECK(contains("ps       List scheduled thread snapshots"));
     CHECK(contains("threads  Alias for ps"));
     CHECK(contains("schedulerstats Scheduler counters"));
     CHECK(contains("schedtest Bounded scheduler"));
@@ -665,6 +693,67 @@ static void test_scheduler_commands(void)
     CHECK(contains("utamo> "));
 }
 
+static void test_process_commands(void)
+{
+    issue("help\n");
+    CHECK(contains("processes Native user process accounting"));
+    CHECK(contains("usertest Bounded Ring 3 isolation and fault tests"));
+    issue("processes extra\n");
+    CHECK(contains("Unexpected arguments.") && process_stats_calls == 0u);
+    issue("usertest extra\n");
+    CHECK(contains("Unexpected arguments.") && process_stats_calls == 0u &&
+          process_test_calls == 0u);
+    issue("processes\n");
+    CHECK(process_stats_calls == 1u && contains("Processes\nAvailable: yes"));
+    CHECK(contains("Active processes: 3\nProcesses created: 4294967299"));
+    CHECK(contains("Processes exited: 2\nProcesses reaped: 1"));
+    CHECK(contains("User faults: 17\nSyscalls: 18446744073709551615"));
+    CHECK(contains("User timer preemptions: 4294967301"));
+    CHECK(contains("Address-space switches: 8589934600"));
+    CHECK(contains("utamo> "));
+    issue("usertest\n");
+    CHECK(contains("User process self-test: PASS") && process_test_calls == 1u);
+    CHECK(!contains("User process self-test: FAIL"));
+    process_test_passes = false;
+    issue("usertest\n");
+    CHECK(contains("User process self-test: FAIL") && process_test_calls == 2u);
+    CHECK(!contains("User process self-test: PASS"));
+
+    process_status = UTAMO_USER_NO_NX;
+    issue("processes\n");
+    CHECK(contains("Processes\nAvailable: no") && !contains("Available: yes"));
+    issue("usertest\n");
+    CHECK(contains("User processes unavailable: NX is required"));
+    CHECK(!contains("User process self-test:") && process_test_calls == 2u);
+    static const enum arch_user_status unavailable[] = {
+        UTAMO_USER_UNINITIALIZED, UTAMO_USER_UNSUPPORTED_CPU,
+        UTAMO_USER_UNSUPPORTED_PAGING, UTAMO_USER_BAD_CONTEXT,
+        UTAMO_USER_SETUP_FAILED
+    };
+    for (size_t i = 0u; i < sizeof(unavailable) / sizeof(unavailable[0]); ++i) {
+        process_status = unavailable[i];
+        issue("usertest\n");
+        CHECK(contains("User processes unavailable: unsupported CPU/paging configuration"));
+        CHECK(!contains("User process self-test:") && process_test_calls == 2u);
+    }
+    process_status = UTAMO_USER_READY;
+    process_ready = false;
+    issue("processes\n");
+    CHECK(contains("Process diagnostics unavailable.") && !contains("Active processes:"));
+    issue("usertest\n");
+    CHECK(contains("Process diagnostics unavailable.") && process_test_calls == 2u);
+    CHECK(!contains("User process self-test:"));
+    process_ready = true;
+    scheduler_ready = false;
+    issue("processes\n");
+    CHECK(contains("Process diagnostics unavailable.") && !contains("Active processes:"));
+    scheduler_ready = true;
+    process_test_passes = true;
+    issue("usertest\n");
+    CHECK(contains("User process self-test: PASS") && process_test_calls == 3u);
+    CHECK(contains("utamo> "));
+}
+
 static void test_direct_output_preemption(void)
 {
     CHECK(unprotected_direct_io == 0u);
@@ -708,6 +797,7 @@ int main(void)
     test_memory_commands();
     test_heap_commands();
     test_scheduler_commands();
+    test_process_commands();
     test_direct_output_preemption();
     test_stop("halt\n", 1);
     test_stop("fault ud2\n", 2);

@@ -13,6 +13,7 @@ typedef void (*thread_entry_fn)(void *argument);
 struct scheduler_stats {
     struct sched_snapshot core;
     uint64_t timer_preemptions, created, exited, reaped;
+    uint64_t user_timer_preemptions, address_space_switches;
 };
 struct thread_snapshot {
     uint64_t id, run_ticks, wake_tick, stack_base, stack_top, guard;
@@ -25,6 +26,19 @@ bool scheduler_init(void);
 /* Called only at the outer IRQ0/IRQ1 epilogue AFTER EOI, or DPL0 INT240.
  * IF=0. Never allocates or reaps. Returns the frame to restore with IRETQ. */
 struct interrupt_frame *scheduler_on_interrupt(struct interrupt_frame *frame);
+struct process;
+/* Internal process publisher, IF=0; address space already complete and owned. */
+bool scheduler_create_user(const char *name, struct process *owner,
+                           uint64_t entry, uint64_t rsp, uint64_t argument,
+                           uint64_t *out_tid);
+struct process *scheduler_current_process(void);
+/* Frame object must belong to current protected kernel stack. Invalid user
+ * return values are a process error; damaged kernel frame ownership is fatal. */
+bool scheduler_user_frame_safe(const struct interrupt_frame *frame);
+struct interrupt_frame *scheduler_resume_user(struct interrupt_frame *frame);
+struct interrupt_frame *scheduler_yield_user(struct interrupt_frame *frame,
+                                           uint64_t milliseconds);
+struct interrupt_frame *scheduler_exit_user(struct interrupt_frame *frame);
 /* Thread context, IF=1. No allocation/sleep/yield/exit from IRQ/NMI.
  * New threads share CR3, FS/GS and use general registers only. */
 bool thread_create(const char *name, thread_entry_fn entry, void *argument,

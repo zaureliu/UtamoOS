@@ -14,7 +14,7 @@ struct vmm_mapping;
  * interrupt_stubs.asm saves these fifteen GPRs, followed by normalized vector
  * and error_code. Hardware pushes rip/cs/rflags/rsp/ss in 64-bit mode, even
  * without a privilege change (Intel SDM Vol.3A 6.14.2); this is NOT a 32-bit
- * or compatibility-mode frame. Every slot is eight bytes. No swapgs/user mode.
+ * or compatibility-mode frame. Every slot is eight bytes. Ring 3 uses the same frame and TSS.RSP0; no swapgs.
  */
 struct interrupt_frame {
     uint64_t r15, r14, r13, r12, r11, r10, r9, r8;
@@ -40,6 +40,10 @@ _Static_assert(offsetof(struct interrupt_frame, cs) == 144u, "cs offset");
 _Static_assert(offsetof(struct interrupt_frame, rflags) == 152u, "rflags offset");
 _Static_assert(offsetof(struct interrupt_frame, rsp) == 160u, "rsp offset");
 _Static_assert(offsetof(struct interrupt_frame, ss) == 168u, "ss offset");
+
+void exception_format_user(format_emit_fn emit, void *context,
+                           const struct interrupt_frame *frame, uint64_t cr2,
+                           uint64_t pid);
 
 struct page_fault_info {
     bool present;

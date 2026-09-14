@@ -11,6 +11,7 @@
 #include <utamo/pmm.h>
 #include <utamo/pit.h>
 #include <utamo/scheduler.h>
+#include <utamo/process.h>
 #include <utamo/serial.h>
 #include <utamo/shell_line.h>
 #include <utamo/string.h>
@@ -205,6 +206,42 @@ static void run_sleep(char *arguments)
     kprintf("Sleep completed.\n");
 }
 
+static void show_processes(void)
+{
+    struct process_stats stats;
+    struct scheduler_stats sched;
+    if (!process_get_stats(&stats) || !scheduler_get_stats(&sched)) {
+        kprintf("Process diagnostics unavailable.\n");
+        return;
+    }
+    kprintf("Processes\nAvailable: %s\nActive processes: %llu\n",
+            (const char *)(stats.status == UTAMO_USER_READY ? "yes" : "no"),
+            (unsigned long long)stats.active);
+    kprintf("Processes created: %llu\nProcesses exited: %llu\nProcesses reaped: %llu\n",
+            (unsigned long long)stats.created, (unsigned long long)stats.exited,
+            (unsigned long long)stats.reaped);
+    kprintf("User faults: %llu\nSyscalls: %llu\nUser timer preemptions: %llu\n",
+            (unsigned long long)stats.user_faults, (unsigned long long)stats.syscalls,
+            (unsigned long long)sched.user_timer_preemptions);
+    kprintf("Address-space switches: %llu\n",
+            (unsigned long long)sched.address_space_switches);
+}
+
+static void run_user_test(void)
+{
+    struct process_stats stats;
+    if (!process_get_stats(&stats)) {
+        kprintf("Process diagnostics unavailable.\n");
+    } else if (stats.status == UTAMO_USER_NO_NX) {
+        kprintf("User processes unavailable: NX is required\n");
+    } else if (stats.status != UTAMO_USER_READY) {
+        kprintf("User processes unavailable: unsupported CPU/paging configuration\n");
+    } else {
+        kprintf("User process self-test: %s\n",
+                (const char *)(process_selftest() ? "PASS" : "FAIL"));
+    }
+}
+
 static void show_memory(void)
 {
     kprintf("Memory map entries: %llu\nUsable memory: %llu MiB (%llu bytes)\n",
@@ -297,10 +334,12 @@ static void execute_line(void)
         kprintf("vmmtest  Bounded virtual mapping self-test\n");
         kprintf("heap     Kernel heap accounting and integrity\n");
         kprintf("heaptest Bounded deterministic heap stress\n");
-        kprintf("ps       List kernel thread snapshots\n");
+        kprintf("ps       List scheduled thread snapshots\n");
         kprintf("threads  Alias for ps\n");
         kprintf("schedulerstats Scheduler counters and integrity\n");
         kprintf("schedtest Bounded scheduler self-test\n");
+        kprintf("processes Native user process accounting\n");
+        kprintf("usertest Bounded Ring 3 isolation and fault tests\n");
         kprintf("sleep    Block this thread for decimal milliseconds\n");
         kprintf("uptime   PIT uptime and ticks\n");
         kprintf("echo     Repeat following text\n");
@@ -340,6 +379,10 @@ static void execute_line(void)
     } else if (strcmp(name, "schedtest") == 0) {
         kprintf("Scheduler self-test: %s\n",
                 (const char *)(scheduler_selftest() ? "PASS" : "FAIL"));
+    } else if (strcmp(name, "processes") == 0) {
+        show_processes();
+    } else if (strcmp(name, "usertest") == 0) {
+        run_user_test();
     } else if (strcmp(name, "uptime") == 0) {
         const uint64_t ticks = pit_get_ticks();
         const uint64_t seconds = pit_ticks_to_seconds(ticks);

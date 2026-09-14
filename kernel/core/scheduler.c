@@ -8,6 +8,10 @@
 #include <utamo/string.h>
 #include <utamo/thread_stack.h>
 #include <utamo/memory.h>
+#include <utamo/process.h>
+#include <utamo/gdt.h>
+#include <utamo/paging.h>
+#include <utamo/syscall_abi.h>
 
 struct kernel_thread {
     struct sched_task task; /* First: registry nodes convert without a lookup. */
@@ -17,6 +21,7 @@ struct kernel_thread {
     void *argument;
     char name[UTAMO_THREAD_NAME_SIZE];
     bool dynamic;
+    struct process *process;
 };
 _Static_assert(offsetof(struct kernel_thread, task) == 0u, "embedded task");
 extern unsigned char bootstrap_stack_bottom[];
@@ -26,6 +31,7 @@ static struct kernel_thread bootstrap_thread;
 static struct kernel_thread idle_thread;
 static bool scheduler_ready;
 static uint64_t timer_preemptions, threads_created, threads_exited, threads_reaped;
+static uint64_t kernel_cr3, user_timer_preemptions, address_space_switches;
 
 static void increment(uint64_t *value)
 {
@@ -55,7 +61,7 @@ static bool valid_name(const char *name)
     return false;
 }
 
-static bool valid_frame(const struct kernel_thread *thread,
+static bool frame_owned(const struct kernel_thread *thread,
                         const struct interrupt_frame *frame)
 {
     const uint64_t bottom = thread == &bootstrap_thread ?
@@ -67,12 +73,116 @@ static bool valid_frame(const struct kernel_thread *thread,
         address > top - sizeof(*frame) || (address & 7u) != 0u) {
         return false;
     }
+    return true;
+}
+
+static bool valid_frame(const struct kernel_thread *thread,
+                        const struct interrupt_frame *frame)
+{
+    if (!frame_owned(thread, frame)) {
+        return false;
+    }
+    if (thread->process != NULL) {
+        return process_user_return_valid(frame);
+    }
+    const uint64_t bottom = thread == &bootstrap_thread ?
+        (uint64_t)(uintptr_t)bootstrap_stack_bottom : thread->stack.base;
+    const uint64_t top = thread == &bootstrap_thread ?
+        (uint64_t)(uintptr_t)bootstrap_stack_top : thread->stack.top;
     return frame->cs == 8u && frame->ss == 16u &&
            (frame->rflags & UINT64_C(2)) != 0u &&
            (frame->rflags & UINT64_C(0x7000)) == 0u &&
            frame->rsp >= bottom && frame->rsp <= top &&
            memory_is_canonical(frame->rip) &&
            frame->rip >= UINT64_C(0xffff800000000000);
+}
+
+static struct interrupt_frame *select_frame(bool force, uint64_t vector)
+{
+    struct kernel_thread *const old = as_thread(scheduler.current);
+    struct sched_task *const selected = sched_core_select(&scheduler, force);
+    if (selected == NULL) {
+        PANIC("Scheduler selected no thread");
+    }
+    struct kernel_thread *const next = as_thread(selected);
+    if (!valid_frame(next, next->frame)) {
+        PANIC("Invalid selected thread interrupt frame");
+    }
+    if (old != next && old != &idle_thread && vector == 32u) {
+        increment(&timer_preemptions);
+        if (old->process != NULL) {
+            increment(&user_timer_preemptions);
+        }
+    }
+    const uint64_t target_cr3 = next->process == NULL ?
+        kernel_cr3 : next->process->vm.space.root_phys;
+    const uint64_t top = next == &bootstrap_thread ?
+        (uint64_t)(uintptr_t)bootstrap_stack_top : next->stack.top;
+    if (arch_user_ready()) {
+        const bool prepared = next->process == NULL ?
+            gdt_set_rsp0(top) : arch_user_prepare_return(top);
+        if (!prepared) {
+            PANIC("Cannot prepare selected privilege stack");
+        }
+    }
+    if (cpu_read_cr3() != target_cr3) {
+        cpu_write_cr3(target_cr3);
+        increment(&address_space_switches);
+    }
+    return next->frame;
+}
+
+struct process *scheduler_current_process(void)
+{
+    return scheduler_ready ? as_thread(scheduler.current)->process : NULL;
+}
+
+bool scheduler_user_frame_safe(const struct interrupt_frame *frame)
+{
+    if (!scheduler_ready || scheduler_current_process() == NULL ||
+        !frame_owned(as_thread(scheduler.current), frame)) {
+        PANIC("User entry lost protected kernel frame ownership");
+    }
+    return process_user_return_valid(frame);
+}
+
+struct interrupt_frame *scheduler_resume_user(struct interrupt_frame *frame)
+{
+    if (!scheduler_user_frame_safe(frame)) {
+        return process_on_fault(frame, 13u, 0u, 0u);
+    }
+    as_thread(scheduler.current)->frame = frame;
+    return select_frame(false, frame->vector);
+}
+
+struct interrupt_frame *scheduler_yield_user(struct interrupt_frame *frame,
+                                           uint64_t milliseconds)
+{
+    if (!scheduler_user_frame_safe(frame)) {
+        return process_on_fault(frame, 13u, 0u, 0u);
+    }
+    uint64_t ticks = 0u;
+    if (milliseconds != 0u &&
+        (!sched_ms_to_ticks(milliseconds, &ticks) ||
+         !sched_core_sleep_current(&scheduler, ticks))) {
+        frame->rax = (uint64_t)(int64_t)UTAMO_SYS_EINVAL;
+        return scheduler_resume_user(frame);
+    }
+    as_thread(scheduler.current)->frame = frame;
+    return select_frame(true, frame->vector);
+}
+
+struct interrupt_frame *scheduler_exit_user(struct interrupt_frame *frame)
+{
+    struct process *const process = scheduler_current_process();
+    if (process == NULL || process->state != UTAMO_PROCESS_EXITED ||
+        !frame_owned(as_thread(scheduler.current), frame) ||
+        !sched_core_exit_current(&scheduler)) {
+        PANIC("Invalid user exit context");
+    }
+    as_thread(scheduler.current)->frame = frame;
+    increment(&threads_exited);
+    return select_frame(true, frame->vector);
 }
 
 static _Noreturn void thread_bootstrap(void)
@@ -118,6 +228,7 @@ bool scheduler_init(void)
                          &bootstrap_thread.task, 2u, pit_get_ticks())) {
         PANIC("Cannot initialize scheduler queues");
     }
+    kernel_cr3 = cpu_read_cr3();
     scheduler_ready = true;
     cpu_irq_restore(flags);
     return true;
@@ -129,10 +240,12 @@ struct interrupt_frame *scheduler_on_interrupt(struct interrupt_frame *frame)
         return frame;
     }
     struct kernel_thread *const old = as_thread(scheduler.current);
-    if (!valid_frame(old, frame)) {
-        PANIC("Invalid current thread interrupt frame");
+    if (!frame_owned(old, frame)) {
+        PANIC("Invalid current protected frame ownership");
     }
     old->frame = frame;
+    /* EOI has already happened. Account ticks and input before rejecting any
+     * hostile user return state, so a dying process cannot consume a wakeup. */
     if (frame->vector == 32u) {
         if (!sched_core_tick(&scheduler, pit_get_ticks())) {
             PANIC("Scheduler timer invariant");
@@ -143,22 +256,68 @@ struct interrupt_frame *scheduler_on_interrupt(struct interrupt_frame *frame)
             !sched_core_wake(&scheduler, &bootstrap_thread.task)) {
             PANIC("Cannot wake input thread");
         }
-    } else if (frame->vector != UTAMO_SCHEDULE_VECTOR) {
-        return frame;
     }
-    struct sched_task *const selected = sched_core_select(
-        &scheduler, frame->vector == UTAMO_SCHEDULE_VECTOR);
-    if (selected == NULL) {
-        PANIC("Scheduler selected no thread");
+    if (!valid_frame(old, frame)) {
+        if (old->process != NULL && (frame->cs & 3u) == 3u) {
+            return process_on_fault(frame, 13u, 0u, 0u);
+        }
+        PANIC("Invalid current thread interrupt frame");
     }
-    struct kernel_thread *const next = as_thread(selected);
-    if (!valid_frame(next, next->frame)) {
-        PANIC("Invalid selected thread interrupt frame");
+    return select_frame(frame->vector == UTAMO_SCHEDULE_VECTOR, frame->vector);
+}
+
+bool scheduler_create_user(const char *name, struct process *owner,
+                           uint64_t entry, uint64_t rsp, uint64_t argument,
+                           uint64_t *out_tid)
+{
+    const uint64_t flags = cpu_irq_save();
+    if ((flags & UINT64_C(0x200)) != 0u || !scheduler_ready ||
+        !arch_user_ready() || !valid_name(name) || owner == NULL ||
+        !owner->vm.initialized || out_tid == NULL ||
+        scheduler.task_count == UTAMO_SCHED_MAX_TASKS) {
+        cpu_irq_restore(flags);
+        return false;
     }
-    if (old != next && old != &idle_thread && frame->vector == 32u) {
-        increment(&timer_preemptions);
+    const struct interrupt_frame initial = {
+        .rip = entry, .rsp = rsp, .rdi = argument,
+        .cs = UTAMO_GDT_USER_CODE_SELECTOR,
+        .ss = UTAMO_GDT_USER_DATA_SELECTOR, .rflags = UINT64_C(0x202)
+    };
+    if (!process_user_return_valid(&initial)) {
+        cpu_irq_restore(flags);
+        return false;
     }
-    return next->frame;
+    struct kernel_thread *const thread = kcalloc(1u, sizeof(*thread));
+    if (thread == NULL) {
+        cpu_irq_restore(flags);
+        return false;
+    }
+    if (!thread_stack_alloc(&thread->stack)) {
+        if (!kfree(thread)) {
+            PANIC("Cannot roll back user thread metadata");
+        }
+        cpu_irq_restore(flags);
+        return false;
+    }
+    if (!thread_frame_init(&thread->stack, entry,
+            (uint64_t)(uintptr_t)cpu_halt, &thread->frame)) {
+        PANIC("Cannot construct protected user return frame");
+    }
+    *thread->frame = initial;
+    thread->process = owner;
+    thread->dynamic = true;
+    memcpy(thread->name, name, strlen(name) + 1u);
+    if (!sched_core_add(&scheduler, &thread->task)) {
+        if (!thread_stack_free(&thread->stack) || !kfree(thread)) {
+            PANIC("Cannot roll back user thread publication");
+        }
+        cpu_irq_restore(flags);
+        return false;
+    }
+    *out_tid = thread->task.id;
+    increment(&threads_created);
+    cpu_irq_restore(flags);
+    return true;
 }
 
 bool thread_create(const char *name, thread_entry_fn entry, void *argument,
@@ -274,8 +433,14 @@ void thread_reap(void)
         }
         struct kernel_thread *const thread = as_thread(task);
         if (!thread->dynamic || !sched_core_remove_zombie(&scheduler, task) ||
-            !thread_stack_free(&thread->stack) || !kfree(thread)) {
+            !thread_stack_free(&thread->stack)) {
             PANIC("Thread reaper invariant");
+        }
+        if (thread->process != NULL) {
+            process_reap(thread->process);
+        }
+        if (!kfree(thread)) {
+            PANIC("Cannot release reaped thread metadata");
         }
         increment(&threads_reaped);
     }
@@ -336,6 +501,8 @@ bool scheduler_get_stats(struct scheduler_stats *out)
         stats.created = threads_created;
         stats.exited = threads_exited;
         stats.reaped = threads_reaped;
+        stats.user_timer_preemptions = user_timer_preemptions;
+        stats.address_space_switches = address_space_switches;
         *out = stats;
     }
     cpu_irq_restore(flags);
