@@ -136,3 +136,24 @@ bool shell_parse_u64_hex(const char *token, uint64_t *value)
     *value = result;
     return true;
 }
+
+
+bool shell_parse_u64_dec(const char *token, uint64_t *value)
+{
+    if (token == NULL || value == NULL || *token == '\0') {
+        return false;
+    }
+    uint64_t result = 0u;
+    for (; *token != '\0'; ++token) {
+        if (*token < '0' || *token > '9') {
+            return false;
+        }
+        const unsigned int digit = (unsigned int)(*token - '0');
+        if (result > (UINT64_MAX - digit) / 10u) {
+            return false;
+        }
+        result = result * 10u + digit;
+    }
+    *value = result;
+    return true;
+}

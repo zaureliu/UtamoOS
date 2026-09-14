@@ -12,6 +12,7 @@
 #include <utamo/memory_selftest.h>
 #include <utamo/pmm.h>
 #include <utamo/pit.h>
+#include <utamo/scheduler.h>
 #include <utamo/serial.h>
 #include <utamo/string.h>
 #include <utamo/version.h>
@@ -44,6 +45,21 @@ static unsigned int query_calls;
 static uint64_t queried_address;
 static uint64_t mock_flags = VMM_PRESENT | VMM_NX;
 static uint64_t mock_page_size = 4096u;
+static bool scheduler_ready = true;
+static bool scheduler_valid = true;
+static bool scheduler_test_passes = true;
+static bool sleep_passes = true;
+static unsigned int scheduler_list_calls;
+static unsigned int scheduler_stats_calls;
+static unsigned int scheduler_test_calls;
+static unsigned int sleep_calls;
+static uint64_t slept_milliseconds;
+static size_t listed_capacity;
+static unsigned int preempt_depth;
+static unsigned int preempt_disables;
+static unsigned int preempt_enables;
+static unsigned int preempt_unbalanced;
+static unsigned int unprotected_direct_io;
 
 static void check(bool condition, const char *expression, unsigned int line)
 {
@@ -75,6 +91,9 @@ void kprintf(const char *format, ...)
 
 bool serial_write_string(const char *text)
 {
+    if (preempt_depth == 0u) {
+        ++unprotected_direct_io;
+    }
     while (*text != '\0' && serial_length + 1u < sizeof(serial_output)) {
         serial_output[serial_length] = *text;
         ++serial_length;
@@ -87,12 +106,18 @@ bool serial_write_string(const char *text)
 void terminal_clear(struct terminal *terminal)
 {
     CHECK(terminal != NULL && terminal->initialized);
+    if (preempt_depth == 0u) {
+        ++unprotected_direct_io;
+    }
     ++clears;
 }
 
 void terminal_putc(struct terminal *terminal, char character)
 {
     CHECK(terminal != NULL && terminal->initialized && character == '\b');
+    if (preempt_depth == 0u) {
+        ++unprotected_direct_io;
+    }
     ++backspaces;
 }
 
@@ -146,6 +171,11 @@ _Noreturn void memory_fault_unmapped(void)
     longjmp(stop_target, 5);
 }
 
+_Noreturn void scheduler_fault_guard(void)
+{
+    longjmp(stop_target, 6);
+}
+
 bool heap_get_stats(struct heap_stats *stats)
 {
     if (!heap_ready) {
@@ -169,6 +199,94 @@ bool heap_selftest(void)
 {
     ++heap_test_calls;
     return heap_test_passes;
+}
+
+void preempt_disable(void)
+{
+    ++preempt_depth;
+    ++preempt_disables;
+}
+
+void preempt_enable(void)
+{
+    ++preempt_enables;
+    if (preempt_depth == 0u) {
+        ++preempt_unbalanced;
+    } else {
+        --preempt_depth;
+    }
+}
+
+const char *sched_state_name(enum sched_state state)
+{
+    switch (state) {
+    case UTAMO_SCHED_RUNNING: return "RUNNING";
+    case UTAMO_SCHED_READY: return "READY";
+    case UTAMO_SCHED_BLOCKED: return "BLOCKED";
+    case UTAMO_SCHED_SLEEPING: return "SLEEPING";
+    case UTAMO_SCHED_ZOMBIE: return "ZOMBIE";
+    default: return "UNKNOWN";
+    }
+}
+
+size_t scheduler_list(struct thread_snapshot *out, size_t capacity)
+{
+    ++scheduler_list_calls;
+    listed_capacity = capacity;
+    static const struct thread_snapshot snapshots[] = {
+        {.id = 0u, .state = UTAMO_SCHED_READY, .name = "idle", .idle = true},
+        {.id = 1u, .state = UTAMO_SCHED_RUNNING, .name = "shell", .current = true},
+        {.id = 42u, .state = UTAMO_SCHED_READY, .name = "worker%s"},
+        {.id = 43u, .state = UTAMO_SCHED_BLOCKED, .name = "waiter"},
+        {.id = 44u, .state = UTAMO_SCHED_SLEEPING, .name = "sleeper"},
+        {.id = 45u, .state = UTAMO_SCHED_ZOMBIE, .name = "retired"}
+    };
+    if (!scheduler_ready || out == NULL) {
+        return 0u;
+    }
+    const size_t available = sizeof(snapshots) / sizeof(snapshots[0]);
+    const size_t count = available < capacity ? available : capacity;
+    memcpy(out, snapshots, count * sizeof(*out));
+    return count;
+}
+
+bool scheduler_get_stats(struct scheduler_stats *out)
+{
+    ++scheduler_stats_calls;
+    if (!scheduler_ready || out == NULL) {
+        return false;
+    }
+    *out = (struct scheduler_stats){
+        .core = {
+            .task_count = 6u, .current_id = 1u, .quantum_ticks = 5u,
+            .ready_count = 1u, .sleeping_count = 1u,
+            .blocked_count = 1u, .zombie_count = 1u,
+            .switches = UINT64_C(4294967297)
+        },
+        .timer_preemptions = 123u, .created = 6u, .exited = 3u, .reaped = 2u
+    };
+    return true;
+}
+
+bool scheduler_validate(void)
+{
+    return scheduler_valid;
+}
+
+bool scheduler_selftest(void)
+{
+    ++scheduler_test_calls;
+    return scheduler_test_passes;
+}
+
+bool thread_sleep_ms(uint64_t milliseconds)
+{
+    ++sleep_calls;
+    slept_milliseconds = milliseconds;
+    if (preempt_depth != 0u) {
+        ++preempt_unbalanced;
+    }
+    return sleep_passes;
 }
 
 bool pmm_get_stats(struct pmm_stats *stats)
@@ -466,6 +584,104 @@ static void test_heap_commands(void)
     CHECK(contains("utamo> "));
 }
 
+static void test_scheduler_commands(void)
+{
+    issue("help\n");
+    CHECK(contains("ps       List kernel thread snapshots"));
+    CHECK(contains("threads  Alias for ps"));
+    CHECK(contains("schedulerstats Scheduler counters"));
+    CHECK(contains("schedtest Bounded scheduler"));
+    CHECK(contains("sleep    Block this thread"));
+
+    issue("ps extra\n");
+    CHECK(contains("Unexpected arguments.") && scheduler_list_calls == 0u);
+    issue("threads extra\n");
+    CHECK(contains("Unexpected arguments.") && scheduler_list_calls == 0u);
+    issue("schedulerstats extra\n");
+    CHECK(contains("Unexpected arguments.") && scheduler_stats_calls == 0u);
+    issue("schedtest extra\n");
+    CHECK(contains("Unexpected arguments.") && scheduler_test_calls == 0u);
+
+    issue("ps\n");
+    CHECK(scheduler_list_calls == 1u && listed_capacity == UTAMO_SCHED_MAX_TASKS);
+    CHECK(contains("TID STATE NAME\n"));
+    CHECK(contains("0 READY idle\n"));
+    CHECK(contains("1 RUNNING shell\n"));
+    CHECK(contains("42 READY worker%s\n"));
+    CHECK(contains("43 BLOCKED waiter\n"));
+    CHECK(contains("44 SLEEPING sleeper\n"));
+    CHECK(contains("45 ZOMBIE retired\n"));
+    issue("threads\n");
+    CHECK(scheduler_list_calls == 2u && contains("TID STATE NAME\n"));
+    CHECK(contains("42 READY worker%s\n") && contains("45 ZOMBIE retired\n"));
+
+    issue("schedulerstats\n");
+    CHECK(contains("Scheduler\nThreads: 6\nCurrent TID: 1\nQuantum ticks: 5"));
+    CHECK(contains("Ready threads: 1\nSleeping threads: 1\nBlocked threads: 1\nZombie threads: 1"));
+    CHECK(contains("Context switches: 4294967297\nTimer preemptions: 123"));
+    CHECK(contains("Threads created: 6\nThreads exited: 3\nThreads reaped: 2"));
+    CHECK(contains("Scheduler integrity: OK"));
+    scheduler_valid = false;
+    issue("schedulerstats\n");
+    CHECK(contains("Scheduler integrity: FAILED") &&
+          !contains("Scheduler integrity: OK"));
+    scheduler_valid = true;
+    scheduler_ready = false;
+    issue("ps\n");
+    CHECK(contains("Scheduler: unavailable") && !contains("TID STATE NAME"));
+    issue("schedulerstats\n");
+    CHECK(contains("Scheduler: unavailable") && !contains("Context switches:"));
+    scheduler_ready = true;
+    issue("schedtest\n");
+    CHECK(scheduler_test_calls == 1u && contains("Scheduler self-test: PASS"));
+    scheduler_test_passes = false;
+    issue("schedtest\n");
+    CHECK(scheduler_test_calls == 2u && contains("Scheduler self-test: FAIL"));
+    CHECK(contains("utamo> "));
+
+    static const char *const invalid[] = {
+        "sleep\n", "sleep -1\n", "sleep +1\n", "sleep 0x10\n",
+        "sleep 1.0\n", "sleep 1ms\n", "sleep 18446744073709551616\n",
+        "sleep 99999999999999999999\n", "sleep 1 extra\n", "sleep 1 2\n"
+    };
+    for (size_t i = 0u; i < sizeof(invalid) / sizeof(invalid[0]); ++i) {
+        issue(invalid[i]);
+        CHECK(contains("Usage: sleep <decimal-ms>") && sleep_calls == 0u);
+        CHECK(!contains("Sleep completed."));
+    }
+    issue("sleep 0\n");
+    CHECK(sleep_calls == 1u && slept_milliseconds == 0u);
+    CHECK(contains("Sleep completed.") && contains("utamo> "));
+    issue("sleep 00123\n");
+    CHECK(sleep_calls == 2u && slept_milliseconds == 123u);
+    CHECK(contains("Sleep completed."));
+    issue("sleep 18446744073709551615\n");
+    CHECK(sleep_calls == 3u && slept_milliseconds == UINT64_MAX);
+    CHECK(contains("Sleep completed."));
+    sleep_passes = false;
+    issue("sleep 50\n");
+    CHECK(sleep_calls == 4u && slept_milliseconds == 50u);
+    CHECK(contains("Sleep failed.") && !contains("Sleep completed."));
+    CHECK(contains("utamo> "));
+}
+
+static void test_direct_output_preemption(void)
+{
+    CHECK(unprotected_direct_io == 0u);
+    CHECK(preempt_depth == 0u && preempt_unbalanced == 0u);
+    CHECK(preempt_disables == 2u && preempt_enables == 2u);
+    /* The shell must restore an already nested nonpreemptible region. */
+    preempt_disable();
+    issue("clear\n");
+    CHECK(preempt_depth == 1u);
+    issue("versiox\bn\n");
+    CHECK(preempt_depth == 1u && contains("UTAMO OS " UTAMO_VERSION));
+    preempt_enable();
+    CHECK(preempt_depth == 0u && preempt_unbalanced == 0u);
+    CHECK(preempt_disables == preempt_enables);
+    CHECK(unprotected_direct_io == 0u);
+}
+
 static void test_stop(const char *command, int expected)
 {
     const int result = setjmp(stop_target);
@@ -491,11 +707,14 @@ int main(void)
     test_commands();
     test_memory_commands();
     test_heap_commands();
+    test_scheduler_commands();
+    test_direct_output_preemption();
     test_stop("halt\n", 1);
     test_stop("fault ud2\n", 2);
     test_stop("fault div0\n", 3);
     test_stop("fault pf\n", 4);
     test_stop("fault vmm\n", 5);
+    test_stop("fault stack\n", 6);
     (void)printf("UTAMO shell command host tests: %u checks, %u failures\n",
                  checks, failures);
     return failures == 0u ? 0 : 1;

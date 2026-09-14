@@ -42,4 +42,10 @@ char *shell_next_token(char **cursor);
  */
 bool shell_parse_u64_hex(const char *token, uint64_t *value);
 
+/* Strict unsigned decimal token, one or more ASCII digits. Leading zeroes are
+ * accepted; no sign, prefix, whitespace or separator. Overflow/invalid input
+ * leaves *value unchanged.
+ */
+bool shell_parse_u64_dec(const char *token, uint64_t *value);
+
 #endif

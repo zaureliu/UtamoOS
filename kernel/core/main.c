@@ -10,6 +10,7 @@
 #include <utamo/pit.h>
 #include <utamo/keyboard.h>
 #include <utamo/shell.h>
+#include <utamo/scheduler.h>
 #include <utamo/interrupts.h>
 #include <utamo/log.h>
 #include <utamo/panic.h>
@@ -87,6 +88,10 @@ _Noreturn void kernel_main(void)
     LOG_OK("PIC initialized");
     pit_init();
     LOG_OK("PIT timer initialized (100 Hz)");
+    if (!scheduler_init()) {
+        PANIC("Cannot initialize kernel scheduler");
+    }
+    LOG_OK("Kernel scheduler initialized (round-robin, 2 ticks)");
     if (!keyboard_init()) {
         PANIC("Cannot initialize PS/2 keyboard");
     }
@@ -98,12 +103,8 @@ _Noreturn void kernel_main(void)
     kprintf("\nUTAMO OS ready.\n\n");
     shell_init(&boot_memory, &boot_terminal);
     for (;;) {
+        thread_reap();
         shell_process_input();
-        cpu_disable_interrupts();
-        if (keyboard_has_pending()) {
-            cpu_enable_interrupts();
-        } else {
-            cpu_wait_interrupt();
-        }
+        scheduler_wait_input();
     }
 }

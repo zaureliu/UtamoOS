@@ -22,6 +22,59 @@ static void check(bool condition, const char *expression, unsigned int line)
 
 #define CHECK(expression) check((expression), #expression, __LINE__)
 
+/* A scheduler can return a frame on a different kernel stack. The Assembly
+ * epilogue consumes that pointer through RAX; a void return loses the contract.
+ * _Generic does not evaluate the function address or require a host dispatcher.
+ */
+_Static_assert(_Generic(&interrupt_dispatch,
+                        struct interrupt_frame *(*)(struct interrupt_frame *): 1,
+                        default: 0),
+               "interrupt dispatcher returns the selected frame");
+
+/* Independent architectural stack slots, as consumed by POPs and IRETQ.
+ * Distinct values expose a reordered GPR even if selected offset asserts pass.
+ */
+static void test_interrupt_frame_slots(void)
+{
+    const uint64_t slots[22] = {
+        UINT64_C(0x1500150015001500), UINT64_C(0x1400140014001400),
+        UINT64_C(0x1300130013001300), UINT64_C(0x1200120012001200),
+        UINT64_C(0x1100110011001100), UINT64_C(0x1000100010001000),
+        UINT64_C(0x0900090009000900), UINT64_C(0x0800080008000800),
+        UINT64_C(0x0700070007000700), UINT64_C(0x0600060006000600),
+        UINT64_C(0x0500050005000500), UINT64_C(0x0400040004000400),
+        UINT64_C(0x0300030003000300), UINT64_C(0x0200020002000200),
+        UINT64_C(0x0100010001000100), UINT64_C(240), UINT64_C(0),
+        UINT64_C(0xffffffff80001230), UINT64_C(8), UINT64_C(0x202),
+        UINT64_C(0xffffc0000200fff8), UINT64_C(16)
+    };
+    struct interrupt_frame frame;
+    CHECK(sizeof(frame) == sizeof(slots));
+    memcpy(&frame, slots, sizeof(frame));
+    CHECK(frame.r15 == slots[0]);
+    CHECK(frame.r14 == slots[1]);
+    CHECK(frame.r13 == slots[2]);
+    CHECK(frame.r12 == slots[3]);
+    CHECK(frame.r11 == slots[4]);
+    CHECK(frame.r10 == slots[5]);
+    CHECK(frame.r9 == slots[6]);
+    CHECK(frame.r8 == slots[7]);
+    CHECK(frame.rbp == slots[8]);
+    CHECK(frame.rdi == slots[9]);
+    CHECK(frame.rsi == slots[10]);
+    CHECK(frame.rdx == slots[11]);
+    CHECK(frame.rcx == slots[12]);
+    CHECK(frame.rbx == slots[13]);
+    CHECK(frame.rax == slots[14]);
+    CHECK(frame.vector == slots[15]);
+    CHECK(frame.error_code == slots[16]);
+    CHECK(frame.rip == slots[17]);
+    CHECK(frame.cs == slots[18]);
+    CHECK(frame.rflags == slots[19]);
+    CHECK(frame.rsp == slots[20]);
+    CHECK(frame.ss == slots[21]);
+}
+
 static void test_idt_layout(void)
 {
     struct idt_gate gate;
@@ -42,6 +95,13 @@ static void test_idt_layout(void)
     CHECK(gate.offset_low == 0u && gate.offset_middle == 0u);
     CHECK(gate.offset_high == 0xffff8000u);
     CHECK(gate.type_attributes == 0x8eu && gate.reserved == 0u);
+    /* The software yield vector uses this same encoder: present DPL0, IST0,
+     * 64-bit interrupt gate, not a user-callable syscall gate or trap gate.
+     */
+    CHECK((gate.type_attributes & 0x80u) != 0u);
+    CHECK((gate.type_attributes & 0x60u) == 0u);
+    CHECK((gate.type_attributes & 0x0fu) == 0x0eu);
+    CHECK(gate.ist == 0u && gate.selector == 0x08u);
     CHECK(idt_gate_encode(&gate, UINT64_MAX, 0x08u, 0u));
     CHECK(gate.offset_low == 0xffffu && gate.offset_middle == 0xffffu);
     CHECK(gate.offset_high == 0xffffffffu);
@@ -215,6 +275,7 @@ static void test_memory_diagnostic_output(void)
 
 int main(void)
 {
+    test_interrupt_frame_slots();
     test_idt_layout();
     test_exception_names();
     test_page_fault_bits();

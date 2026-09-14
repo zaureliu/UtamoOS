@@ -69,10 +69,9 @@ common_entry:
 
     cld                             ; SysV requires DF=0; IRET restores old DF.
     mov rdi, rsp                    ; struct interrupt_frame * argument.
-    mov rbx, rsp                    ; RBX is callee-saved by the SysV C call.
     and rsp, -16                    ; RSP is 16-byte aligned immediately pre-CALL.
     call interrupt_dispatch
-    mov rsp, rbx                    ; Discard only temporary ABI alignment.
+    mov rsp, rax                    ; Dispatcher selects the complete return frame.
 
     pop r15
     pop r14

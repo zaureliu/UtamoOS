@@ -490,10 +490,31 @@ def check_exception(vm, text, kind):
         match = re.search(r"\b" + register + r":\s*0x([0-9a-fA-F]+)", text)
         vm.check(bool(match) and int(match.group(1), 16) == expected,
                  "Exception frame " + register + " has kernel selector " + hex(expected))
-    for register in ("RIP", "RSP"):
-        match = re.search(r"\b" + register + r":\s*0x([0-9a-fA-F]+)", text)
-        vm.check(bool(match) and int(match.group(1), 16) >= 0xffffffff80000000,
-                 "Exception frame " + register + " is a canonical kernel address")
+    rip = re.search(r"\bRIP:\s*0x([0-9a-fA-F]+)", text)
+    vm.check(bool(rip) and 0xffffffff80000000 <= int(rip.group(1), 16) < (1 << 64),
+             "Exception RIP is in the canonical kernel image range")
+    rsp = re.search(r"\bRSP:\s*0x([0-9a-fA-F]+)", text)
+    symbols = {}
+    output = subprocess.check_output(
+        [str(ROOT / "toolchain/prefix/bin/x86_64-elf-nm"), "-n",
+         str(ROOT / "build/utamo-kernel.elf")], text=True)
+    for line in output.splitlines():
+        fields = line.split()
+        if len(fields) == 3:
+            symbols[fields[2]] = int(fields[0], 16)
+    stack_ok = False
+    if rsp:
+        address = int(rsp.group(1), 16)
+        stack_ok = (symbols["bootstrap_stack_bottom"] <= address <=
+                    symbols["bootstrap_stack_top"])
+        # v0.4 owns 64 guarded stacks, each 4 KiB guard + 64 KiB payload.
+        # Earlier exception probes ran only on the ELF bootstrap stack.
+        if "scheduler_on_interrupt" in symbols:
+            base = 0xffffc00040000000
+            stack_ok = stack_ok or any(
+                base + slot * 69632 + 4096 <= address <= base + (slot + 1) * 69632
+                for slot in range(64))
+    vm.check(stack_ok, "Exception RSP belongs to bootstrap or a guarded thread stack")
     if kind == "pf":
         address = re.search(r"(?:Fault )?address:\s*0x([0-9a-fA-F]+)", text, re.I)
         vm.check(bool(address) and int(address.group(1), 16) == 0x00007ffffffff000,

@@ -10,6 +10,7 @@
 #include <utamo/memory_selftest.h>
 #include <utamo/pmm.h>
 #include <utamo/pit.h>
+#include <utamo/scheduler.h>
 #include <utamo/serial.h>
 #include <utamo/shell_line.h>
 #include <utamo/string.h>
@@ -144,6 +145,66 @@ static void show_heap(void)
             (const char *)(heap_validate() ? "OK" : "FAILED"));
 }
 
+static void show_threads(void)
+{
+    struct thread_snapshot threads[UTAMO_SCHED_MAX_TASKS];
+    const size_t count = scheduler_list(threads, UTAMO_SCHED_MAX_TASKS);
+    if (count == 0u) {
+        kprintf("Scheduler: unavailable\n");
+        return;
+    }
+    kprintf("TID STATE NAME\n");
+    for (size_t i = 0u; i < count; ++i) {
+        kprintf("%llu %s %s\n", (unsigned long long)threads[i].id,
+                sched_state_name(threads[i].state),
+                (const char *)threads[i].name);
+    }
+}
+
+static void show_scheduler(void)
+{
+    struct scheduler_stats stats;
+    if (!scheduler_get_stats(&stats)) {
+        kprintf("Scheduler: unavailable\n");
+        return;
+    }
+    kprintf("Scheduler\nThreads: %llu\nCurrent TID: %llu\nQuantum ticks: %u\n",
+            (unsigned long long)stats.core.task_count,
+            (unsigned long long)stats.core.current_id,
+            (unsigned int)stats.core.quantum_ticks);
+    kprintf("Ready threads: %llu\nSleeping threads: %llu\nBlocked threads: %llu\nZombie threads: %llu\n",
+            (unsigned long long)stats.core.ready_count,
+            (unsigned long long)stats.core.sleeping_count,
+            (unsigned long long)stats.core.blocked_count,
+            (unsigned long long)stats.core.zombie_count);
+    kprintf("Context switches: %llu\nTimer preemptions: %llu\n",
+            (unsigned long long)stats.core.switches,
+            (unsigned long long)stats.timer_preemptions);
+    kprintf("Threads created: %llu\nThreads exited: %llu\nThreads reaped: %llu\n",
+            (unsigned long long)stats.created,
+            (unsigned long long)stats.exited,
+            (unsigned long long)stats.reaped);
+    kprintf("Scheduler integrity: %s\n",
+            (const char *)(scheduler_validate() ? "OK" : "FAILED"));
+}
+
+static void run_sleep(char *arguments)
+{
+    char *cursor = arguments;
+    const char *token = shell_next_token(&cursor);
+    uint64_t milliseconds;
+    if (token == NULL || shell_next_token(&cursor) != NULL ||
+        !shell_parse_u64_dec(token, &milliseconds)) {
+        kprintf("Usage: sleep <decimal-ms>\n");
+        return;
+    }
+    if (!thread_sleep_ms(milliseconds)) {
+        kprintf("Sleep failed.\n");
+        return;
+    }
+    kprintf("Sleep completed.\n");
+}
+
 static void show_memory(void)
 {
     kprintf("Memory map entries: %llu\nUsable memory: %llu MiB (%llu bytes)\n",
@@ -178,7 +239,7 @@ static void run_fault(char *arguments)
     char *cursor = arguments;
     const char *kind = shell_next_token(&cursor);
     if (kind == NULL || shell_next_token(&cursor) != NULL) {
-        kprintf("Usage: fault ud2|div0|pf|vmm (fatal; restart QEMU afterwards)\n");
+        kprintf("Usage: fault ud2|div0|pf|vmm|stack (fatal; restart QEMU afterwards)\n");
         return;
     }
     if (strcmp(kind, "ud2") == 0) {
@@ -187,10 +248,12 @@ static void run_fault(char *arguments)
         exception_fault_div0();
     } else if (strcmp(kind, "pf") == 0) {
         exception_fault_page();
+    } else if (strcmp(kind, "stack") == 0) {
+        scheduler_fault_guard();
     } else if (strcmp(kind, "vmm") == 0) {
         memory_fault_unmapped();
     } else {
-        kprintf("Usage: fault ud2|div0|pf|vmm (fatal; restart QEMU afterwards)\n");
+        kprintf("Usage: fault ud2|div0|pf|vmm|stack (fatal; restart QEMU afterwards)\n");
     }
 }
 
@@ -213,6 +276,10 @@ static void execute_line(void)
         show_mapping(command.arguments);
         return;
     }
+    if (strcmp(name, "sleep") == 0) {
+        run_sleep(command.arguments);
+        return;
+    }
     if (*command.arguments != '\0') {
         kprintf("Unexpected arguments. Type help.\n");
         return;
@@ -230,14 +297,21 @@ static void execute_line(void)
         kprintf("vmmtest  Bounded virtual mapping self-test\n");
         kprintf("heap     Kernel heap accounting and integrity\n");
         kprintf("heaptest Bounded deterministic heap stress\n");
+        kprintf("ps       List kernel thread snapshots\n");
+        kprintf("threads  Alias for ps\n");
+        kprintf("schedulerstats Scheduler counters and integrity\n");
+        kprintf("schedtest Bounded scheduler self-test\n");
+        kprintf("sleep    Block this thread for decimal milliseconds\n");
         kprintf("uptime   PIT uptime and ticks\n");
         kprintf("echo     Repeat following text\n");
         kprintf("halt     Disable interrupts and stop CPU\n");
-        kprintf("fault    ud2, div0 or pf; vmm: unmapped test page (fatal)\n");
+        kprintf("fault    ud2, div0 or pf; vmm or stack: guard/unmapped page (fatal)\n");
     } else if (strcmp(name, "clear") == 0) {
+        preempt_disable();
         terminal_clear(system_terminal);
         /* ANSI is for the external serial terminal, not the bitmap renderer. */
         (void)serial_write_string("\x1b[2J\x1b[H");
+        preempt_enable();
     } else if (strcmp(name, "version") == 0) {
         kprintf("UTAMO OS %s\n", (const char *)UTAMO_VERSION);
     } else if (strcmp(name, "sysinfo") == 0) {
@@ -259,6 +333,13 @@ static void execute_line(void)
     } else if (strcmp(name, "heaptest") == 0) {
         kprintf("Heap self-test: %s\n",
                 (const char *)(heap_selftest() ? "PASS" : "FAIL"));
+    } else if (strcmp(name, "ps") == 0 || strcmp(name, "threads") == 0) {
+        show_threads();
+    } else if (strcmp(name, "schedulerstats") == 0) {
+        show_scheduler();
+    } else if (strcmp(name, "schedtest") == 0) {
+        kprintf("Scheduler self-test: %s\n",
+                (const char *)(scheduler_selftest() ? "PASS" : "FAIL"));
     } else if (strcmp(name, "uptime") == 0) {
         const uint64_t ticks = pit_get_ticks();
         const uint64_t seconds = pit_ticks_to_seconds(ticks);
@@ -286,8 +367,10 @@ void shell_process_input(void)
         if (action == UTAMO_SHELL_APPENDED) {
             kprintf("%c", (int)input_line.bytes[input_line.length - 1u]);
         } else if (action == UTAMO_SHELL_ERASED) {
+            preempt_disable();
             terminal_putc(system_terminal, '\b');
             (void)serial_write_string("\b \b");
+            preempt_enable();
         } else if (action == UTAMO_SHELL_SUBMITTED) {
             kprintf("\n");
             execute_line();

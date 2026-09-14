@@ -66,7 +66,7 @@ void exception_format_memory(format_emit_fn emit, void *context,
 /* Bootstrap registration, IF=0; term must outlive all handlers. NULL allowed. */
 void exception_set_terminal(struct terminal *term);
 /* Assembly entry point for every interrupt; no logging in IRQ drivers. */
-void interrupt_dispatch(struct interrupt_frame *frame);
+struct interrupt_frame *interrupt_dispatch(struct interrupt_frame *frame);
 
 /* Debug probes only, NEVER called during normal boot. Halt via exception IDT. */
 _Noreturn void exception_fault_ud2(void);

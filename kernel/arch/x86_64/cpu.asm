@@ -1,6 +1,11 @@
 ; SPDX-License-Identifier: MIT
 bits 64
 section .text
+global thread_yield_trap
+thread_yield_trap:
+    int 240                         ; DPL0 scheduling gate; caller holds IF=0.
+    ret
+
 global cpu_disable_interrupts
 global cpu_halt
 global cpu_enable_interrupts

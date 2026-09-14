@@ -61,6 +61,7 @@ names = data[strings[4]:strings[4] + strings[5]]
 request_found = False
 symbols = []
 named_symbols = {}
+symbol_bindings = {}
 named_sections = {}
 
 
@@ -105,6 +106,7 @@ for section in sections:
             symbol_name = string_at(symbol_names, symbol[0])
             if symbol_name:
                 named_symbols[symbol_name] = symbol[4]
+                symbol_bindings[symbol_name] = symbol[1] >> 4
 check(request_found and len(symbols) > 0, "requests and symbols present")
 
 
@@ -171,6 +173,8 @@ stub_checks = checks - stub_checks_start
 # The sequence below is the actual ABI contract of interrupt_frame. Separate
 # assertions give useful diagnostics if a future edit mismatches offsets,
 # register order, the ABI call alignment or the five-slot hardware return.
+# The dispatcher returns the selected frame in RAX. Its stack may differ from
+# the interrupted thread's stack; a callee-saved anchor must not override it.
 abi_checks_start = checks
 cursor = common
 
@@ -193,14 +197,13 @@ for register, encoded in register_pushes:
     expect_bytes(encoded, "common: saves " + register)
 expect_bytes("fc", "common: clears DF before C")
 expect_bytes("48 89 e7", "common: RDI points to saved frame")
-expect_bytes("48 89 e3", "common: callee-saved RBX holds original frame")
 expect_bytes("48 83 e4 f0", "common: RSP aligned to 16 bytes before CALL")
 call = executable_bytes(cursor, 5)
 check(call[0] == 0xe8, "common: near relative CALL")
 check(cursor + 5 + struct.unpack_from("<i", call, 1)[0] ==
       symbol_address("interrupt_dispatch"), "common: C dispatcher target")
 cursor += 5
-expect_bytes("48 89 dc", "common: restores RSP from frame anchor")
+expect_bytes("48 89 c4", "common: adopts dispatcher-selected frame from RAX")
 register_pops = [
     ("r15", "41 5f"), ("r14", "41 5e"), ("r13", "41 5d"),
     ("r12", "41 5c"), ("r11", "41 5b"), ("r10", "41 5a"),
@@ -214,9 +217,42 @@ expect_bytes("48 83 c4 10", "common: discards vector/error slots only")
 expect_bytes("48 cf", "common: 64-bit IRETQ restores hardware frame")
 check(executable_bytes(symbol_address("idt_load"), 4) ==
       bytes.fromhex("0f 01 1f c3"), "IDT loader executes LIDT [RDI], RET")
+# INT imm8 uses an unsigned vector byte, unlike the sign-extended PUSH imm8
+# checked above. Vector 240 is a kernel scheduling trap, outside PIC 32..47.
+# The corresponding stub is already checked among all 256 vectors. Gate DPL0
+# is covered by the IDT encoder host checks and live IDT validation.
+yield_vector = 240
+check(yield_vector not in error_vectors and yield_vector >= 48,
+      "yield vector has a synthetic error slot and does not overlap PIC")
+check(executable_bytes(symbol_address("thread_yield_trap"), 3) ==
+      bytes((0xcd, yield_vector, 0xc3)),
+      "kernel yield trap emits INT 240, RET")
+# The bootstrap thread adopts the boot stack; scheduler ownership must refer
+# to the same entire static span that _start actually installs in RSP.
+bootstrap_bottom = symbol_address("bootstrap_stack_bottom")
+bootstrap_top = symbol_address("bootstrap_stack_top")
+for name in ("bootstrap_stack_bottom", "bootstrap_stack_top"):
+    check(symbol_bindings.get(name) == 1, "exported bootstrap stack bound: " + name)
+check(bootstrap_top - bootstrap_bottom == 65536,
+      "bootstrap stack retains its full 64 KiB extent")
+check(bootstrap_bottom % 16 == 0 and bootstrap_top % 16 == 0,
+      "bootstrap stack bounds preserve SysV alignment")
+bss = named_sections[".bss"]
+check(bss[1] == 8 and bss[3] <= bootstrap_bottom < bootstrap_top <= bss[3] + bss[5],
+      "bootstrap stack is entirely zero-filled BSS")
+check(any(start <= bootstrap_bottom < bootstrap_top <= end and flags == 6
+          for start, end, flags in loads),
+      "bootstrap stack is in writable non-executable LOAD")
+boot_entry = executable_bytes(entry, 13)
+check(boot_entry[:5] == bytes.fromhex("fa fc 48 8d 25"),
+      "boot disables interrupts, clears DF and loads RSP with RIP-relative LEA")
+check(entry + 9 + struct.unpack_from("<i", boot_entry, 5)[0] == bootstrap_top,
+      "boot installs the exported bootstrap stack top")
+check(boot_entry[9:13] == bytes.fromhex("48 83 e4 f0"),
+      "boot aligns the adopted stack before entering C")
 abi_checks = checks - abi_checks_start
 
-# Memory v0.2 retains four LOADs and the existing interrupt ABI.
+# Memory v0.2 retains four LOADs and the 176-byte interrupt frame layout.
 memory_checks_start = checks
 for name in ("__kernel_start", "__kernel_end", "__text_start", "__text_end",
              "__rodata_start", "__rodata_end", "__data_start", "__data_end",

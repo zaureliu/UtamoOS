@@ -30,6 +30,7 @@ HARNESS = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(HARNESS)
 TEST_BASE = 0xffffc00000000000
 OLD_FAULT = 0x00007ffffffff000
+STACK_GUARD = 0xffffc00040000000
 PAGE_SIZE = 4096
 VMM_NX = 1 << 63
 
@@ -256,7 +257,7 @@ def suite(vm, symbols):
 def fault(vm, kind):
     vm.wait_for(HARNESS.PROMPT)
     start = 0
-    if kind in ("vmm", "pf"):
+    if kind in ("vmm", "pf", "stack"):
         start = len(vm.serial())
         vm.type_text("fault " + kind + "\n")
     vm.wait_for("UTAMO OS KERNEL EXCEPTION", start)
@@ -267,8 +268,9 @@ def fault(vm, kind):
     vector = number(vm, text, "Vector:", "Fault report")
     error = number(vm, text, "Error:", "Fault report", True)
     address = number(vm, text, "Fault address:", "Fault report", True)
-    expected_error = {"vmm": 2, "ro": 3, "nx": 17, "pf": 2}[kind]
-    expected_address = OLD_FAULT if kind == "pf" else TEST_BASE
+    expected_error = {"vmm": 2, "ro": 3, "nx": 17, "pf": 2, "stack": 2}[kind]
+    expected_address = (OLD_FAULT if kind == "pf" else
+                        STACK_GUARD if kind == "stack" else TEST_BASE)
     vm.check("Exception: Page Fault" in text and vector == 14,
              "Controlled memory access reaches the page-fault handler")
     vm.check(error == expected_error, "Page-fault error code matches " + kind,
@@ -317,7 +319,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--suite", action="store_true")
-    mode.add_argument("--fault", choices=("vmm", "ro", "nx", "pf"))
+    mode.add_argument("--fault", choices=("vmm", "ro", "nx", "pf", "stack"))
     parser.add_argument("--name", required=True)
     parser.add_argument("--iso", type=HARNESS.project_path)
     parser.add_argument("--qemu", default="qemu-system-x86_64")

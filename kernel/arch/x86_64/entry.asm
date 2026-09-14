@@ -4,6 +4,8 @@ default rel
 
 section .text
 global _start
+global bootstrap_stack_bottom
+global bootstrap_stack_top
 extern kernel_main
 extern cpu_halt
 
