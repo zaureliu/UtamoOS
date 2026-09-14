@@ -1,20 +1,15 @@
 # Scripts do UTAMO OS
 
-Os scripts usam as ferramentas existentes em Linux/WSL2 Ubuntu e trabalham
-a partir da raiz do checkout. Não instalam pacotes, não atualizam a toolchain nem
-dependências externas e não alteram configurações globais.
+Os scripts usam ferramentas existentes em Linux/WSL2 e operam dentro do checkout.
+Não instalam pacotes nem alteram toolchain, dependências ou configuração global.
+Kernel/ISO devem estar construídos antes de iniciar testes de VM.
 
 ## make-iso.sh
 
-`make iso` chama explicitamente Bash para gerar uma ISO híbrida BIOS/UEFI
-em `build/`, a partir do ELF e do checkout local fixado de Limine. O script
-prepara `build/iso_root`, copia assets e chama `limine bios-install` sobre
-o arquivo temporário da ISO. Não escreve em um disco físico.
-
-A criação da ISO já foi executada nos marcos incrementais; o resultado e o
-hash da imagem final constam no
-[relatório da implementação](../docs/v0.1-implementation-report.md).
-Gerar uma ISO híbrida não comprova boot sob ambos os firmwares.
+`make iso` chama Bash e gera `build/utamo-os-<versão>.iso`, derivando a versão
+do header central. Copia o ELF e assets locais do Limine fixado, prepara a árvore
+ISO e aplica `limine bios-install` somente à imagem temporária.
+Não grava discos físicos. Assets BIOS/UEFI na ISO não comprovam execução UEFI.
 
 ## inspect-elf.py
 
@@ -22,66 +17,106 @@ Gerar uma ISO híbrida não comprova boot sob ambos os firmwares.
 python3 scripts/inspect-elf.py
 ~~~
 
-Usa apenas a biblioteca padrão Python para inspecionar
-`build/utamo-kernel.elf`; um argumento posicional permite outro ELF.
-Confere ELF64 x86-64 estático, limites das tabelas/seções, mapeamento
-higher-half, permissões, requests Limine, símbolos e ausência de dependências
-dinâmicas. Também verifica os bytes ligados dos 256 stubs/tabela relativa e
-a convenção Assembly/C de entrada/retorno das interrupções.
-
-A saída informa o número de checks e o processo falha no primeiro contrato
-violado. Essa inspeção faz parte de `make inspect` e complementa os testes de execução;
-não carrega GDT/IDT nem executa instruções privilegiadas.
+Biblioteca padrão Python, sem dependências adicionais.
+Inspeciona `build/utamo-kernel.elf`, ou outro ELF passado como argumento.
+Confere ELF64 estático x86-64, segmentos higher half, seções/permissões,
+requests Limine, símbolos e ausência de dependências dinâmicas.
+Também examina os bytes ligados de stubs/tabela relativa e convenção Assembly/C.
+Está integrado em `make inspect`; falha no contrato violado e informa checks.
+Inspeção estática não executa CR3, LGDT/LIDT, INVLPG ou IRETQ.
 
 ## test-qemu.py
 
-Todos os modos usam `-display none`, q35/TCG, um core, 256 MiB e nenhuma
-rede. O script usa biblioteca padrão Python, QEMU e, para leituras/probes,
-o GDB já instalado. Não compila nem gera a ISO automaticamente.
-
 ~~~sh
-python3 scripts/test-qemu.py --marker "utamo> " --name final-boot \
+python3 scripts/test-qemu.py --marker "utamo> " --name boot-v02 \
     --check-gdt --check-idt --check-timer
-python3 scripts/test-qemu.py --marker "utamo> " --name final-ud2 \
+python3 scripts/test-qemu.py --marker "utamo> " --name ud2-v02 \
     --check-gdt --check-idt --probe exception_fault_ud2 \
     --probe-at cpu_wait_interrupt --debug
 ~~~
 
-Execute sequencialmente. `--name` é obrigatório e deve ser novo para cada
-execução; a pasta existente é recusada. Se houver exatamente uma ISO UTAMO
-em `build/`, ela é selecionada; caso contrário, informe `--iso`.
-O timeout padrão é 90 segundos, ajustável com `--timeout`.
-A trava local serializa o harness e a inspeção de `/proc` recusa outro
-QEMU existente. Somente o subprocesso criado pelo script é encerrado e
-recolhido em `finally`, também após erro ou timeout.
+Todos os modos são headless (`-display none`), q35/TCG, um core e sem rede.
+Usa biblioteca padrão Python, QEMU e GDB existente quando necessário.
+O timeout padrão é 90 segundos. `--name` é obrigatório e novo;
+uma pasta de evidência existente é recusada.
+Se houver mais de uma ISO em build, indique `--iso`.
 
-| Opção | Observação |
+| Opção | Contrato |
 | --- | --- |
-| `--marker` | Espera um texto real da serial |
-| `--check-gdt` / `--check-idt` | Inspeciona selectors, GDTR e IDTR por HMP/QMP |
-| `--check-timer` | GDB lê `ticks` duas vezes com execução da VM entre leituras |
-| `--probe` | Executa explicitamente UD2/div0/page fault por redirecionamento GDB antes de HLT |
-| `--probe-at` | Símbolo do breakpoint; usar `cpu_wait_interrupt` na imagem final |
-| `--debug` | Salva log QEMU de interrupções, resets e guest errors |
-| `--gdb-port` / `--hold` | Janela limitada para inspeção externa; endpoint somente loopback |
-| `--suite` / `--fault` | Entrada por QMP no PS/2 emulado; preparados; não incluídos na validação automatizada registrada |
-| `--capture-framebuffer` | Captura headless opcional; não executada para afirmar validação visual |
+| `--marker` | Aguarda texto observado na serial |
+| `--check-gdt` / `--check-idt` | Lê selectors/GDTR/IDTR por HMP/QMP |
+| `--check-timer` | Lê ticks por GDB em dois momentos de execução |
+| `--probe` / `--probe-at` | Redireciona execução por GDB antes de HLT para probe explícito |
+| `--suite` / `--fault` | Entrada QMP no teclado PS/2 emulado |
+| `--debug` | Guarda log interno QEMU de IRQ, resets e erros |
+| `--capture-framebuffer` | Captura opcional, separada da leitura serial |
+| `--gdb-port` / `--hold` | Inspeção externa limitada com endpoint loopback |
 
-No boot anterior à introdução do shell, o breakpoint de probe era
-`cpu_halt`. Após HLT, apenas alterar RIP não acordou a CPU no QEMU usado;
-por isso o modo de probe inicia com `-S` e para por hardware antes de HLT.
-Não há código de auto-fault adicionado ao boot normal.
+A validação automatizada histórica v0.1 não usou teclado QMP/capturas;
+o aceite gráfico daquela release veio do usuário.
+Na sessão v0.2, teclado QMP foi autorizado para a suíte de memória.
+Uma captura só pode ser chamada de validação visual se foi executada e analisada.
 
-Os comandos de teclado e capturas permanecem disponíveis para uma sessão
-futura escolhida pelo usuário. A validação automatizada registrada não os executou nem abriu uma janela
-gráfica. O aceite manual em QEMU/VNC foi confirmado separadamente pelo usuário. Inicialização PS/2 bem-sucedida e testes host de parser
-não substituem evidência de IRQ1/digitação real.
+## test-memory-qemu.py
 
-As evidências ficam em `build/validation/<name>/`. O JSON registra checks,
-revisão/status Git, hashes do ELF/ISO, versão/argumentos do QEMU e confirmação
-de processo recolhido; serial e arquivos GDB/HMP permitem revisar a execução.
-`make clean` remove esse diretório. Registre os resultados antes de limpar
-e mantenha os artefatos finais para revisão.
+~~~sh
+python3 scripts/test-memory-qemu.py --suite --name memory-v02 --timeout 180
+python3 scripts/test-memory-qemu.py --fault vmm --name unmapped-v02
+python3 scripts/test-memory-qemu.py --fault ro --name readonly-v02
+python3 scripts/test-memory-qemu.py --fault nx --name nx-v02
+python3 scripts/test-memory-qemu.py --fault pf --name legacy-pf-v02
+~~~
 
-Veja [debugging](../docs/debugging.md) para as instruções de sessão e
-[testes](../tests/README.md) para os limites de cada camada de validação.
+Reutiliza o harness anterior para controlar a VM, enviar teclado QMP e colher
+evidências. Não gera ISO, não altera o kernel e não abre janela gráfica.
+Lê símbolos do ELF com o nm da toolchain local.
+Os modos `--suite` e `--fault` são mutuamente exclusivos.
+
+A suíte lê PMM/VMM, consulta mappings de seções e HHDM, observa CR0/CR3/CR4/EFER,
+repete selftests e compara a contabilidade antes/depois.
+Verifica custo inicial de tabelas fixadas e reutilização nas repetições,
+proteção do texto, PIT ativo, comandos básicos, Backspace/Shift, clear e halt.
+Os probes vmm/pf entram pelo shell; RO/NX entram pelo breakpoint GDB antes de HLT.
+Verificam CR2, error code, registradores, flags e snapshot VMM sem alocação.
+
+`--ram` (padrão 256M) e `--cpu` (qemu64) parametrizam a VM.
+A suíte espera NX habilitado por padrão. Para testar o fallback em CPU sem NX,
+combine `--cpu qemu64,-nx --expect-nx off`; o harness verifica suporte/NXE
+desabilitados e ausência de flags NX, mantendo os demais checks.
+Esse cenário não demonstra proteção de execução. `--version` fixa o semver esperado, ou lê version.h; o mesmo contrato vale
+para o harness original test-qemu.py.
+`--timeout` tem padrão 180 segundos e máximo 600.
+O harness não solicita capturas de framebuffer.
+
+## Evidência e ciclo de vida
+
+Execute uma VM por vez. Lock local e verificação de processos evitam
+sobreposição; somente o processo criado é encerrado/recolhido em finally,
+também após falha ou timeout. Um processo externo não deve ser encerrado
+apenas para liberar o teste.
+
+Resultados ficam em `build/validation/<name>/`: report.json, serial,
+registros HMP/GDB e logs adicionais. O relatório contém horários, Git,
+hashes ELF/ISO, configuração QEMU, checks e confirmação de cleanup.
+Resultados pertencem à imagem identificada por esses hashes.
+`make clean` remove build e seus relatórios; preserve evidências necessárias
+no projeto antes de limpar.
+
+Os roteiros completos estão em [debugging](../docs/debugging.md), contratos
+em [memory-management](../docs/memory-management.md) e cobertura em
+[tests/README](../tests/README.md).
+
+## v0.6 candidate tools
+
+- make-initramfs.py packages native ELF programs as deterministic uncompressed newc.
+- inspect-userspace.py independently inspects the linked entry, LOAD permissions,
+  file bounds, BSS and absence of undefined symbols; included in make inspect.
+- test-filesystem-qemu.py reuses the sequential bounded VM owner and records
+  module/ELF hashes, actual CPL3 observation, file operations, malicious buffers
+  and repeated process cleanup. Run with --suite, a unique --name and optional
+  --ram/--cpu/--expect-nx. It never requests a graphical display.
+
+The process suite now distinguishes the four real ELF startup processes from
+embedded probes: normal startup still executes no probe selftests. The previous
+unknown-syscall fixture moved its number from 6 to 14 because 6 is now OPEN;
+all original error/preservation assertions remain.

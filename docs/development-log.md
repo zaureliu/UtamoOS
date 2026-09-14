@@ -1,5 +1,125 @@
 # Development log
 
+## 2026-09-14 — campanha Astra: v0.3 e v0.4 GREEN
+
+### D016 — heap sobre PMM/VMM preservados
+
+O gate v0.3 passou 18.994 host, 1.482 ELF e 3.203 QEMU: 23.679 checks,
+zero falhas, 14 VMs recolhidas. Heap próprio oferece alinhamento 16,
+split/coalesce, calloc/realloc, crescimento e rollback, sem decommit.
+O marco e seus artefatos permanecem congelados; ver [registro v0.3](validation-astra-v0.3.json).
+
+### D017 — threads, preempção e retorno de frame
+
+A v0.4 preserva o frame de 176 bytes e usa o retorno em RAX do dispatcher
+para selecionar a stack restaurada por IRETQ. INT240 é DPL0, IRQ0 agenda
+depois do EOI, quantum é 2 ticks e shell bloqueia aguardando IRQ1.
+Threads têm stack de 64 KiB com guard inferior; zombies são liberados em
+outra thread. Bootstrap/idle TCBs são estáticos. [Contratos](scheduler.md).
+
+O selftest passou com 77 criações/exits/reaps, 3.105 operações determinísticas,
+mais de 4.000 trocas e preempção real por execução. A etapa de CPU sem yield
+registra iterações separadas. O worker adicional de nesting não executa antes
+de ambos os enables. Nome/cópia são protegidos por IF; saída fatal independe
+do scheduler. Fault stack exercita o diagnóstico da guard page.
+
+### D018 — gate em duas fases e granularidade de checks
+
+Build limpo final: 22.794 checks host, 1.563 ELF/ABI, kernel e ISO aprovados.
+A matriz candidata manteve stamp 0.3.0: 6.081 checks QEMU/15 VMs, incluindo
+64/256/512 MiB, CPU sem NX, regressões de memória/heap/shell e exceções.
+O stamp 0.4.0 passou depois boot, suíte do scheduler e fault stack:
+1.243 checks/3 VMs. Todas as 18 VMs foram recolhidas; soma registrada
+31.681 checks sem falhas, contando host/ELF finais apenas uma vez.
+
+A comparação mostrou `.text`, `.data` e `.limine_requests` idênticos;
+`.rodata` mudou somente um byte de versão. A matriz RAM/NX não foi repetida
+integralmente após o stamp. Commit GREEN:
+`7e07719f2207fca29de4c7bafcaa296d2dd30b8a`.
+[Registro v0.4](validation-astra-v0.4.json) e
+`validation-artifacts/astra-v04-final-20260914T084853Z/summary.json`.
+
+Somente fixtures novas de stack agregaram observações de callbacks/páginas
+por cenário: 137.325 passaram a 1.096 checks, preservando casos e bytes.
+As 14 suítes host da v0.3 continuam presentes. Contagens não medem casos
+únicos ou cobertura. O histórico anterior abaixo não foi reescrito.
+Próximo marco: planejamento v0.5, Ring 3/processos/syscalls. Não houve tag,
+push ou merge da campanha; aceite visual/UEFI/hardware permanece separado.
+
+## 2026-09-14 — evolução v0.2: gerenciamento de memória
+
+Desenvolvimento em v0.2-dev sobre o baseline v0.1.0. PMM/VMM, HHDM,
+permissões, diagnóstico e testes evoluem o kernel existente; heap, scheduler,
+userspace, APIC e SMP permanecem fora do escopo.
+Os registros históricos abaixo são preservados.
+
+### D012 — reservas e dois bitmaps dinâmicos
+
+O maior fim de USABLE dimensiona elegibilidade/ocupação dos frames de 4 KiB.
+First-fit escolhe storage alinhado em USABLE; página zero/metadados são
+reservados. Next-fit oferece alocação contígua, free/reserve validam ranges
+inteiros e pin converte tabelas em reservas permanentes.
+
+HHDM/executable address usam requests revision 0, mantendo base revision 3.
+Conversões puras aceitam somente os quatro tipos previstos pelo direct map.
+O boot confere a árvore inteira herdada como BOOTLOADER_RECLAIMABLE antes
+de escrever bitmaps. Bootloader e ACPI não são recuperados.
+
+### D013 — CR3 preservado e publicação controlada
+
+Slot PML4 384 começa vazio. Queries leem folhas de 4 KiB/2 MiB/1 GiB;
+mutações públicas só usam 4 KiB na arena própria e frames PMM alocados.
+Ramos são zerados fora da árvore; falha devolve frames temporários, sucesso
+publica via release e fixa tabelas. Unmap não libera dados.
+Tabelas vazias permanecem disponíveis para reúso.
+
+### D014 — proteção e diagnóstico com limites explícitos
+
+MAXPHYADDR via CPUID, quatro níveis com LA57 rejeitado, NX via CPUID/EFER
+e WP habilitado. RX/RO-NX/RW-NX protegem o mapping principal quando
+compatível. Aliases HHDM limitam essa política: não há W^X global.
+Page faults mantêm o dump serial original completo antes do snapshot VMM
+sem alocação; probes unmapped/RO/NX nunca rodam automaticamente no boot.
+
+### D015 — selftests e matriz v0.2
+
+Shell ganhou pmm/vmm/mapinfo/pmmtest/vmmtest/fault vmm.
+Stress PMM usa 64 frames e intervalo contíguo; VMM usa 16 páginas através
+de fronteira de 2 MiB, accounting e reutilização das tabelas.
+Testes host separam lógica pura de hardware.
+
+O usuário autorizou entrada QMP no PS/2 emulado nesta sessão headless.
+Após o build limpo da versão 0.2.0, a matriz final observou:
+
+| Camada | Checks | Falhas |
+| --- | ---: | ---: |
+| Host | 11224 | 0 |
+| ELF/ABI | 1439 | 0 |
+| QEMU headless | 1550 | 0 |
+| Total | 14213 | 0 |
+
+As 13 VMs foram sequenciais, todas aprovadas e recolhidas: boot (9),
+suítes de memória em 64/256/512 MiB (301 cada), CPU sem NX em 64 MiB (301),
+fault vmm/ro/nx/pf (43/48/48/43), UD2/div0 (37/34),
+suíte original do shell (38) e PF do harness original (46).
+Nenhuma VM permaneceu rodando.
+
+O harness original ainda esperava o banner 0.1.0 fixo; foi corrigido para
+--version opcional com default no header central, preservando seus checks.
+A suíte original e o PF original foram executados novamente na imagem 0.2.0.
+
+No boot final de 256 MiB, antes de selftests: 65027 frames gerenciados,
+65023 livres, bitmaps em 0x53000 ocupando 16384 bytes, raiz CR3 em 0xff4c000,
+NX habilitado e 10 visitas às tabelas herdadas. São valores daquela VM,
+não constantes exigidas pelo kernel. Os quatro frames usados nessa contagem
+inicial correspondem ao storage dos bitmaps.
+
+[Relatório final v0.2](v0.2-implementation-report.md) e
+[índice de evidências](validation-v0.2.json) identificam comandos, hashes e
+artefatos. Não se atribui teclado físico ou validação gráfica à saída serial;
+UEFI e hardware real continuam sem validação específica desta imagem.
+Próximo milestone: v0.3, kernel heap.
+
 ## 2026-09-14 — aceite manual e preparação da release v0.1.0
 
 O usuário confirmou que os testes manuais passaram no QEMU/VNC: teclado PS/2,
@@ -211,3 +331,12 @@ Validation commands actually executed:
 Observed result / exit code / artifact paths:
 Pending validation:
 ```
+
+## Astra v0.6 — 2026-09-14
+
+Retomada na branch existente astra-campaign. A v0.5 já estava aprovada em
+4f303c8; a documentação pendente foi preservada em 4c0ad97. Nenhum marco anterior
+foi reimplementado. VFS/newc/ELF em e802940; integração em 3190609; stamp em
+c5b2a91. Gate: 39.528 checks, 26 VMs aprovadas/recolhidas, uma tentativa histórica
+de harness corrigida/preservada. Hashes em validation-astra-v0.6.json.
+O próximo marco é PCI/AHCI/FAT32 somente leitura.

@@ -3,6 +3,9 @@
 #include <stdint.h>
 #include <limine.h>
 #include <utamo/boot.h>
+#include <utamo/memory.h>
+#include <utamo/vfs.h>
+#include <utamo/string.h>
 
 /* Protocol definitions are naturally aligned, never packed. */
 _Static_assert(sizeof(void *) == 8, "Limine requires 64-bit pointers");
@@ -43,6 +46,30 @@ static volatile struct limine_paging_mode_request paging_request = {
     .mode = LIMINE_PAGING_MODE_X86_64_4LVL,
     .max_mode = LIMINE_PAGING_MODE_X86_64_4LVL,
     .min_mode = LIMINE_PAGING_MODE_X86_64_4LVL
+};
+
+_Static_assert(sizeof(struct limine_hhdm_request) == 48, "HHDM request ABI");
+_Static_assert(sizeof(struct limine_hhdm_response) == 16, "HHDM response ABI");
+_Static_assert(sizeof(struct limine_executable_address_response) == 24,
+               "executable address ABI");
+_Static_assert(offsetof(struct limine_executable_address_request, response) == 40,
+               "executable address response pointer ABI");
+
+__attribute__((used, section(".limine_requests"), aligned(8)))
+static volatile struct limine_hhdm_request hhdm_request = {
+    .id = LIMINE_HHDM_REQUEST, .revision = 0, .response = NULL
+};
+__attribute__((used, section(".limine_requests"), aligned(8)))
+static volatile struct limine_executable_address_request address_request = {
+    .id = LIMINE_EXECUTABLE_ADDRESS_REQUEST, .revision = 0, .response = NULL
+};
+
+_Static_assert(sizeof(struct limine_file) == 112u, "module file ABI");
+_Static_assert(sizeof(struct limine_module_request) == 64u, "module request ABI");
+_Static_assert(offsetof(struct limine_file, cmdline) == 32u, "module cmdline ABI");
+__attribute__((used, section(".limine_requests"), aligned(8)))
+static volatile struct limine_module_request module_request = {
+    .id = LIMINE_MODULE_REQUEST, .revision = 0u, .response = NULL
 };
 
 __attribute__((used, section(".limine_requests_end"), aligned(8)))
@@ -138,4 +165,49 @@ bool boot_read_memory_map(struct memory_map *map)
         }
     }
     return map->count != 0;
+}
+
+bool boot_read_memory_layout(struct boot_memory_layout *out)
+{
+    const struct limine_hhdm_response *hhdm = hhdm_request.response;
+    const struct limine_executable_address_response *address = address_request.response;
+    if (out == NULL || hhdm == NULL || address == NULL) {
+        return false;
+    }
+    *out = (struct boot_memory_layout){
+        .hhdm_offset = hhdm->offset,
+        .kernel_phys = address->physical_base,
+        .kernel_virt = address->virtual_base
+    };
+    return true;
+}
+
+bool boot_read_initramfs(const void **image, size_t *size)
+{
+    const struct limine_module_response *response = module_request.response;
+    if (image == NULL || size == NULL || response == NULL || response->modules == NULL ||
+        response->module_count == 0u || response->module_count > 16u) {
+        return false;
+    }
+    const struct limine_file *selected = NULL;
+    for (uint64_t i = 0u; i < response->module_count; ++i) {
+        const struct limine_file *module = response->modules[i];
+        if (module == NULL || module->cmdline == NULL ||
+            strncmp(module->cmdline, "utamo-initramfs", sizeof("utamo-initramfs")) != 0) {
+            continue;
+        }
+        if (selected != NULL) {
+            return false;
+        }
+        selected = module;
+    }
+    uint64_t physical = 0u;
+    if (selected == NULL || selected->size == 0u ||
+        selected->size > UTAMO_INITRAMFS_LIMIT ||
+        !memory_hhdm_to_phys(selected->address, (size_t)selected->size, &physical)) {
+        return false;
+    }
+    *image = selected->address;
+    *size = (size_t)selected->size;
+    return true; /* Module pages stay reserved; no bootloader/module reclamation. */
 }

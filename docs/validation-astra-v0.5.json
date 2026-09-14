@@ -1,0 +1,70 @@
+{
+  "version": "0.5.0",
+  "status": "GREEN; local unreleased milestone",
+  "candidate_directory": "validation-artifacts/astra-v05-candidate-20260914T095703Z",
+  "host_checks": 25541,
+  "elf_checks": 1707,
+  "candidate_qemu_checks": 10257,
+  "candidate_vm_runs": 19,
+  "binary_comparison": {
+    "identical_sections": {
+      ".text": true,
+      ".data": true,
+      ".limine_requests": true
+    },
+    "rodata_changed_bytes": 1,
+    "change": "version 4 -> 5"
+  },
+  "elf_sha256": "58a6bdfff0b0408f37eff0033956f8449480cddfe60b23a14d6eefcec96a4b82",
+  "iso_sha256": "88f2a20abca8d27f2df682f9700cf7b7638b15beebe4a1a779a976df95004607",
+  "last_known_good_commit": "4f303c8aeca26051f4affe92b0ba5af4e2296026",
+  "final_qemu_checks": 3115,
+  "final_vm_runs": 3,
+  "qemu_checks": 13372,
+  "vm_runs": 22,
+  "failures": 0,
+  "final_matrix": [
+    {
+      "name": "astra-v05-final-process",
+      "exit": 0,
+      "checks": 2286,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v05-final-no-nx",
+      "exit": 0,
+      "checks": 783,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v05-final-kernel-pf",
+      "exit": 0,
+      "checks": 46,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    }
+  ],
+  "total_checks": 40620,
+  "process_stress": {
+    "runs": 12,
+    "created": 480,
+    "reaped": 480,
+    "contained_faults": 156,
+    "syscalls": 3934800
+  },
+  "validation_note": "Host/ELF counted once from final clean build; QEMU combines the complete candidate hardware/regression matrix and final-version verification. Executable/data/request bytes identical; one rodata version byte changed. Counts are recorded assertions, not unique tests or coverage.",
+  "supplemental_ubsan": {
+    "user_vm": 1165,
+    "process_syscall": 473,
+    "dispatch": 819,
+    "failures": 0,
+    "counted_in_total": false
+  },
+  "iso_path": "build/utamo-os-0.5.0.iso",
+  "elf_path": "build/utamo-kernel.elf"
+}

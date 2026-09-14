@@ -1,0 +1,310 @@
+{
+  "version": "0.3.0",
+  "commit": "2fb66be740ed8c153b3d733fc1d16bc978f2364f",
+  "build": [
+    {
+      "name": "clean",
+      "exit_code": 0
+    },
+    {
+      "name": "host",
+      "exit_code": 0
+    },
+    {
+      "name": "kernel",
+      "exit_code": 0
+    },
+    {
+      "name": "inspect",
+      "exit_code": 0
+    },
+    {
+      "name": "iso",
+      "exit_code": 0
+    }
+  ],
+  "qemu": [
+    {
+      "name": "astra-v03-final-boot",
+      "command": [
+        "python3",
+        "scripts/test-qemu.py",
+        "--marker",
+        "utamo> ",
+        "--timeout",
+        "30",
+        "--check-gdt",
+        "--check-idt",
+        "--check-timer",
+        "--name",
+        "astra-v03-final-boot"
+      ],
+      "exit_code": 0,
+      "checks": 9,
+      "passed": true,
+      "reaped": true
+    },
+    {
+      "name": "astra-v03-final-64m",
+      "command": [
+        "python3",
+        "scripts/test-heap-qemu.py",
+        "--suite",
+        "--timeout",
+        "240",
+        "--ram",
+        "64M",
+        "--name",
+        "astra-v03-final-64m"
+      ],
+      "exit_code": 0,
+      "checks": 639,
+      "passed": true,
+      "reaped": true
+    },
+    {
+      "name": "astra-v03-final-256m",
+      "command": [
+        "python3",
+        "scripts/test-heap-qemu.py",
+        "--suite",
+        "--timeout",
+        "240",
+        "--ram",
+        "256M",
+        "--name",
+        "astra-v03-final-256m"
+      ],
+      "exit_code": 0,
+      "checks": 639,
+      "passed": true,
+      "reaped": true
+    },
+    {
+      "name": "astra-v03-final-512m",
+      "command": [
+        "python3",
+        "scripts/test-heap-qemu.py",
+        "--suite",
+        "--timeout",
+        "240",
+        "--ram",
+        "512M",
+        "--name",
+        "astra-v03-final-512m"
+      ],
+      "exit_code": 0,
+      "checks": 639,
+      "passed": true,
+      "reaped": true
+    },
+    {
+      "name": "astra-v03-final-no-nx",
+      "command": [
+        "python3",
+        "scripts/test-heap-qemu.py",
+        "--suite",
+        "--timeout",
+        "240",
+        "--ram",
+        "64M",
+        "--cpu",
+        "qemu64,-nx",
+        "--expect-nx",
+        "off",
+        "--name",
+        "astra-v03-final-no-nx"
+      ],
+      "exit_code": 0,
+      "checks": 639,
+      "passed": true,
+      "reaped": true
+    },
+    {
+      "name": "astra-v03-final-memory",
+      "command": [
+        "python3",
+        "scripts/test-memory-qemu.py",
+        "--timeout",
+        "180",
+        "--suite",
+        "--name",
+        "astra-v03-final-memory"
+      ],
+      "exit_code": 0,
+      "checks": 301,
+      "passed": true,
+      "reaped": true
+    },
+    {
+      "name": "astra-v03-final-fault-vmm",
+      "command": [
+        "python3",
+        "scripts/test-memory-qemu.py",
+        "--timeout",
+        "180",
+        "--fault",
+        "vmm",
+        "--name",
+        "astra-v03-final-fault-vmm"
+      ],
+      "exit_code": 0,
+      "checks": 43,
+      "passed": true,
+      "reaped": true
+    },
+    {
+      "name": "astra-v03-final-fault-ro",
+      "command": [
+        "python3",
+        "scripts/test-memory-qemu.py",
+        "--timeout",
+        "180",
+        "--fault",
+        "ro",
+        "--name",
+        "astra-v03-final-fault-ro"
+      ],
+      "exit_code": 0,
+      "checks": 48,
+      "passed": true,
+      "reaped": true
+    },
+    {
+      "name": "astra-v03-final-fault-nx",
+      "command": [
+        "python3",
+        "scripts/test-memory-qemu.py",
+        "--timeout",
+        "180",
+        "--fault",
+        "nx",
+        "--name",
+        "astra-v03-final-fault-nx"
+      ],
+      "exit_code": 0,
+      "checks": 48,
+      "passed": true,
+      "reaped": true
+    },
+    {
+      "name": "astra-v03-final-fault-pf",
+      "command": [
+        "python3",
+        "scripts/test-memory-qemu.py",
+        "--timeout",
+        "180",
+        "--fault",
+        "pf",
+        "--name",
+        "astra-v03-final-fault-pf"
+      ],
+      "exit_code": 0,
+      "checks": 43,
+      "passed": true,
+      "reaped": true
+    },
+    {
+      "name": "astra-v03-final-ud2",
+      "command": [
+        "python3",
+        "scripts/test-qemu.py",
+        "--marker",
+        "utamo> ",
+        "--timeout",
+        "30",
+        "--probe",
+        "exception_fault_ud2",
+        "--probe-at",
+        "cpu_wait_interrupt",
+        "--check-gdt",
+        "--check-idt",
+        "--name",
+        "astra-v03-final-ud2"
+      ],
+      "exit_code": 0,
+      "checks": 37,
+      "passed": true,
+      "reaped": true
+    },
+    {
+      "name": "astra-v03-final-div0",
+      "command": [
+        "python3",
+        "scripts/test-qemu.py",
+        "--marker",
+        "utamo> ",
+        "--timeout",
+        "30",
+        "--probe",
+        "exception_fault_div0",
+        "--probe-at",
+        "cpu_wait_interrupt",
+        "--name",
+        "astra-v03-final-div0"
+      ],
+      "exit_code": 0,
+      "checks": 34,
+      "passed": true,
+      "reaped": true
+    },
+    {
+      "name": "astra-v03-final-original-pf",
+      "command": [
+        "python3",
+        "scripts/test-qemu.py",
+        "--marker",
+        "utamo> ",
+        "--timeout",
+        "30",
+        "--probe",
+        "exception_fault_page",
+        "--probe-at",
+        "cpu_wait_interrupt",
+        "--name",
+        "astra-v03-final-original-pf"
+      ],
+      "exit_code": 0,
+      "checks": 46,
+      "passed": true,
+      "reaped": true
+    },
+    {
+      "name": "astra-v03-final-shell",
+      "command": [
+        "python3",
+        "scripts/test-qemu.py",
+        "--suite",
+        "--timeout",
+        "90",
+        "--name",
+        "astra-v03-final-shell"
+      ],
+      "exit_code": 0,
+      "checks": 38,
+      "passed": true,
+      "reaped": true
+    }
+  ],
+  "host_checks": 18994,
+  "elf_checks": 1482,
+  "qemu_checks": 3203,
+  "total_checks": 23679,
+  "artifacts": [
+    {
+      "path": "build/utamo-kernel.elf",
+      "bytes": 367696,
+      "sha256": "e8b103f7632c6fa04186db0b6034d3a223babd5187abe04a91d8c2806d3bcff6"
+    },
+    {
+      "path": "build/utamo-os-0.3.0.iso",
+      "bytes": 4239360,
+      "sha256": "67040ab6949cfe343e212a74b9750cd1b03c2f489afb52ea3f5a35e69ed4b111"
+    }
+  ],
+  "status": "GREEN; local campaign milestone, not a public release",
+  "failures": 0,
+  "vm_runs": 14,
+  "kernel_randomized_stress_operations": 98304,
+  "evidence_directory": "validation-artifacts/astra-v03-final-20260914T074134Z"
+}

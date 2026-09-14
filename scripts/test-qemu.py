@@ -7,9 +7,8 @@ Examples:
   python3 scripts/test-qemu.py --suite --name shell
   python3 scripts/test-qemu.py --fault ud2 --name exception-ud2
 
-All modes force -display none. Interactive PS/2 modes --suite/--fault are
-prepared for a later user-authorized/manual validation session, not part of
-the current headless milestone acceptance. Framebuffer capture is opt-in.
+All modes force -display none. PS/2 modes use QMP keyboard injection
+and serial evidence without opening a graphical window. Framebuffer capture is opt-in.
 
 Only Python's standard library and the existing QEMU installation are used.
 No guest serial input is injected: every character travels through QMP send-key
@@ -25,6 +24,7 @@ import argparse
 import hashlib
 import fcntl
 import json
+import ipaddress
 import os
 from pathlib import Path
 import re
@@ -125,12 +125,30 @@ class VM:
             except (FileNotFoundError, ProcessLookupError, PermissionError):
                 continue
         command = [
-            self.args.qemu, "-machine", "q35,accel=tcg", "-cpu", "qemu64",
-            "-m", "256M", "-smp", "1", "-cdrom", str(self.args.iso),
+            self.args.qemu, "-machine", "q35,accel=tcg",
+            "-cpu", getattr(self.args, "cpu", "qemu64"),
+            "-m", getattr(self.args, "ram", "256M"),
+            "-smp", "1", "-cdrom", str(self.args.iso),
             "-boot", "d", "-display", "none", "-serial", "file:" + str(self.serial_path),
             "-qmp", "unix:" + str(self.socket_path) + ",server=on,wait=off",
             "-monitor", "none", "-nic", "none", "-no-reboot", "-no-shutdown",
         ]
+        if getattr(self.args, "network", False):
+            subnet = ipaddress.IPv4Network(self.args.network_subnet)
+            if not subnet.is_private or subnet.prefixlen != 24:
+                raise CheckFailed("Network fixture requires a private IPv4 /24")
+            command += ["-netdev", "user,id=utamo_net,net=" + str(subnet) +
+                        ",dhcpstart=" + str(subnet.network_address + 100),
+                        "-device", "e1000,netdev=utamo_net,id=utamo_nic,mac=" + self.args.network_mac,
+                        "-object", "filter-dump,id=utamo_capture,netdev=utamo_net,file=" +
+                        str(self.directory / "network.pcap")]
+        disk = getattr(self.args, "disk", None)
+        if disk is not None:
+            disk = Path(disk).resolve()
+            if not disk.is_file() or not disk.is_relative_to(ROOT / "build/tests") or "," in str(disk):
+                raise CheckFailed("Disk must be a disposable project build/tests fixture")
+            command += ["-drive", "if=none,id=utamo_disk,format=raw,snapshot=on,file=" + str(disk),
+                        "-device", "ide-hd,drive=utamo_disk,bus=ide.0"]
         if self.args.probe or self.args.check_timer:
             command += ["-chardev", "socket,path=" + str(self.gdb_path) +
                         ",server=on,wait=off,id=gdb0", "-gdb", "chardev:gdb0"]
@@ -143,8 +161,14 @@ class VM:
                         "-D", str(self.directory / "qemu-debug.log")]
         self.report["qemu_command"] = command
         self.output = (self.directory / "qemu-stderr.log").open("wb")
+        environment = os.environ.copy()
+        if disk is not None:
+            # ide-hd refuses a readonly block node. QEMU snapshot mode opens the
+            # base readonly and directs any guest writes to an unlinked overlay.
+            environment["TMPDIR"] = str(ROOT / "build/tests")
+            self.report["disk_overlay_policy"] = "snapshot=on; temporary overlay in build/tests; base opened readonly"
         self.process = subprocess.Popen(
-            command, cwd=ROOT, stdin=subprocess.DEVNULL,
+            command, cwd=ROOT, env=environment, stdin=subprocess.DEVNULL,
             stdout=self.output, stderr=subprocess.STDOUT,
         )
         self.report["qemu_pid"] = self.process.pid
@@ -162,8 +186,15 @@ class VM:
         self.report["qmp_greeting"] = greeting
         self.qmp("qmp_capabilities")
         if self.args.probe:
-            # Stop before the first HLT: changing RIP on an already halted
-            # virtual CPU does not itself clear QEMU\'s internal halted state.
+            # Boot may now use HLT while native init waits for its children.
+            # Observe the requested readiness marker before arming a later
+            # pre-HLT breakpoint. Changing RIP on an already halted CPU alone
+            # does not clear QEMU's internal halted state.
+            self.qmp("cont")
+            marker = getattr(self.args, "marker", None) or PROMPT
+            self.wait_for(marker)
+            self.check(True, "Readiness marker observed before fatal probe: " + marker)
+            self.report["probe_after_marker"] = marker
             self.gdb("probe-arm", [
                 "hbreak " + self.args.probe_at, "continue",
                 "delete breakpoints", "monitor info registers",
@@ -410,7 +441,7 @@ def framebuffer_clear_check(vm, path):
 
 def suite(vm):
     boot = vm.wait_for(PROMPT)
-    for marker in ("UTAMO OS", "Version: 0.1.0", "GDT initialized",
+    for marker in ("UTAMO OS", "Version: " + vm.args.version, "GDT initialized",
                    "IDT initialized", "PIC initialized", "PIT timer initialized",
                    "PS/2 keyboard initialized", "Interrupts enabled", "UTAMO OS ready."):
         vm.check(marker in boot, "Boot marker: " + marker)
@@ -419,14 +450,14 @@ def suite(vm):
         vm.screenshot("boot")
     vm.command("help", ("help", "clear", "version", "sysinfo", "mem",
                         "uptime", "echo", "halt", "fault"))
-    vm.command("version", ("UTAMO OS 0.1.0",))
+    vm.command("version", ("UTAMO OS " + vm.args.version,))
     first = vm.command("sysinfo", ("x86_64", "Limine", "100 Hz", "Ticks:"))
     vm.command("mem", ("MiB",))
     uptime = vm.command("uptime")
     vm.check(bool(re.search(r"\d", uptime)), "Uptime command reports a numeric duration")
     vm.command("echo hello world", ("hello world",))
     vm.command("echo AbC 123 !?", ("AbC 123 !?",))
-    vm.command("versioxx\b\bn", ("UTAMO OS 0.1.0",))
+    vm.command("versioxx\b\bn", ("UTAMO OS " + vm.args.version,))
     # Delay between observations is bounded and runs with the guest alive.
     time.sleep(1.1)
     second = vm.command("sysinfo", ("Ticks:",))
@@ -443,7 +474,7 @@ def suite(vm):
         framebuffer_clear_check(vm, vm.screenshot("clear"))
     else:
         vm.report.setdefault("pending_manual", []).append("clear framebuffer appearance")
-    vm.command("version", ("UTAMO OS 0.1.0",))
+    vm.command("version", ("UTAMO OS " + vm.args.version,))
     start = len(vm.serial())
     vm.type_text("halt\n")
     vm.wait_for("System halted", start)
@@ -489,10 +520,31 @@ def check_exception(vm, text, kind):
         match = re.search(r"\b" + register + r":\s*0x([0-9a-fA-F]+)", text)
         vm.check(bool(match) and int(match.group(1), 16) == expected,
                  "Exception frame " + register + " has kernel selector " + hex(expected))
-    for register in ("RIP", "RSP"):
-        match = re.search(r"\b" + register + r":\s*0x([0-9a-fA-F]+)", text)
-        vm.check(bool(match) and int(match.group(1), 16) >= 0xffffffff80000000,
-                 "Exception frame " + register + " is a canonical kernel address")
+    rip = re.search(r"\bRIP:\s*0x([0-9a-fA-F]+)", text)
+    vm.check(bool(rip) and 0xffffffff80000000 <= int(rip.group(1), 16) < (1 << 64),
+             "Exception RIP is in the canonical kernel image range")
+    rsp = re.search(r"\bRSP:\s*0x([0-9a-fA-F]+)", text)
+    symbols = {}
+    output = subprocess.check_output(
+        [str(ROOT / "toolchain/prefix/bin/x86_64-elf-nm"), "-n",
+         str(ROOT / "build/utamo-kernel.elf")], text=True)
+    for line in output.splitlines():
+        fields = line.split()
+        if len(fields) == 3:
+            symbols[fields[2]] = int(fields[0], 16)
+    stack_ok = False
+    if rsp:
+        address = int(rsp.group(1), 16)
+        stack_ok = (symbols["bootstrap_stack_bottom"] <= address <=
+                    symbols["bootstrap_stack_top"])
+        # v0.4 owns 64 guarded stacks, each 4 KiB guard + 64 KiB payload.
+        # Earlier exception probes ran only on the ELF bootstrap stack.
+        if "scheduler_on_interrupt" in symbols:
+            base = 0xffffc00040000000
+            stack_ok = stack_ok or any(
+                base + slot * 69632 + 4096 <= address <= base + (slot + 1) * 69632
+                for slot in range(64))
+    vm.check(stack_ok, "Exception RSP belongs to bootstrap or a guarded thread stack")
     if kind == "pf":
         address = re.search(r"(?:Fault )?address:\s*0x([0-9a-fA-F]+)", text, re.I)
         vm.check(bool(address) and int(address.group(1), 16) == 0x00007ffffffff000,
@@ -514,6 +566,7 @@ def main():
     parser.add_argument("--name", required=True, help="Unique artifact directory name")
     parser.add_argument("--iso", type=project_path)
     parser.add_argument("--qemu", default="qemu-system-x86_64")
+    parser.add_argument("--version", help="Expected kernel version; defaults to version.h")
     parser.add_argument("--timeout", type=float, default=90.0)
     parser.add_argument("--debug", action="store_true", help="Save QEMU interrupt/reset log")
     parser.add_argument("--gdb-port", type=int, help="Optional localhost-only GDB listener")
@@ -545,6 +598,14 @@ def main():
         parser.error("--check-timer needs --marker, a counter ELF identifier, and no --gdb-port")
     if args.gdb_port is not None and not 1024 <= args.gdb_port <= 65535:
         parser.error("GDB port must be between 1024 and 65535")
+    if args.version is None:
+        match = re.search(r'^#define UTAMO_VERSION "([^"]+)"$',
+                          (ROOT / "kernel/include/utamo/version.h").read_text(), re.M)
+        if not match:
+            parser.error("Cannot read current UTAMO_VERSION")
+        args.version = match.group(1)
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", args.version):
+        parser.error("--version must be a semantic version such as 0.2.0")
     if args.iso is None:
         candidates = sorted((ROOT / "build").glob("utamo-os-*.iso"))
         if len(candidates) != 1:
@@ -561,6 +622,7 @@ def main():
             ["git", "status", "--short"], cwd=ROOT, text=True),
         "iso": str(args.iso.relative_to(ROOT)), "iso_sha256": digest(args.iso),
         "elf_sha256": digest(ROOT / "build/utamo-kernel.elf"), "checks": [],
+        "expected_version": args.version,
         "pending_manual": ["PS/2 physical typing and visual framebuffer review"]
                           if not args.suite else [],
     }

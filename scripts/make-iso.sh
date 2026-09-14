@@ -55,6 +55,7 @@ git -C "$vendor" diff --no-ext-diff --quiet HEAD -- \
 rm -rf -- "$stage"
 mkdir -p -- "$stage/boot/limine" "$stage/EFI/BOOT"
 cp -- "$kernel" "$stage/boot/utamo-kernel.elf"
+cp -- "$build_dir/initramfs.cpio" "$stage/boot/initramfs.cpio"
 cp -- limine.conf "$stage/boot/limine/limine.conf"
 cp -- "$vendor/limine-bios.sys" "$stage/boot/limine/"
 cp -- "$vendor/limine-bios-cd.bin" "$stage/boot/limine/"

@@ -16,7 +16,11 @@ int main(void)
     CHECK(offsetof(struct tss64, iomap_base) == 102);
     for (size_t i = 0; i < sizeof(addresses) / sizeof(addresses[0]); ++i) {
         gdt_build(entries, addresses[i]);
-        CHECK(entries[0] == 0 && entries[3] == 0 && entries[4] == 0);
+        CHECK(entries[0] == 0);
+        CHECK(entries[3] == UINT64_C(0x00affa000000ffff));
+        CHECK(entries[4] == UINT64_C(0x00cff2000000ffff));
+        CHECK(UTAMO_GDT_USER_CODE_SELECTOR == 0x1bu);
+        CHECK(UTAMO_GDT_USER_DATA_SELECTOR == 0x23u);
         CHECK(((entries[1] >> 40u) & 255u) == 0x9au);
         CHECK(((entries[1] >> 52u) & 15u) == 0xau);
         CHECK(((entries[2] >> 40u) & 255u) == 0x92u);

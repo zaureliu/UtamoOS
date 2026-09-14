@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: MIT */
 #include <stddef.h>
 #include <utamo/log.h>
+#include <utamo/cpu.h>
+#include <utamo/scheduler.h>
 
 #define UTAMO_LOG_SINK_LIMIT 4u
 
@@ -36,9 +38,39 @@ static void log_emit(char ch, void *context)
     }
 }
 
+/* Fatal/IRQ-disabled diagnostics must not depend on healthy scheduler queues. */
+static bool console_enter(void)
+{
+    const uint64_t flags = cpu_irq_save();
+    const bool guard = (flags & UINT64_C(0x200)) != 0u;
+    if (guard) {
+        preempt_disable();
+    }
+    cpu_irq_restore(flags);
+    return guard;
+}
+
+static void console_leave(bool guard)
+{
+    if (guard) {
+        preempt_enable();
+    }
+}
+
+void log_write(const char *bytes, size_t length)
+{
+    const bool guard = console_enter();
+    for (size_t i = 0u; i < length; ++i) {
+        log_emit(bytes[i], NULL);
+    }
+    console_leave(guard);
+}
+
 void kvprintf(const char *format, va_list args)
 {
+    const bool guard = console_enter();
     kvformat(log_emit, NULL, format, args);
+    console_leave(guard);
 }
 
 void kprintf(const char *format, ...)
@@ -60,10 +92,12 @@ void log_message(enum log_level level, const char *format, ...)
     case UTAMO_LOG_DEBUG: label = "DEBUG"; break;
     default: label = "?????"; break;
     }
+    const bool guard = console_enter();
     kprintf("[ %s ] ", label);
     va_list args;
     va_start(args, format);
     kvprintf(format, args);
     va_end(args);
     kprintf("\n");
+    console_leave(guard);
 }

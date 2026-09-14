@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: MIT */
 #include <utamo/cpu.h>
+#include <utamo/scheduler.h>
 #include <utamo/irq.h>
 #include <utamo/pic.h>
 #include <utamo/interrupts.h>
 #include <utamo/serial.h>
 #include <utamo/terminal.h>
+#include <utamo/vmm.h>
+#include <utamo/process.h>
+#include <utamo/idt.h>
 
 uint64_t exception_read_cr2(void);
 
@@ -18,13 +22,30 @@ void exception_set_terminal(struct terminal *term)
     exception_terminal = term;
 }
 
-void interrupt_dispatch(struct interrupt_frame *frame)
+struct interrupt_frame *interrupt_dispatch(struct interrupt_frame *frame)
 {
     cpu_disable_interrupts();
+    const bool user = (frame->cs & 3u) == 3u;
+    /* NMI, double fault and machine check retain their fatal IST policy. */
+    const bool critical = frame->vector == 2u || frame->vector == 8u ||
+                          frame->vector == 18u;
     if (frame->vector >= UTAMO_PIC_VECTOR_BASE &&
         frame->vector < UTAMO_PIC_VECTOR_BASE + UTAMO_PIC_IRQ_COUNT) {
         irq_dispatch((uint8_t)(frame->vector - UTAMO_PIC_VECTOR_BASE));
-        return;
+        return scheduler_on_interrupt(frame);
+    }
+    if (user && !critical && !scheduler_user_frame_safe(frame)) {
+        return process_on_fault(frame, 13u, 0u, 0u);
+    }
+    if (user && frame->vector == UTAMO_SYSCALL_VECTOR) {
+        return process_on_syscall(frame);
+    }
+    if (frame->vector == UTAMO_SCHEDULE_VECTOR) {
+        return scheduler_on_interrupt(frame);
+    }
+    if (user && !critical) {
+        const uint64_t address = frame->vector == 14u ? exception_read_cr2() : 0u;
+        return process_on_fault(frame, frame->vector, frame->error_code, address);
     }
     if (exception_active) {
         if (!recursive_active) {
@@ -38,10 +59,25 @@ void interrupt_dispatch(struct interrupt_frame *frame)
 
     /* Complete serial report FIRST: a bad framebuffer cannot truncate it. */
     exception_format(serial_sink, NULL, frame, cr2);
+    /*
+     * Walk only AFTER the complete serial register dump. Query is read-only,
+     * nonallocating, and validates table frames before HHDM access. A corrupt
+     * translation causing a nested exception still leaves that first report.
+     */
+    struct vmm_mapping mapping = {0};
+    bool mapping_available = false;
+    if (frame->vector == 14u) {
+        mapping_available = vmm_query_page(cr2, &mapping);
+        exception_format_memory(serial_sink, NULL, mapping_available, &mapping);
+    }
     if (exception_terminal != NULL) {
         struct framebuffer *const fb = exception_terminal->framebuffer;
         if (terminal_init(exception_terminal, fb)) {
             exception_format(terminal_sink, exception_terminal, frame, cr2);
+            if (frame->vector == 14u) {
+                exception_format_memory(terminal_sink, exception_terminal,
+                                        mapping_available, &mapping);
+            }
         }
     }
     cpu_halt();

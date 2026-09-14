@@ -1,0 +1,516 @@
+{
+  "version": "0.8.0",
+  "status": "GREEN; local unreleased core milestone",
+  "campaign_branch": "astra-campaign",
+  "last_known_good_commit": "81a01cef24bd9461b0a6f221e966507a2c0344cb",
+  "candidate_directory": "validation-artifacts/astra-v08-candidate-20260914T144940Z",
+  "final_directory": "validation-artifacts/astra-v08-final-20260914T150758Z",
+  "host_checks": 36527,
+  "elf_checks": 1987,
+  "candidate_qemu_checks": 13551,
+  "final_qemu_checks": 587,
+  "qemu_checks": 14138,
+  "total_checks": 52652,
+  "candidate_vm_runs": 40,
+  "final_vm_runs": 3,
+  "passed_vm_runs": 43,
+  "attempted_vm_runs_including_incremental": 45,
+  "gate_failures": 0,
+  "historical_failed_attempts": [
+    {
+      "name": "astra-v08-net-first",
+      "check_count": 197,
+      "failed_checks": 1,
+      "reaped": true,
+      "root_cause": "DHCP consumed transmit attempts before asynchronous E1000 link negotiation completed after reconnection.",
+      "resolution": "Bounded two-second yielding link readiness wait before DHCP attempts; no checks removed.",
+      "counted_in_passing_gate": false
+    }
+  ],
+  "preliminary_passing_run_excluded": "astra-v08-net-recovery; 266 assertions; reaped",
+  "preliminary_archive": "validation-artifacts/astra-before-v08-clean-20260914T144940Z/validation",
+  "elf_sha256": "cdf220446fe7fb0ad6e69922942d565508341bec7670ee6731c37fc00ed64267",
+  "iso_sha256": "fbbaa1cc479bf1a48b3ca09682e9962bd574b4db86e88506bbf8442abde725d1",
+  "initramfs_sha256": "3eb6bb58373e4e6ed559537b39fe423046c8d233ab0323ccc1f14a3a37b2eda4",
+  "candidate_elf_sha256": "9f3b1ebb460d3a8b0f71a665f59e1ca056253900f04beff3ece970e8c4b33abd",
+  "binary_comparison": {
+    "kernel_identical_sections": {
+      ".text": true,
+      ".data": true,
+      ".limine_requests": true,
+      ".bss": true
+    },
+    "rodata_changed_bytes": 1,
+    "userspace_identical_complete_elf": {
+      "filetest": true,
+      "sysinfo": true,
+      "diskread": true,
+      "init": true,
+      "echo": true,
+      "hello": true,
+      "badptr": true
+    },
+    "initramfs_identical": true
+  },
+  "candidate_matrix": [
+    {
+      "name": "astra-v08-gate-net-64M",
+      "exit": 0,
+      "checks": 266,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-net-256M",
+      "exit": 0,
+      "checks": 274,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-net-512M",
+      "exit": 0,
+      "checks": 266,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-net-no-nx",
+      "exit": 0,
+      "checks": 264,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-net-alternate",
+      "exit": 0,
+      "checks": 266,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-net-absent",
+      "exit": 0,
+      "checks": 13,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-disk-64M",
+      "exit": 0,
+      "checks": 179,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-disk-256M",
+      "exit": 0,
+      "checks": 179,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-disk-512M",
+      "exit": 0,
+      "checks": 179,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-disk-no-nx",
+      "exit": 0,
+      "checks": 175,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-bad-bpb",
+      "exit": 0,
+      "checks": 30,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-root-loop",
+      "exit": 0,
+      "checks": 30,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-file-loop",
+      "exit": 0,
+      "checks": 30,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-bad-cluster",
+      "exit": 0,
+      "checks": 30,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-cross-link",
+      "exit": 0,
+      "checks": 30,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-mirror-mismatch",
+      "exit": 0,
+      "checks": 30,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-no-disk",
+      "exit": 0,
+      "checks": 17,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-fs-64M",
+      "exit": 0,
+      "checks": 307,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-fs-256M",
+      "exit": 0,
+      "checks": 307,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-fs-512M",
+      "exit": 0,
+      "checks": 307,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-fs-no-nx",
+      "exit": 0,
+      "checks": 110,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-process-64M",
+      "exit": 0,
+      "checks": 2286,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-process-256M",
+      "exit": 0,
+      "checks": 2286,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-process-512M",
+      "exit": 0,
+      "checks": 2286,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-process-no-nx",
+      "exit": 0,
+      "checks": 783,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-scheduler",
+      "exit": 0,
+      "checks": 1191,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-heap",
+      "exit": 0,
+      "checks": 639,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-memory",
+      "exit": 0,
+      "checks": 301,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-fault-vmm",
+      "exit": 0,
+      "checks": 43,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-fault-ro",
+      "exit": 0,
+      "checks": 49,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-fault-nx",
+      "exit": 0,
+      "checks": 49,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-fault-pf",
+      "exit": 0,
+      "checks": 43,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-fault-stack",
+      "exit": 0,
+      "checks": 43,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-legacy-fault-ud2",
+      "exit": 0,
+      "checks": 32,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-legacy-fault-div0",
+      "exit": 0,
+      "checks": 32,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-legacy-fault-pf",
+      "exit": 0,
+      "checks": 44,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-legacy-shell",
+      "exit": 0,
+      "checks": 38,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-gdb-fault-ud2",
+      "exit": 0,
+      "checks": 35,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-gdb-fault-div0",
+      "exit": 0,
+      "checks": 35,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-gate-gdb-fault-pf",
+      "exit": 0,
+      "checks": 47,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    }
+  ],
+  "final_matrix": [
+    {
+      "name": "astra-v08-final-net-disk",
+      "exit": 0,
+      "checks": 274,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-final-net-no-nx",
+      "exit": 0,
+      "checks": 264,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    },
+    {
+      "name": "astra-v08-final-ro",
+      "exit": 0,
+      "checks": 49,
+      "failures": 0,
+      "reaped": true,
+      "passed": true
+    }
+  ],
+  "stress": {
+    "network": {
+      "runs": 21,
+      "rounds": 336,
+      "transactions": 1008
+    },
+    "storage": {
+      "runs": 14,
+      "imports": 126,
+      "checked_imports": 112
+    },
+    "heap": {
+      "runs": 8,
+      "operations": 65536
+    },
+    "scheduler": {
+      "runs": 7,
+      "operations": 21735,
+      "threads_reaped": 539
+    },
+    "elf": {
+      "runs": 9,
+      "created_reaped": 315
+    },
+    "embedded_process": {
+      "runs": 9,
+      "created": 360,
+      "reaped": 360,
+      "faults": 117,
+      "syscalls": 2951100
+    }
+  },
+  "named_stress_runs": 68,
+  "supplemental_sanitizers": {
+    "results": [
+      {
+        "name": "packets",
+        "passed": true,
+        "checks": 3830
+      },
+      {
+        "name": "transactions",
+        "passed": true,
+        "checks": 1102
+      },
+      {
+        "name": "e1000-good",
+        "passed": true,
+        "checks": 347
+      },
+      {
+        "name": "e1000-reset-timeout",
+        "passed": true,
+        "checks": 6
+      },
+      {
+        "name": "e1000-mac-invalid",
+        "passed": true,
+        "checks": 9
+      },
+      {
+        "name": "e1000-map-fail",
+        "passed": true,
+        "checks": 12
+      },
+      {
+        "name": "e1000-enable-fail",
+        "passed": true,
+        "checks": 12
+      },
+      {
+        "name": "e1000-tx-timeout",
+        "passed": true,
+        "checks": 455
+      },
+      {
+        "name": "e1000-tx-error",
+        "passed": true,
+        "checks": 356
+      },
+      {
+        "name": "e1000-link-down",
+        "passed": true,
+        "checks": 351
+      }
+    ],
+    "failures": 0,
+    "counted_in_total": false
+  },
+  "compiler_network_stack_usage": {
+    "largest_function": "dns_decode_reply",
+    "bytes": 8896,
+    "kind": "individual compiler frame estimate; not runtime high-water"
+  },
+  "fixture_hashes_preserved": true,
+  "iso_path": "build/utamo-os-0.8.0.iso",
+  "elf_path": "build/utamo-kernel.elf",
+  "validation_note": "Final clean host/ELF count once plus full candidate40-VM matrix and three final-stamp confirmations. Full RAM matrix was not repeated after stamping. Only one version byte changed in kernel rodata; runtime sections, BSS, seven complete user ELFs and initramfs match. Assertions are not unique tests or coverage. Earlier failed/preliminary attempts and sanitizer reruns are separate.",
+  "network_validation_scope": "QEMU user networking, E1000, local loopback UDP/DNS fixture via learned gateway; no public DNS/internet dependency. No-NIC, alternate subnet/MAC, link loss/reacquisition and combined AHCI/FAT32 included.",
+  "known_blockers": [],
+  "pending_manual": [
+    "UEFI",
+    "Physical NIC/SATA/keyboard",
+    "Visual framebuffer acceptance",
+    "External network interoperability",
+    "Sustained packet flooding",
+    "Fatal NMI/double-fault/machine-check delivery"
+  ],
+  "optional_not_implemented": [
+    "Userspace shell",
+    "TCP",
+    "HTTP"
+  ]
+}

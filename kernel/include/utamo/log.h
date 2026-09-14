@@ -19,6 +19,8 @@ enum log_level {
  * No SMP, recursive callbacks or sink mutation during output. Fatal CPU
  * exceptions use a separate serial-first path and never resume this logger. */
 bool log_add_sink(format_emit_fn emit, void *context);
+/* Bounded native write path; bytes are never interpreted as a format string. */
+void log_write(const char *bytes, size_t length);
 void kvprintf(const char *format, va_list args);
 void kprintf(const char *format, ...);
 void log_message(enum log_level level, const char *format, ...);

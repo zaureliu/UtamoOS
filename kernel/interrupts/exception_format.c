@@ -20,18 +20,23 @@ static void emit_register(format_emit_fn emit, void *context,
     emit(suffix, context);
 }
 
-void exception_format(format_emit_fn emit, void *context,
-                      const struct interrupt_frame *frame, uint64_t cr2)
+static void format_report(format_emit_fn emit, void *context,
+                          const struct interrupt_frame *frame, uint64_t cr2,
+                          bool user, uint64_t pid)
 {
     if (emit == NULL || frame == NULL) {
         return;
     }
     kformat(emit, context,
         "\n========================================\n"
-        "UTAMO OS KERNEL EXCEPTION\n"
+        "UTAMO OS %s EXCEPTION\n"
         "========================================\n"
         "Exception: %s\nVector:    %llu\n",
+        (const char *)(user ? "USER PROCESS" : "KERNEL"),
         exception_name(frame->vector), (unsigned long long)frame->vector);
+    if (user) {
+        kformat(emit, context, "PID:       %llu\n", (unsigned long long)pid);
+    }
     emit_register(emit, context, "Error:     ", frame->error_code, '\n');
     emit_register(emit, context, "RIP:       ", frame->rip, '\n');
     emit_register(emit, context, "RSP:       ", frame->rsp, '\n');
@@ -68,5 +73,19 @@ void exception_format(format_emit_fn emit, void *context,
             (const char *)(fault.reserved_bit ? "Yes" : "No"),
             (const char *)(fault.instruction_fetch ? "Yes" : "No"));
     }
-    kformat(emit, context, "\nSystem halted.\n");
+    kformat(emit, context, "%s", (const char *)(user ?
+        "\nProcess terminated; kernel continues.\n" : "\nSystem halted.\n"));
+}
+
+void exception_format(format_emit_fn emit, void *context,
+                      const struct interrupt_frame *frame, uint64_t cr2)
+{
+    format_report(emit, context, frame, cr2, false, 0u);
+}
+
+void exception_format_user(format_emit_fn emit, void *context,
+                           const struct interrupt_frame *frame, uint64_t cr2,
+                           uint64_t pid)
+{
+    format_report(emit, context, frame, cr2, true, pid);
 }

@@ -1,13 +1,34 @@
-# Testes do UTAMO OS 0.1.0
+# Testes do UTAMO OS
 
-Os testes existentes do baseline v0.0.1 foram preservados e executados antes
-das alterações. O desenvolvimento v0.1 acrescenta testes host da lógica de
-interrupções/input/shell e validação headless do kernel real. Consulte o
-[relatório da implementação](../docs/v0.1-implementation-report.md) para a
-contagem final, comandos, hashes e resultados observados; uma cobertura
-implementada não é automaticamente uma validação de hardware.
+As tabelas de resultados v0.1/v0.2 abaixo são evidência histórica preservada.
+Os gates da campanha até v0.8 core estão GREEN; veja o
+[registro final de validação](../docs/validation-astra-v0.8.json) e o
+[estado da campanha](../docs/astra-campaign-state.md). Não some resultados de
+imagens diferentes como se validassem o mesmo binário.
 
-## Resultados registrados de v0.1.0
+Os testes dos baselines v0.0.1/v0.1.0 são preservados.
+O v0.2 acrescenta PMM/VMM, HHDM, comandos e suíte QEMU de memória.
+Cobertura implementada não é automaticamente evidência de hardware:
+contagens e hashes pertencem às execuções registradas no
+[development log](../docs/development-log.md).
+
+## Histórico preservado: matriz final 0.2.0
+
+| Camada | Checks | Falhas |
+| --- | ---: | ---: |
+| Host | 11224 | 0 |
+| ELF/ABI | 1439 | 0 |
+| QEMU headless | 1550 | 0 |
+| Total | 14213 | 0 |
+
+Foram 13 VMs sequenciais, todas aprovadas e recolhidas: boot, quatro suítes
+de memória (64/256/512 MiB e CPU sem NX), quatro PFs de memória,
+UD2/div0 e regressões do shell/PF pelo harness original.
+A matriz está vinculada à imagem nos [resultados v0.2](../docs/v0.2-implementation-report.md)
+e no [índice de evidências](../docs/validation-v0.2.json).
+Ela não inclui revisão gráfica, UEFI ou hardware físico.
+
+## Histórico preservado: resultados de v0.1.0
 
 | Camada | Checks aprovados |
 | --- | ---: |
@@ -47,7 +68,21 @@ O GCC nativo é usado apenas aqui; o kernel usa o cross compiler x86_64-elf.
 | `test_pit.c` | Portas/divisor/modo, contador e conversão temporal com modelo host de portas/IF |
 | `test_input_shell.c` | Decoder set 1, modificadores, fila circular e edição/tokenização da linha |
 | `test_keyboard.c` | Inicialização/controlador PS/2 e tratamento de entrada com portas simuladas |
-| `test_shell_commands.c` | Shell real com efeitos de hardware simulados: comandos, limites de linha, saídas, clear/backspace e ações fatais |
+| `test_shell_commands.c` | Dispatch de comandos reais com efeitos simulados, inclusive memória, processos, VFS, armazenamento e rede |
+| `test_memory_helpers.c` | Alinhamento, canonicalidade, máscara física, índices e conversões HHDM |
+| `test_pmm.c` | Bitmaps, reservas, ownership, contiguidade, falta de recursos e transações sem efeitos parciais |
+| `test_vmm.c` | Walk de quatro níveis, folhas grandes, permissões, rollback, publicação e map/protect/unmap |
+| `test_heap.c` / `test_heap_pages.c` | Alinhamento, split/coalesce, realloc, OOM, ownership e rollback de backing |
+| `test_sched_core.c` / `test_thread_stack.c` | Filas, quantum, sleep, preempção, guards e lifecycle de stacks |
+| `test_arch_user.c` / `test_user_vm.c` | Política de CPU/TSS/gates, páginas privadas, cópias verificadas e teardown |
+| `test_process_syscall.c` / `test_dispatch.c` | ABI, validação de retorno, IRQs e contenção de falhas CPL3 |
+| `test_vfs_elf.c` / `test_elf_load.c` | newc/VFS/ELF, entradas malformadas e rollback em operações do loader |
+| `test_process_files.c` / `test_process_exec.c` | Descritores, offsets, SPAWN/WAIT, publicação e reap |
+| `test_storage_core.c` / `test_ahci_driver.c` | PCI/BAR/MMIO, block bounds e driver AHCI real com modelo DMA |
+| `test_fat32.c` | Geometria, cadeias, corrupção, importação e rollback de FAT32 |
+| `test_network.c` | Contratos de pacotes, checksums, DHCP/DNS e descritores E1000 |
+| `test_e1000_driver.c` | Driver real com modelo MMIO/DMA, wrap, falhas e quarentena |
+| `test_net_stack.c` | Transações, peers, DHCP, DNS, timeouts, lease e recuperação |
 
 As funções privilegiadas são substituídas por modelos explícitos nos testes
 que precisam delas. Nenhuma instrução de IO, CLI/STI, LGDT/LIDT ou HLT é
@@ -117,59 +152,66 @@ internos artificialmente: overflow da soma utilizável não é alcançável por
 inserções válidas de regiões exclusivas sem sobreposição. As verificações
 defensivas dos contadores permanecem no código para evitar wraparound.
 
-## ELF e kernel em QEMU
-
-A validação do binário é separada dos testes host:
+## ELF, kernel e QEMU
 
 ~~~sh
 make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" kernel
 make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" inspect
 make CROSS_COMPILE="$PWD/toolchain/prefix/bin/x86_64-elf-" iso
-python3 scripts/test-qemu.py --marker "utamo> " --name boot-review \
-    --check-gdt --check-idt --check-timer
+python3 scripts/test-qemu.py --marker "utamo> " --name boot-local --check-gdt --check-idt --check-timer
+python3 scripts/test-memory-qemu.py --suite --name memory-local --timeout 180
+python3 scripts/test-heap-qemu.py --suite --name heap-local --timeout 240
+python3 scripts/test-scheduler-qemu.py --suite --name scheduler-local --timeout 300
+python3 scripts/test-process-qemu.py --suite --name process-local --timeout 300
+python3 scripts/test-filesystem-qemu.py --suite --name filesystem-local --timeout 300
+python3 scripts/test-network-qemu.py --suite --network --name network-local
 ~~~
 
-`make inspect` inclui a inspeção Python, que verifica os bytes do ELF realmente ligado, incluindo as 256
-entradas da tabela relativa dos stubs, a distinção entre error code da CPU e
-sintético, destinos dos jumps, preservação/restauração de registradores,
-alinhamento antes do CALL e IRETQ. Ela não executa esses caminhos.
-A execução no QEMU é que permite observar GDT/IDT carregadas e ticks avançando.
+Use um nome novo por execução e consulte [storage](../docs/storage.md) para
+anexar imagens FAT32 descartáveis. A suíte de [rede](../docs/networking.md)
+cria sua fixture UDP local e não depende da internet. Ela não valida DNS
+recursivo público ou hardware físico.
 
-Todos os modos do harness usam `-display none`, uma única VM por vez e
-timeout. Os probes de exceção usam GDB e instruções reais; o boot normal não
-dispara testes fatais. O [guia de debugging](../docs/debugging.md) descreve
-os comandos para UD2/div0/page fault e o breakpoint `cpu_wait_interrupt`
-antes de HLT. A validação registrada observou UD2, divisão por zero, page fault e avanço
-do PIT; o relatório identifica a imagem final e os resultados de cada execução.
+Execute VMs sequencialmente. Os harnesses usam display none, pastas novas
+de evidência, timeout e cleanup do próprio subprocesso.
+O harness de memória envia teclas QMP ao dispositivo PS/2 emulado;
+essa entrada foi autorizada no desenvolvimento v0.2.
+Veja [scripts](../scripts/README.md) e [debugging](../docs/debugging.md).
 
-Os artefatos ficam em `build/validation/<name>/`: serial, report JSON,
-registros GDB/HMP e, quando solicitado, log interno do QEMU.
-O relatório inclui os hashes do ELF/ISO e confirma se o processo foi
-encerrado. Use nomes novos para não sobrescrever evidências.
-`make clean` remove também esses diretórios; uma contagem copiada sem
-identificar a execução/artefato não é suficiente como evidência.
+A suíte observa PMM/VMM, CR3/CR0/CR4/EFER, seções, HHDM e arena.
+Repete pmmtest/vmmtest, compara accounting e reutilização de tabelas,
+depois verifica shell, input, PIT, clear e halt.
+Stress do kernel usa 64 frames PMM e 16 páginas VMM através de fronteira
+de 2 MiB. O primeiro VMM test pode reter tabelas; repetições devem estabilizar
+esse custo e liberar todos os frames de dados.
 
-## Validação manual e cobertura adicional
+Modos --fault vmm/ro/nx/pf são execuções independentes. Conferem instruções
+reais, CR2/error code, registradores e dump original seguido de snapshot VMM.
+RO/NX protege o endereço selecionado; aliases HHDM impedem inferir W^X global.
 
-O usuário confirmou em 2026-09-14 testes manuais no QEMU/VNC de teclado PS/2,
-digitação de caracteres, Enter, Backspace, comandos do shell, clear e halt.
-A release foi aceita com base nessa confirmação e nas evidências automatizadas
-anteriores. Veja as [notas da release](../docs/releases/v0.1.0.md).
+## Evidência e limites
 
-Os testes automatizados mantiveram a restrição headless. A suíte `--suite`,
-`--fault` via teclado e `--capture-framebuffer` não foi executada e não entra nas contagens de checks.
-O aceite informado pelo usuário é uma categoria separada de evidência.
-UEFI, hardware físico e casos de input/saída não citados explicitamente
-continuam sem comprovação específica.
+Cada build/validation/<name>/report.json identifica hashes ELF/ISO,
+Git, configuração, checks e cleanup. A serial e os registros suportam a revisão.
+Make clean remove esses arquivos; preserve a evidência necessária no projeto.
+A matriz histórica acima pertence aos hashes registrados; outras imagens
+exigem nova execução. Os manifests da campanha separam candidato, stamp final,
+VMs aprovadas, tentativas históricas e sanitizer runs suplementares.
 
-## Cobertura futura
+Host não executa hardware. HHDM puro valida aritmética/tipos/ranges,
+mas a VM verifica as page tables reais. QMP/PS2 emulado confirma o caminho
+IRQ/input quando observado; não prova digitação em teclado físico.
+Clear serial não confirma aparência gráfica.
+O aceite manual v0.1 permanece histórico; UEFI, hardware físico e legibilidade
+da nova imagem exigem evidência específica.
 
-- PMM/bitmap allocator, listas e estruturas futuras: fronteiras, overflow,
-  regiões vazias, falta de recursos e entradas inválidas.
-- VMM: mapeamento, proteção e gerenciamento explícito de falhas; v0.1 somente
-  diagnostica page faults.
-- Fuzzing e sanitizers em harnesses isolados. Funções com nomes de libc podem
-  interferir nos interceptadores; adotar aliases de teste antes de interpretar
-  resultados desses instrumentos.
-- Casos adicionais de hardware, firmware e condições adversas, mantendo
-  separados os resultados de host, ELF, QEMU e observação manual.
+## Extensões e limites atuais
+
+Heap, guard pages, scheduler, CPL3, ELF/VFS e armazenamento têm suítes
+próprias e gates registrados. Rede acrescenta parsers host, modelo de driver,
+modelo de transações e comunicação QEMU com captura de pacotes. A existência
+da suíte não declara seu gate aprovado; consulte os manifests por versão.
+
+Reclaim, política global de aliases, SMP e hardware físico exigem casos
+separados. Sanitizers ampliam a evidência pura e são contados separadamente;
+funções com nomes de libc exigem atenção aos interceptadores do host.

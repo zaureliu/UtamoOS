@@ -101,3 +101,59 @@ bool shell_parse_line(char *line, struct shell_command *command)
     command->arguments = cursor;
     return true;
 }
+
+bool shell_parse_u64_hex(const char *token, uint64_t *value)
+{
+    if (token == NULL || value == NULL) {
+        return false;
+    }
+    if (token[0] == '0' && (token[1] == 'x' || token[1] == 'X')) {
+        token += 2;
+    }
+    uint64_t result = 0u;
+    size_t count = 0u;
+    while (*token != '\0') {
+        unsigned int digit;
+        if (*token >= '0' && *token <= '9') {
+            digit = (unsigned int)(*token - '0');
+        } else if (*token >= 'a' && *token <= 'f') {
+            digit = (unsigned int)(*token - 'a') + 10u;
+        } else if (*token >= 'A' && *token <= 'F') {
+            digit = (unsigned int)(*token - 'A') + 10u;
+        } else {
+            return false;
+        }
+        if (count == 16u || result > (UINT64_MAX - digit) / 16u) {
+            return false;
+        }
+        result = result * 16u + digit;
+        ++count;
+        ++token;
+    }
+    if (count == 0u) {
+        return false;
+    }
+    *value = result;
+    return true;
+}
+
+
+bool shell_parse_u64_dec(const char *token, uint64_t *value)
+{
+    if (token == NULL || value == NULL || *token == '\0') {
+        return false;
+    }
+    uint64_t result = 0u;
+    for (; *token != '\0'; ++token) {
+        if (*token < '0' || *token > '9') {
+            return false;
+        }
+        const unsigned int digit = (unsigned int)(*token - '0');
+        if (result > (UINT64_MAX - digit) / 10u) {
+            return false;
+        }
+        result = result * 10u + digit;
+    }
+    *value = result;
+    return true;
+}

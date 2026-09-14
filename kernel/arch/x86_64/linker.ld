@@ -25,13 +25,22 @@ SECTIONS
     } :requests
 
     . = ALIGN(0x1000);
-    .text : { *(.text .text.*) } :text
+    __text_start = .;
+    .text : {
+        KEEP(*(.text.memory_fault_readonly .text.memory_fault_nx))
+        *(.text .text.*)
+    } :text
+    __text_end = ALIGN(0x1000);
 
     . = ALIGN(0x1000);
+    __rodata_start = .;
     .rodata : { *(.rodata .rodata.*) } :rodata
+    __rodata_end = ALIGN(0x1000);
 
     . = ALIGN(0x1000);
+    __data_start = .;
     .data : { *(.data .data.*) } :data
+    __data_end = ALIGN(0x1000);
 
     /* GNU ld can synthesize these even for a fully static link. Name them
      * explicitly so empty synthetic sections do not become orphan errors.
@@ -46,7 +55,7 @@ SECTIONS
     ASSERT(SIZEOF(.rela.dyn) == 0, "Runtime RELA relocations are not supported")
     ASSERT(SIZEOF(.rel.dyn) == 0, "Runtime REL relocations are not supported")
 
-    .bss (NOLOAD) : ALIGN(16)
+    .bss (NOLOAD) : ALIGN(0x1000)
     {
         __bss_start = .;
         *(.bss .bss.*)

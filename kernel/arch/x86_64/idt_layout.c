@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: MIT */
 #include <stddef.h>
 #include <utamo/idt.h>
+#include <utamo/gdt.h>
+#include <utamo/memory.h>
 
 _Static_assert(sizeof(struct idt_gate) == 16u, "IDT gate size");
 _Static_assert(offsetof(struct idt_gate, selector) == 2u, "IDT selector offset");
@@ -13,9 +15,7 @@ _Static_assert(offsetof(struct idt_gate, reserved) == 12u, "IDT reserved offset"
 bool idt_gate_encode(struct idt_gate *gate, uint64_t address,
                      uint16_t selector, uint8_t ist)
 {
-    const bool canonical = address <= UINT64_C(0x00007fffffffffff) ||
-                           address >= UINT64_C(0xffff800000000000);
-    if (gate == NULL || address == 0u || !canonical || selector == 0u ||
+    if (gate == NULL || address == 0u || !memory_is_canonical(address) || selector == 0u ||
         (selector & 7u) != 0u || ist > 7u) {
         return false;
     }
@@ -28,5 +28,17 @@ bool idt_gate_encode(struct idt_gate *gate, uint64_t address,
         .offset_high = (uint32_t)(address >> 32u),
         .reserved = 0u
     };
+    return true;
+}
+
+bool idt_user_gate_encode(struct idt_gate *gate, uint64_t address)
+{
+    struct idt_gate encoded;
+    if (gate == NULL ||
+        !idt_gate_encode(&encoded, address, UTAMO_GDT_CODE_SELECTOR, 0u)) {
+        return false;
+    }
+    encoded.type_attributes |= UINT8_C(0x60);
+    *gate = encoded;
     return true;
 }

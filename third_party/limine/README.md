@@ -33,3 +33,23 @@ Fontes oficiais para revisão/atualização:
 Não substitua o header ou o bootloader isoladamente. A licença MIT do UTAMO não
 substitui a licença dos componentes Limine. Preserve também `vendor/LICENSE`
 ao distribuir a imagem; o script já prepara essa cópia.
+
+## UTAMO v0.2 memory requests
+
+The reduced header also includes HHDM and Executable Address request/response
+declarations, checked against the same official v8.7.0 header and protocol
+(API revision 2). Both requests use revision 0. No bootloader binary, vendor
+checkout or toolchain was changed. Their ABI layouts are asserted in boot.c.
+
+Base revision 3 maps only USABLE, BOOTLOADER_RECLAIMABLE, EXECUTABLE_AND_MODULES
+and FRAMEBUFFER regions through HHDM. Bootloader tables and response structures
+remain reserved; UTAMO performs no reclaim in v0.2.
+
+## UTAMO v0.6 module request
+
+The reduced header now additionally exposes the v8.7.0 module request,
+module response, internal-module and file/UUID layouts. These declarations
+were checked against the same upstream v8.7.0 source; the BSD notice is retained.
+The request uses revision 0, no internal modules, and selects the configured
+module by its exact cmdline label. boot.c asserts request/file size and offsets.
+Neither the vendor checkout nor the bootloader binary was modified.
