@@ -6,6 +6,7 @@
 #include <string.h>
 #include <utamo/idt.h>
 #include <utamo/interrupts.h>
+#include <utamo/vmm.h>
 
 static unsigned int checks;
 static unsigned int failures;
@@ -176,12 +177,49 @@ static void test_diagnostic_output(void)
     exception_format(NULL, NULL, &frame, 0u);
 }
 
+static void test_memory_diagnostic_output(void)
+{
+    struct capture capture = {0};
+    struct vmm_mapping mapping = {0};
+    exception_format_memory(capture_emit, &capture, false, &mapping);
+    CHECK(strstr(capture.text, "Virtual memory context") != NULL);
+    CHECK(strstr(capture.text, "VMM query: unavailable") != NULL);
+    CHECK(strstr(capture.text, "Mapped: No") == NULL);
+    capture = (struct capture){0};
+    exception_format_memory(capture_emit, &capture, true, &mapping);
+    CHECK(strstr(capture.text, "Mapped: No") != NULL);
+    CHECK(strstr(capture.text, "Physical:") == NULL);
+    CHECK(strstr(capture.text, "Effective flags:") == NULL);
+    mapping = (struct vmm_mapping){
+        .mapped = true, .physical = UINT64_C(0x1234567),
+        .flags = VMM_PRESENT | VMM_WRITABLE | VMM_NX, .page_size = 4096u
+    };
+    capture = (struct capture){0};
+    exception_format_memory(capture_emit, &capture, true, &mapping);
+    CHECK(strstr(capture.text, "Mapped: Yes") != NULL);
+    CHECK(strstr(capture.text, "Physical: 0x1234567") != NULL);
+    CHECK(strstr(capture.text, "Page size: 4096 bytes") != NULL);
+    CHECK(strstr(capture.text, "Effective flags: 0x8000000000000003") != NULL);
+    CHECK(strstr(capture.text, "Writable: Yes\nUser: No\nNX: Yes") != NULL);
+    mapping.flags = VMM_PRESENT | VMM_USER;
+    mapping.page_size = UINT64_C(2) * 1024u * 1024u;
+    capture = (struct capture){0};
+    exception_format_memory(capture_emit, &capture, true, &mapping);
+    CHECK(strstr(capture.text, "Page size: 2097152 bytes") != NULL);
+    CHECK(strstr(capture.text, "Writable: No\nUser: Yes\nNX: No") != NULL);
+    capture = (struct capture){0};
+    exception_format_memory(capture_emit, &capture, true, NULL);
+    CHECK(strstr(capture.text, "VMM query: unavailable") != NULL);
+    exception_format_memory(NULL, NULL, true, &mapping);
+}
+
 int main(void)
 {
     test_idt_layout();
     test_exception_names();
     test_page_fault_bits();
     test_diagnostic_output();
+    test_memory_diagnostic_output();
     (void)printf("UTAMO interrupt tests: %u checks, %u failures\n", checks, failures);
     return failures == 0u ? 0 : 1;
 }

@@ -8,6 +8,7 @@
 #include <utamo/format.h>
 
 struct terminal;
+struct vmm_mapping;
 
 /*
  * interrupt_stubs.asm saves these fifteen GPRs, followed by normalized vector
@@ -54,6 +55,13 @@ struct page_fault_info exception_decode_page_fault(uint64_t error_code);
 /* Pure diagnostic formatter. NULL frame or emit is a no-op. CR2 is supplied. */
 void exception_format(format_emit_fn emit, void *context,
                       const struct interrupt_frame *frame, uint64_t cr2);
+
+/*
+ * Pure optional page-fault mapping snapshot formatter. Never walks page tables.
+ * available=false distinguishes unsafe/uninitialized queries from unmapped.
+ */
+void exception_format_memory(format_emit_fn emit, void *context,
+                             bool available, const struct vmm_mapping *mapping);
 
 /* Bootstrap registration, IF=0; term must outlive all handlers. NULL allowed. */
 void exception_set_terminal(struct terminal *term);

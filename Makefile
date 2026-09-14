@@ -121,7 +121,7 @@ $(GDT_TEST): tests/test_gdt.c kernel/arch/x86_64/gdt_layout.c $(HOST_HEADERS) Ma
 	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include tests/test_gdt.c kernel/arch/x86_64/gdt_layout.c -o "$@"
 
 INTERRUPT_TEST := $(BUILD_DIR)/tests/utamo-interrupt-tests
-INTERRUPT_TEST_SOURCES := tests/test_interrupts.c kernel/arch/x86_64/idt_layout.c kernel/interrupts/exception_info.c kernel/interrupts/exception_format.c kernel/lib/format.c
+INTERRUPT_TEST_SOURCES := tests/test_interrupts.c kernel/arch/x86_64/idt_layout.c kernel/interrupts/exception_info.c kernel/interrupts/exception_format.c kernel/interrupts/exception_memory_format.c kernel/memory/memory_helpers.c kernel/lib/format.c
 $(INTERRUPT_TEST): $(INTERRUPT_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
 	@mkdir -p -- "$(@D)"
 	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(INTERRUPT_TEST_SOURCES) -o "$@"
@@ -156,7 +156,25 @@ $(SHELL_TEST): $(SHELL_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
 	@mkdir -p -- "$(@D)"
 	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(SHELL_TEST_SOURCES) -o "$@"
 
-test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) $(PIT_TEST) $(INPUT_TEST) $(KEYBOARD_TEST) $(SHELL_TEST)
+PMM_TEST := $(BUILD_DIR)/tests/utamo-pmm-tests
+PMM_TEST_SOURCES := tests/test_pmm.c kernel/memory/pmm.c kernel/memory/pmm_core.c kernel/memory/memory_map.c kernel/memory/memory_helpers.c kernel/lib/string.c
+$(PMM_TEST): $(PMM_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(PMM_TEST_SOURCES) -o "$@"
+
+VMM_TEST := $(BUILD_DIR)/tests/utamo-vmm-tests
+VMM_TEST_SOURCES := tests/test_vmm.c kernel/memory/vmm_core.c kernel/memory/memory_helpers.c kernel/lib/string.c
+$(VMM_TEST): $(VMM_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(VMM_TEST_SOURCES) -o "$@"
+
+MEMORY_HELPER_TEST := $(BUILD_DIR)/tests/utamo-memory-helper-tests
+MEMORY_HELPER_TEST_SOURCES := tests/test_memory_helpers.c kernel/memory/memory_helpers.c kernel/memory/hhdm.c kernel/memory/memory_map.c
+$(MEMORY_HELPER_TEST): $(MEMORY_HELPER_TEST_SOURCES) $(HOST_HEADERS) Makefile | guard-build
+	@mkdir -p -- "$(@D)"
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/include $(MEMORY_HELPER_TEST_SOURCES) -o "$@"
+
+test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) $(PIT_TEST) $(INPUT_TEST) $(KEYBOARD_TEST) $(SHELL_TEST) $(PMM_TEST) $(VMM_TEST) $(MEMORY_HELPER_TEST)
 	"./$(HOST_TEST)"
 	"./$(VIDEO_TEST)"
 	"./$(GDT_TEST)"
@@ -166,6 +184,9 @@ test-host: $(HOST_TEST) $(VIDEO_TEST) $(GDT_TEST) $(INTERRUPT_TEST) $(PIC_TEST) 
 	"./$(INPUT_TEST)"
 	"./$(KEYBOARD_TEST)"
 	"./$(SHELL_TEST)"
+	"./$(PMM_TEST)"
+	"./$(VMM_TEST)"
+	"./$(MEMORY_HELPER_TEST)"
 
 inspect: $(KERNEL)
 	$(READELF) -h -l -S "$(KERNEL)"

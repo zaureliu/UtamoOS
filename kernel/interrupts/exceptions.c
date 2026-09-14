@@ -5,6 +5,7 @@
 #include <utamo/interrupts.h>
 #include <utamo/serial.h>
 #include <utamo/terminal.h>
+#include <utamo/vmm.h>
 
 uint64_t exception_read_cr2(void);
 
@@ -38,10 +39,25 @@ void interrupt_dispatch(struct interrupt_frame *frame)
 
     /* Complete serial report FIRST: a bad framebuffer cannot truncate it. */
     exception_format(serial_sink, NULL, frame, cr2);
+    /*
+     * Walk only AFTER the complete serial register dump. Query is read-only,
+     * nonallocating, and validates table frames before HHDM access. A corrupt
+     * translation causing a nested exception still leaves that first report.
+     */
+    struct vmm_mapping mapping = {0};
+    bool mapping_available = false;
+    if (frame->vector == 14u) {
+        mapping_available = vmm_query_page(cr2, &mapping);
+        exception_format_memory(serial_sink, NULL, mapping_available, &mapping);
+    }
     if (exception_terminal != NULL) {
         struct framebuffer *const fb = exception_terminal->framebuffer;
         if (terminal_init(exception_terminal, fb)) {
             exception_format(terminal_sink, exception_terminal, frame, cr2);
+            if (frame->vector == 14u) {
+                exception_format_memory(terminal_sink, exception_terminal,
+                                        mapping_available, &mapping);
+            }
         }
     }
     cpu_halt();
