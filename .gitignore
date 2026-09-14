@@ -1,0 +1,8 @@
+/build/
+/toolchain/
+/third_party/limine/vendor/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
